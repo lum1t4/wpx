@@ -20,6 +20,13 @@ func (r *recordingRunner) Run(_ context.Context, executable string, args ...stri
 	return nil
 }
 
+func TestUpgradeRejectsUnprivilegedCaller(t *testing.T) {
+	_, err := Run(context.Background(), Options{EffectiveUID: func() int { return 1000 }})
+	if err == nil || err.Error() != "upgrade must run as root" {
+		t.Fatalf("expected root requirement, got %v", err)
+	}
+}
+
 func TestUpgradeSnapshotsReplacesAndHealthChecks(t *testing.T) {
 	root := t.TempDir()
 	installed := filepath.Join(root, "bin", "wpx")
@@ -67,6 +74,7 @@ func TestUpgradeSnapshotsReplacesAndHealthChecks(t *testing.T) {
 	runner := &recordingRunner{}
 	result, err := Run(context.Background(), Options{
 		Source: source, InstalledPath: installed, ConfigPath: configPath, BackupRoot: filepath.Join(root, "backups"), Runner: runner,
+		EffectiveUID:         func() int { return 0 },
 		Now:                  func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) },
 		HealthCheck:          func(context.Context, config.Config) error { return nil },
 		ReconcileUnits:       func(string) error { return nil },
@@ -144,6 +152,7 @@ func TestUpgradeRollsBackBinaryAndStateAfterFailedHealthCheck(t *testing.T) {
 	runner := &recordingRunner{}
 	_, err = Run(context.Background(), Options{
 		Source: source, InstalledPath: installed, ConfigPath: configPath, BackupRoot: filepath.Join(root, "backups"), Runner: runner,
+		EffectiveUID: func() int { return 0 },
 		HealthCheck: func(context.Context, config.Config) error {
 			database, openErr := sql.Open("sqlite", statePath)
 			if openErr != nil {

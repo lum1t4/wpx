@@ -42,6 +42,7 @@ type Options struct {
 	InstalledPath        string
 	ConfigPath           string
 	BackupRoot           string
+	EffectiveUID         func() int
 	Runner               Runner
 	HealthCheck          func(context.Context, config.Config) error
 	ReconcileUnits       func(string) error
@@ -54,7 +55,10 @@ type Result struct {
 }
 
 func Run(ctx context.Context, options Options) (Result, error) {
-	if os.Geteuid() != 0 {
+	if options.EffectiveUID == nil {
+		options.EffectiveUID = os.Geteuid
+	}
+	if options.EffectiveUID() != 0 {
 		return Result{}, errors.New("upgrade must run as root")
 	}
 	if options.Source == "" {
