@@ -35,6 +35,11 @@ curl -fsSL https://github.com/lum1t4/wpx/releases/latest/download/install.sh | s
 On an installed host, use `sudo wpx updates --disable` or
 `sudo wpx updates --enable`. `wpx updates --status` is read-only.
 
+If installation is interrupted before WPX prints the setup URL, rerun the same
+one-line command. WPX records an in-progress installation marker and resumes
+idempotently; it still refuses to take ownership of an unrelated existing web
+stack.
+
 The bootstrap selects `amd64` or `arm64`, downloads the static release binary
 and its checksum from the same GitHub release, verifies it, and then hands all
 host changes to the versioned Go installer. WPX has no APT repository and does

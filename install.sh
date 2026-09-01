@@ -43,7 +43,7 @@ fi
 
 chmod 0755 "${temporary_directory}/${binary}"
 operation=install
-if [ -f /etc/wpx/config.json ] && [ -x /usr/local/bin/wpx ]; then
+if [ -f /etc/wpx/config.json ] && [ -x /usr/local/bin/wpx ] && [ ! -f /var/lib/wpx/.installing ]; then
   operation=upgrade
 fi
 "${temporary_directory}/${binary}" "$operation" "$@"

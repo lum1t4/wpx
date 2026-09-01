@@ -40,3 +40,9 @@ services, checkpoints SQLite, snapshots the current binary and database under
 `/var/lib/wpx/upgrades`, installs the release, starts the broker before the
 panel, and checks `/healthz`. A failed start or health check restores both
 snapshots. The temporary verified download is removed when the command exits.
+
+Fresh installation writes `/var/lib/wpx/.installing` before the first host
+mutation and removes it only after every service is healthy. The bootstrap uses
+that marker to resume interrupted installation rather than invoking upgrade.
+The Go installer validates the marker contents and continues to reject
+unrelated pre-existing web-server or database state.

@@ -20,7 +20,7 @@ const (
 	rcloneVersion       = "1.75.0"
 	rclonePath          = "/usr/local/lib/wpx/rclone"
 	maxRcloneArchive    = 40 << 20
-	maxRcloneBinarySize = 80 << 20
+	maxRcloneBinarySize = 128 << 20
 )
 
 var rcloneSHA256 = map[string]string{
@@ -57,20 +57,9 @@ func installRclone(ctx context.Context) error {
 	if hex.EncodeToString(digest[:]) != want {
 		return errors.New("rclone SHA-256 verification failed")
 	}
-	reader, err := zip.NewReader(bytes.NewReader(archive), int64(len(archive)))
+	binary, err := findRcloneBinary(archive, runtime.GOARCH)
 	if err != nil {
-		return fmt.Errorf("open rclone archive: %w", err)
-	}
-	wantedName := fmt.Sprintf("rclone-v%s-linux-%s/rclone", rcloneVersion, runtime.GOARCH)
-	var binary *zip.File
-	for _, file := range reader.File {
-		if file.Name == wantedName {
-			binary = file
-			break
-		}
-	}
-	if binary == nil || binary.UncompressedSize64 > maxRcloneBinarySize {
-		return errors.New("rclone archive does not contain the expected bounded binary")
+		return err
 	}
 	input, err := binary.Open()
 	if err != nil {
@@ -103,4 +92,22 @@ func installRclone(ctx context.Context) error {
 		return err
 	}
 	return os.Rename(name, rclonePath)
+}
+
+func findRcloneBinary(archive []byte, architecture string) (*zip.File, error) {
+	reader, err := zip.NewReader(bytes.NewReader(archive), int64(len(archive)))
+	if err != nil {
+		return nil, fmt.Errorf("open rclone archive: %w", err)
+	}
+	wantedName := fmt.Sprintf("rclone-v%s-linux-%s/rclone", rcloneVersion, architecture)
+	for _, file := range reader.File {
+		if file.Name != wantedName {
+			continue
+		}
+		if file.UncompressedSize64 > maxRcloneBinarySize {
+			return nil, errors.New("rclone binary exceeds size limit")
+		}
+		return file, nil
+	}
+	return nil, errors.New("rclone archive does not contain the expected binary")
 }

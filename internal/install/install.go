@@ -22,7 +22,21 @@ import (
 	"github.com/lum1t4/wpx/internal/platform"
 )
 
-const defaultConfigPath = "/etc/wpx/config.json"
+const (
+	defaultConfigPath = "/etc/wpx/config.json"
+	installMarkerPath = "/var/lib/wpx/.installing"
+	installMarker     = "WPX installation in progress\n"
+)
+
+type installPaths struct {
+	ConfigPath      string
+	DataRoot        string
+	InstalledBinary string
+	DependencyRoot  string
+	NginxRoot       string
+	MySQLRoot       string
+	MarkerPath      string
+}
 
 type Options struct {
 	DryRun              bool
@@ -57,8 +71,10 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	if os.Geteuid() != 0 {
 		return Result{}, errors.New("installation must run as root")
 	}
-	conflicts := detectConflicts(opts.ConfigPath)
-	if len(conflicts) != 0 {
+	paths := systemInstallPaths(opts.ConfigPath)
+	conflicts := detectConflicts(paths)
+	resuming := hasInstallMarker(paths.MarkerPath) || isLegacyRcloneFailure(paths)
+	if len(conflicts) != 0 && !resuming {
 		return Result{}, fmt.Errorf("fresh server required; found: %s", strings.Join(conflicts, ", "))
 	}
 	steps := []string{
@@ -72,6 +88,9 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 			fmt.Fprintf(opts.Output, "%d. %s\n", i+1, step)
 		}
 		return Result{}, nil
+	}
+	if err := beginInstall(paths); err != nil {
+		return Result{}, err
 	}
 	runner := commandRunner{output: opts.Output}
 	if err := runner.run(ctx, "/usr/bin/apt-get", "update"); err != nil {
@@ -186,6 +205,9 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	if err := runner.run(ctx, "/usr/bin/systemctl", "enable", "--now", "nginx.service", "mariadb.service", "redis-server.service", "certbot.timer", "wpx-broker.service", "wpx.service"); err != nil {
 		return Result{}, err
 	}
+	if err := os.Remove(paths.MarkerPath); err != nil {
+		return Result{}, fmt.Errorf("finish resumable installation: %w", err)
+	}
 	return Result{PanelURL: "https://SERVER_IP:9443/setup", BootstrapToken: token}, nil
 }
 
@@ -280,15 +302,67 @@ func generateSecretKey(path string, uid, gid int) error {
 	return nil
 }
 
-func detectConflicts(configPath string) []string {
-	paths := []string{configPath, "/var/lib/wpx", "/usr/local/bin/wpx", "/etc/nginx", "/var/lib/mysql"}
+func systemInstallPaths(configPath string) installPaths {
+	return installPaths{
+		ConfigPath:      configPath,
+		DataRoot:        "/var/lib/wpx",
+		InstalledBinary: "/usr/local/bin/wpx",
+		DependencyRoot:  "/usr/local/lib/wpx",
+		NginxRoot:       "/etc/nginx",
+		MySQLRoot:       "/var/lib/mysql",
+		MarkerPath:      installMarkerPath,
+	}
+}
+
+func detectConflicts(paths installPaths) []string {
+	candidates := []string{paths.ConfigPath, paths.DataRoot, paths.InstalledBinary, paths.NginxRoot, paths.MySQLRoot}
 	var conflicts []string
-	for _, path := range paths {
+	for _, path := range candidates {
 		if _, err := os.Stat(path); err == nil {
 			conflicts = append(conflicts, path)
 		}
 	}
 	return conflicts
+}
+
+func hasInstallMarker(path string) bool {
+	content, err := os.ReadFile(path)
+	return err == nil && string(content) == installMarker
+}
+
+// Alpha releases before the resumable marker failed immediately after
+// installing WP-CLI and restic when rclone's amd64 binary outgrew its bound.
+// This exact artifact sequence is strong evidence of that interrupted WPX run;
+// accepting anything broader could take ownership of an unrelated web stack.
+func isLegacyRcloneFailure(paths installPaths) bool {
+	if _, err := os.Stat(paths.ConfigPath); !os.IsNotExist(err) {
+		return false
+	}
+	for _, path := range []string{
+		paths.InstalledBinary,
+		filepath.Join(paths.DependencyRoot, "wp-cli.phar"),
+		filepath.Join(paths.DependencyRoot, "restic"),
+	} {
+		info, err := os.Stat(path)
+		if err != nil || !info.Mode().IsRegular() {
+			return false
+		}
+	}
+	_, err := os.Stat(filepath.Join(paths.DependencyRoot, "rclone"))
+	return os.IsNotExist(err)
+}
+
+func beginInstall(paths installPaths) error {
+	if err := os.MkdirAll(paths.DataRoot, 0750); err != nil {
+		return fmt.Errorf("create resumable installation state: %w", err)
+	}
+	if hasInstallMarker(paths.MarkerPath) {
+		return nil
+	}
+	if err := atomicWrite(paths.MarkerPath, []byte(installMarker), 0600); err != nil {
+		return fmt.Errorf("mark installation in progress: %w", err)
+	}
+	return nil
 }
 
 type commandRunner struct{ output io.Writer }
