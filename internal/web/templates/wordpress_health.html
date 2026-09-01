@@ -1,0 +1,9 @@
+{{define "wordpress_health.html"}}
+<!doctype html><html lang="en"><head>{{template "head"}}<title>{{.Title}} · WPX</title></head>
+<body class="bg-slate-50 text-slate-900"><div class="md:flex">{{template "nav"}}<main class="w-full max-w-4xl p-5 md:p-10">
+<a class="text-sm font-semibold text-wpx-700 hover:underline" href="/sites/{{.Site.ID}}">← {{.Site.Domain}}</a>
+<header class="mt-4"><h1 class="text-3xl font-bold tracking-tight">WordPress health</h1><p class="mt-2 text-slate-600">These checks run locally as the isolated site user. Core checksum verification contacts WordPress.org; no data is sent to WPX.</p></header>
+<section class="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><ul class="divide-y divide-slate-100">{{range .WordPressHealth.Checks}}<li class="flex items-center justify-between gap-4 px-5 py-4"><span class="font-semibold">{{.Name}}</span>{{if eq .Status "healthy"}}<span class="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-800">Healthy</span>{{else}}<span class="rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">Failed</span>{{end}}</li>{{end}}</ul></section>
+<a class="mt-5 inline-flex rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold hover:bg-slate-50" href="/sites/{{.Site.ID}}/wordpress/health">Run again</a>
+</main></div></body></html>
+{{end}}

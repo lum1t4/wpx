@@ -1,0 +1,11 @@
+@import "tailwindcss";
+@source "../internal/web/templates";
+
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --color-wpx-50: #f3f6ff;
+  --color-wpx-100: #e7edff;
+  --color-wpx-500: #4f6ee8;
+  --color-wpx-600: #3b58cf;
+  --color-wpx-700: #3047a8;
+}

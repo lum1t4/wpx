@@ -1,0 +1,22 @@
+/dist/
+/node_modules/
+
+# Local runtime state
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+!.env.example
+
+# Test and profiling output
+coverage.out
+*.coverprofile
+*.prof
+
+# Editor and operating-system state
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo

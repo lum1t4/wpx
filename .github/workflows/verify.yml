@@ -1,0 +1,43 @@
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the exact source under test
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install the pinned Go toolchain
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install the pinned UI toolchain
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Build embedded Tailwind CSS
+        run: npm ci --ignore-scripts && npm run build:css
+      - name: Reject generated UI drift
+        run: git diff --exit-code -- internal/web/static/app.css
+      - name: Enforce direct Tailwind utility styling
+        run: |
+          ! rg '@apply|class="[^"]*__[^"]*"|class="[^"]*--[^"]*"|\.(wpx-card|wpx-button)' assets internal/web/templates --glob '*.css' --glob '*.html'
+      - name: Validate the release bootstrap
+        run: sh -n install.sh
+      - name: Test
+        run: go test -race ./...
+      - name: Static analysis
+        run: go vet ./...
+      - name: Verify portable Linux builds
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/wpx-linux-amd64 ./cmd/wpx
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o /tmp/wpx-linux-arm64 ./cmd/wpx
