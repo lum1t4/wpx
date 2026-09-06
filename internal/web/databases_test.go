@@ -32,7 +32,7 @@ func TestDatabaseAdminResponseCookiesAreSecureAndCannotReplacePanelSession(t *te
 			t.Fatalf("cookie was not securely scoped: %#v", cookie)
 		}
 		if cookie.Name == "wpx_session" || cookie.Name == "wpx_csrf" {
-			t.Fatalf("panel cookie escaped response filter: %#v", cookie)
+			t.Fatalf("panel cookie escaped response boundary: %#v", cookie)
 		}
 	}
 }
