@@ -247,8 +247,13 @@ rotation continues to apply to retained logs.
 ## Backups and recovery
 
 S3-compatible targets accept a custom endpoint, region, bucket/prefix, and
-bucket addressing mode. Google Drive uses rclone with credentials/token supplied
-by the operator; there is no interactive Google sign-in flow in WPX. Restic
+bucket addressing mode. Google Drive setup is completed from Storage in the
+panel: enable the Drive API, create a Web application OAuth client in Google
+Cloud, register the exact callback URI shown by WPX, enter the client ID/secret,
+and continue through Google's consent screen. The short-lived state and client
+secret are encrypted while authorization is pending. WPX requests the
+`drive.file` scope and stores the returned rclone-compatible token encrypted;
+no local rclone command or pasted token JSON is required. Restic
 encrypts snapshots and reuses unchanged data. Repository checks are run, but a
 plain `restic check` does not reread every stored data block.
 
@@ -270,6 +275,32 @@ WordPress SQL into a disposable database without switching the live site. They
 do not test a browser session or promise a maximum restore time. Measure a full
 restore with your actual dataset and provider before relying on a recovery-time
 target.
+
+## Databases and phpMyAdmin
+
+Databases is an owner/administrator server page. WordPress databases appear
+automatically. Additional MariaDB databases can be associated with an active
+site; the label is for people, while WPX generates the UUID, SQL database name,
+SQL user, and password. Every SQL user receives privileges only on its own
+database. Credentials are encrypted in panel state and are revealed only after
+an authenticated, CSRF-protected request; the access is recorded locally.
+
+phpMyAdmin is an optional one-click installation from that page. The durable
+installation downloads phpMyAdmin 5.2.3 from its official immutable URL,
+verifies the pinned SHA-256, omits its setup application, and configures a
+dedicated PHP 8.4 FPM pool with on-demand workers. Browser traffic stays below
+the panel's `/phpmyadmin/` path and must pass the WPX owner/administrator
+session. A one-minute, one-use broker token signs phpMyAdmin into the selected
+database account; MariaDB root credentials are never handed to the browser.
+The loopback Nginx service is not a separately published database console.
+
+Deleting an additional database permanently drops that exact database and SQL
+user and requires typing its generated database name. The operation is durable
+and retryable after a partial failure. Deleting a site does not implicitly
+delete its additional databases: the association becomes “Former site” so the
+operator can export or delete it deliberately. Site backups still include only
+the generated WordPress database; export generic application databases through
+phpMyAdmin or another explicit backup procedure.
 
 ## Updates
 

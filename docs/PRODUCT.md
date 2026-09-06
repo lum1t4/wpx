@@ -21,7 +21,7 @@ supported. WPX itself has no APT repository or Debian package.
 ## User experience
 
 Server navigation answers “what is on this server?”: Overview, Sites, Activity,
-Monitoring, Storage, DNS providers, Users, Account. Shared credentials and user management
+Monitoring, Databases, Storage, DNS providers, Users, Account. Shared credentials and user management
 belong here.
 
 Selecting a site establishes the context for Overview, WordPress, Staging,
@@ -59,7 +59,8 @@ utilities remain directly in templates. No BEM classes, semantic styling aliases
 | Staging and cloning | Separate WordPress environment, serialized URL replacement, sync, full/custom deploy with recovery snapshot. | Staging/restore-clone tests. Table replacement is not a record-level merge. |
 | Standalone search/replace | URL replacement exists inside staging/restore workflows. | A general search/replace preview/apply UI remains pending. |
 | Staging protection | Password gate, indexing discouragement, `wp_mail` suppression. | Staging tests. Payments, webhooks, cron, and other outbound integrations are not universally isolated. |
-| S3-compatible and Google Drive backup | Restic encryption/incremental storage, custom endpoints, rclone Drive target. | Backup/model/runner tests. Drive OAuth credentials/token are operator-supplied; no browser authorization flow. |
+| S3-compatible and Google Drive backup | Restic encryption/incremental storage, custom endpoints, and a browser OAuth flow for a user-owned Google Web application client. | Backup/model/runner and OAuth state/exchange tests. The owner still creates the client and registers the exact panel callback in Google Cloud; no CLI or pasted rclone token is required. Live Google authorization remains provider verification. |
+| Database management and phpMyAdmin | Owner/admin can create site-associated MariaDB databases with generated UUID-derived names/users, reveal credentials, and durably delete them. WordPress databases and additional databases open through panel-authenticated phpMyAdmin sign-on. | Model/store/worker/broker/provision/web tests. phpMyAdmin 5.2.3 is downloaded from its immutable official URL with a pinned SHA-256 and uses an on-demand isolated PHP-FPM pool. Live installation/sign-on remains host verification. Generic application databases are not automatically included in site snapshots. |
 | Schedules, retention, restore tests | Every 6 hours/daily/weekly backup; daily/weekly/monthly retention; optional weekly/monthly restore tests. | Schedule and restore tests. No promised restore-time bound; measure a full recovery with actual data. |
 | Restore to original/new/staging | Snapshot restore and WordPress database import, with operation-specific recovery. | Restore/clone tests. Generic app databases and panel state are outside a site snapshot. |
 | Cloudflare and Route 53 | Provider validation, WPX-managed DNS records, DNS-01/wildcard certificate paths. | DNS/store/certificate tests. Not a full DNS-zone editor/importer. Live provider verification is separate. |

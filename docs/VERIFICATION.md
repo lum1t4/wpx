@@ -4,6 +4,37 @@ This record separates automated coverage, development previews, and real host
 observations. Results apply to the candidate and environment described here;
 they are not a claim that every supported workflow has been exercised live.
 
+## 2026-09-07: databases and phpMyAdmin
+
+Environment: existing Ubuntu 24.04 amd64 VPS. The candidate was installed with
+WPX's recoverable upgrade path. A disposable additional database and SQL user
+were created through authenticated panel requests and removed after the test.
+
+| Check | Observation |
+| --- | --- |
+| Optional installation | The durable job downloaded the pinned official phpMyAdmin 5.2.3 archive, validated PHP-FPM/Nginx, and completed. |
+| Listener boundary | The phpMyAdmin Nginx server listened only on `127.0.0.1:9081`; a request to the host address on that port was refused. The public panel path redirected an unauthenticated request to WPX login. |
+| SQL scope | The generated user created/read a table in its own database. A cross-database `CREATE DATABASE` was denied. |
+| Additional database sign-on | The panel's one-click handoff reached authenticated phpMyAdmin and showed only the generated database. The one-use token file was consumed. |
+| WordPress sign-on | The same flow opened the existing WordPress database without exposing the additional database. |
+| Restart | A fresh sign-on succeeded after restarting WPX, broker, Nginx, and PHP 8.4 FPM. |
+| Durable deletion | Exact-confirm deletion removed the panel record, MariaDB schema, and SQL user; the job completed successfully. |
+| Existing workloads | WPX health remained ready and the existing website continued returning HTTP 200. |
+
+The first sign-on exposed a real isolation error: phpMyAdmin's dedicated user
+could not traverse WPX's private `/var/lib/wpx` parent to reach its session
+directory. The corrected candidate uses the separate protected
+`/var/lib/wpx-phpmyadmin` state root; the repeated sign-on and restart checks
+above then passed. Test session/cookie files, the disposable database/user, and
+the abandoned pre-fix state directory were removed. phpMyAdmin itself remains
+installed because it is the requested feature.
+
+The browser Google Drive flow passed unit/integration tests with a fake token
+endpoint, including PKCE, encrypted pending credentials, exact callback, token
+validation, target creation, and state replay rejection. A live Google consent
+and Drive repository initialization was not performed because no operator OAuth
+client was supplied.
+
 ## 2026-09-06: panel domain recovery
 
 Environment: Ubuntu 24.04, Linux amd64, an existing WPX installation on a VPS.

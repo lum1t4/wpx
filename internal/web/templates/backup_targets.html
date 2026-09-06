@@ -66,25 +66,29 @@
   <details class="rounded-lg border border-zinc-200 bg-white">
     <summary class="cursor-pointer px-5 py-4 text-sm font-semibold">Add Google Drive</summary>
     <div class="border-t border-zinc-200 p-5">
-      <p class="text-sm leading-6 text-zinc-500">Connect your own Google OAuth client with access limited to files created by that client.</p>
-      <details class="mt-4 rounded-md border border-zinc-200 bg-zinc-50">
-        <summary class="cursor-pointer px-4 py-3 text-sm font-medium">Get your Google authorization token</summary>
-        <div class="border-t border-zinc-200 p-4 text-sm leading-6 text-zinc-600">
-          <p>On a trusted computer with rclone installed, run this command using your OAuth client credentials. Paste the returned token JSON below.</p>
-          <pre class="mt-3 overflow-x-auto rounded-md border border-zinc-200 bg-white p-3 text-xs"><code>rclone authorize drive --drive-scope drive.file --drive-client-id CLIENT_ID --drive-client-secret CLIENT_SECRET</code></pre>
-        </div>
-      </details>
-      <form class="mt-5 grid gap-5 md:grid-cols-2" method="post" action="/backups/targets">
+      <p class="text-sm leading-6 text-zinc-500">Connect in your browser. WPX requests access only to Drive files it creates and keeps your OAuth credentials encrypted on this server.</p>
+      {{if .GoogleCallbackURI}}
+      <div class="mt-4 rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm leading-6 text-zinc-600">
+        <p class="font-medium text-zinc-900">One-time Google Cloud setup</p>
+        <ol class="mt-2 list-decimal space-y-1 pl-5">
+          <li>In <a class="font-medium text-zinc-900 underline" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Google Cloud Console</a>, enable the Google Drive API and configure the OAuth consent screen.</li>
+          <li>Create an OAuth 2.0 client with application type <strong>Web application</strong>.</li>
+          <li>Add this exact authorized redirect URI:</li>
+        </ol>
+        <input class="mt-2 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-xs" readonly value="{{.GoogleCallbackURI}}" aria-label="Google authorized redirect URI">
+      </div>
+      {{else}}
+      <p class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">Open WPX through its public HTTPS domain to configure the Google callback.</p>
+      {{end}}
+      <form class="mt-5 grid gap-5 md:grid-cols-2" method="post" action="/backups/google-drive/start">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-        <input type="hidden" name="kind" value="google_drive">
         <label><span class="mb-2 block text-sm font-medium">Storage name</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="name" placeholder="Google Drive backups" required></label>
         <label><span class="mb-2 block text-sm font-medium">Drive folder</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="drive_folder" value="WPX Backups" required></label>
-        <label><span class="mb-2 block text-sm font-medium">OAuth client ID</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" name="google_client_id" required></label>
+        <label><span class="mb-2 block text-sm font-medium">OAuth client ID</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" name="google_client_id" autocomplete="off" required></label>
         <label><span class="mb-2 block text-sm font-medium">OAuth client secret</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" type="password" name="google_client_secret" autocomplete="new-password" required></label>
-        <label class="md:col-span-2"><span class="mb-2 block text-sm font-medium">Authorization token JSON</span><textarea class="h-28 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-xs" name="google_token" spellcheck="false" required></textarea></label>
         <label><span class="mb-2 block text-sm font-medium">Shared Drive ID <span class="font-normal text-zinc-500">(optional)</span></span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" name="google_shared_drive"></label>
         <label><span class="mb-2 block text-sm font-medium">Existing repository password <span class="font-normal text-zinc-500">(optional)</span></span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" type="password" name="repository_password" minlength="20" autocomplete="new-password"><span class="mt-2 block text-xs text-zinc-500">Leave blank for a new repository.</span></label>
-        <div class="md:col-span-2"><button class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Verify and add Drive</button></div>
+        <div class="md:col-span-2"><button class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300" {{if not .GoogleCallbackURI}}disabled{{end}}>Continue with Google</button></div>
       </form>
     </div>
   </details>

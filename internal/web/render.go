@@ -15,69 +15,73 @@ import (
 // error must produce a failure response, not a truncated page with status 200.
 
 type pageData struct {
-	Title              string
-	Section            string
-	NavSection         string
-	Query              string
-	KindFilter         string
-	SiteCount          int
-	ActiveSiteCount    int
-	AttentionSiteCount int
-	NewSite            bool
-	Form               map[string]string
-	SelectedSiteIDs    []string
-	User               *store.User
-	CSRF               string
-	Error              string
-	Message            string
-	Sites              []model.Site
-	SetupOpen          bool
-	TOTPSecret         string
-	TOTPUri            string
-	RecoveryCodes      []string
-	Users              []store.User
-	CanManageSites     bool
-	CanManageUsers     bool
-	Site               *model.Site
-	CanWordPressLogin  bool
-	CanManageTLS       bool
-	CanManageWordPress bool
-	Plugins            []broker.WordPressPlugin
-	Themes             []broker.WordPressTheme
-	CoreVersion        string
-	CoreUpdateVersion  string
-	CanManageFiles     bool
-	Files              []broker.FileEntry
-	FilePath           string
-	DirectoryPath      string
-	FileContent        string
-	ParentPath         string
-	EditingFile        bool
-	CanManageServer    bool
-	CanManageBackups   bool
-	CanDeploySite      bool
-	CanViewLogs        bool
-	StagingSites       []model.Site
-	ProductionSite     *model.Site
-	StagingUsername    string
-	StagingPassword    string
-	Observability      *broker.SiteObservabilityResult
-	CanManageDNS       bool
-	DNSProviders       []model.DNSProvider
-	DNSRecords         []model.DNSRecord
-	BackupTargets      []model.BackupTarget
-	BackupSnapshots    []model.BackupSnapshot
-	BackupSchedules    []model.BackupSchedule
-	BackupPassword     string
-	StagingInspection  *broker.StagingInspection
-	WordPressHealth    *broker.WordPressHealthResult
-	UpdateStatus       *store.UpdateStatus
-	UpdateAvailable    bool
-	SiteSnippets       *model.SiteSnippets
-	Jobs               []store.JobSummary
-	ActiveJobs         bool
-	SelectedUser       *store.User
-	Monitoring         *monitoringView
+	Title               string
+	Section             string
+	NavSection          string
+	Query               string
+	KindFilter          string
+	SiteCount           int
+	ActiveSiteCount     int
+	AttentionSiteCount  int
+	NewSite             bool
+	Form                map[string]string
+	SelectedSiteIDs     []string
+	User                *store.User
+	CSRF                string
+	Error               string
+	Message             string
+	Sites               []model.Site
+	SetupOpen           bool
+	TOTPSecret          string
+	TOTPUri             string
+	RecoveryCodes       []string
+	Users               []store.User
+	CanManageSites      bool
+	CanManageUsers      bool
+	Site                *model.Site
+	CanWordPressLogin   bool
+	CanManageTLS        bool
+	CanManageWordPress  bool
+	Plugins             []broker.WordPressPlugin
+	Themes              []broker.WordPressTheme
+	CoreVersion         string
+	CoreUpdateVersion   string
+	CanManageFiles      bool
+	Files               []broker.FileEntry
+	FilePath            string
+	DirectoryPath       string
+	FileContent         string
+	ParentPath          string
+	EditingFile         bool
+	CanManageServer     bool
+	CanManageBackups    bool
+	CanDeploySite       bool
+	CanViewLogs         bool
+	StagingSites        []model.Site
+	ProductionSite      *model.Site
+	StagingUsername     string
+	StagingPassword     string
+	Observability       *broker.SiteObservabilityResult
+	CanManageDNS        bool
+	DNSProviders        []model.DNSProvider
+	DNSRecords          []model.DNSRecord
+	BackupTargets       []model.BackupTarget
+	BackupSnapshots     []model.BackupSnapshot
+	BackupSchedules     []model.BackupSchedule
+	BackupPassword      string
+	GoogleCallbackURI   string
+	StagingInspection   *broker.StagingInspection
+	WordPressHealth     *broker.WordPressHealthResult
+	UpdateStatus        *store.UpdateStatus
+	UpdateAvailable     bool
+	SiteSnippets        *model.SiteSnippets
+	Jobs                []store.JobSummary
+	ActiveJobs          bool
+	SelectedUser        *store.User
+	Monitoring          *monitoringView
+	Databases           []model.Database
+	SelectedDatabase    *model.Database
+	DatabaseAdminStatus string
 }
 
 func (s *Server) render(w http.ResponseWriter, name string, data pageData) {
@@ -128,6 +132,9 @@ func jobLabel(kind string) string {
 		"site.backup":                 "Create backup",
 		"site.restore":                "Restore backup",
 		"site.restore_clone":          "Restore as new site",
+		"database.create":             "Create database",
+		"database.delete":             "Delete database",
+		"database.admin_install":      "Install phpMyAdmin",
 		"site.restore_test":           "Test backup restore",
 		"wordpress.update":            "Update WordPress",
 		"wordpress.performance_apply": "Apply WordPress performance settings",

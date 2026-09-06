@@ -95,6 +95,10 @@ func (f *fakeProvisioner) UpdateWordPress(context.Context, model.Site, model.Bac
 	return "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", f.err
 }
 
+func (f *fakeProvisioner) CreateDatabase(context.Context, model.Database, string) error { return f.err }
+func (f *fakeProvisioner) DeleteDatabase(context.Context, model.Database, string) error { return f.err }
+func (f *fakeProvisioner) InstallDatabaseAdmin(context.Context, string) error           { return f.err }
+
 func TestWorkerCompletesProvisionJob(t *testing.T) {
 	state, err := store.Open(filepath.Join(t.TempDir(), "state.db"))
 	if err != nil {

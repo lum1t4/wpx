@@ -76,6 +76,10 @@
   <p class="mb-2 px-3 text-xs font-medium text-zinc-500">Server settings</p>
   <nav aria-label="Server settings" class="space-y-1">
     {{if .CanManageServer}}
+    <a href="/databases" {{if eq .NavSection "databases"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .NavSection "databases"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}">
+      <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg>
+      Databases
+    </a>
     <a href="/backups/targets" {{if eq .NavSection "storage"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .NavSection "storage"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}">
       <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 4 16 4 16 0V5M4 12v7c0 4 16 4 16 0v-7"/></svg>
       Storage

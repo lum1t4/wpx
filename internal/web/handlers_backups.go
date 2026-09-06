@@ -1,9 +1,18 @@
 package web
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/lum1t4/wpx/internal/model"
 	"github.com/lum1t4/wpx/internal/rbac"
@@ -19,7 +28,8 @@ func (s *Server) backupTargetsPage(w http.ResponseWriter, r *http.Request, user 
 		http.Error(w, "could not load backup targets", http.StatusInternalServerError)
 		return
 	}
-	s.render(w, "backup_targets.html", pageData{Title: "Backup storage", User: &user, CSRF: s.ensureCSRF(w, r), BackupTargets: targets})
+	callbackURI, _ := googleDriveCallbackURI(r)
+	s.render(w, "backup_targets.html", pageData{Title: "Backup storage", User: &user, CSRF: s.ensureCSRF(w, r), BackupTargets: targets, GoogleCallbackURI: callbackURI})
 }
 
 func (s *Server) createBackupTarget(w http.ResponseWriter, r *http.Request, user store.User) {
@@ -32,18 +42,14 @@ func (s *Server) createBackupTarget(w http.ResponseWriter, r *http.Request, user
 		Prefix: r.FormValue("prefix"), Region: r.FormValue("region"), BucketLookup: r.FormValue("bucket_lookup"),
 		AccessKey: r.FormValue("access_key"), SecretKey: r.FormValue("secret_key"), RepositoryPassword: r.FormValue("repository_password"),
 		AllowInsecureHTTP: r.FormValue("allow_insecure_http") == "yes",
-		DriveFolder:       r.FormValue("drive_folder"), GoogleClientID: r.FormValue("google_client_id"), GoogleClientSecret: r.FormValue("google_client_secret"), GoogleToken: r.FormValue("google_token"), GoogleSharedDrive: r.FormValue("google_shared_drive"),
 	}
-	var password string
-	var err error
-	if r.FormValue("kind") == string(model.BackupGoogleDrive) {
-		_, password, err = s.store.CreateGoogleDriveTarget(r.Context(), user, target)
-	} else {
-		_, password, err = s.store.CreateS3Target(r.Context(), user, target)
+	if r.FormValue("kind") != string(model.BackupS3) {
+		s.renderBackupTargetsError(w, r, user, errors.New("choose S3-compatible storage here; Google Drive uses its Connect button"))
+		return
 	}
+	_, password, err := s.store.CreateS3Target(r.Context(), user, target)
 	if err != nil {
-		targets, _ := s.store.ListBackupTargets(r.Context())
-		s.renderStatus(w, "backup_targets.html", http.StatusBadRequest, pageData{Title: "Backup storage", User: &user, CSRF: s.ensureCSRF(w, r), BackupTargets: targets, Error: err.Error()})
+		s.renderBackupTargetsError(w, r, user, err)
 		return
 	}
 	if password == "" {
@@ -51,7 +57,164 @@ func (s *Server) createBackupTarget(w http.ResponseWriter, r *http.Request, user
 		return
 	}
 	targets, _ := s.store.ListBackupTargets(r.Context())
-	s.render(w, "backup_targets.html", pageData{Title: "Backup storage", User: &user, CSRF: s.ensureCSRF(w, r), BackupTargets: targets, BackupPassword: password, Message: "Backup storage is being verified. Save the generated repository password now; WPX will not show it again."})
+	callbackURI, _ := googleDriveCallbackURI(r)
+	s.render(w, "backup_targets.html", pageData{Title: "Backup storage", User: &user, CSRF: s.ensureCSRF(w, r), BackupTargets: targets, BackupPassword: password, GoogleCallbackURI: callbackURI, Message: "Backup storage is being verified. Save the generated repository password now; WPX will not show it again."})
+}
+
+func (s *Server) startGoogleDriveOAuth(w http.ResponseWriter, r *http.Request, user store.User) {
+	if !s.validCSRF(r) {
+		http.Error(w, "invalid request token", http.StatusForbidden)
+		return
+	}
+	callbackURI, err := googleDriveCallbackURI(r)
+	if err != nil {
+		s.renderBackupTargetsError(w, r, user, err)
+		return
+	}
+	target := model.BackupTarget{
+		Kind: model.BackupGoogleDrive, Name: r.FormValue("name"),
+		DriveFolder: r.FormValue("drive_folder"), GoogleClientID: r.FormValue("google_client_id"),
+		GoogleClientSecret: r.FormValue("google_client_secret"), GoogleSharedDrive: r.FormValue("google_shared_drive"),
+		RepositoryPassword: r.FormValue("repository_password"),
+	}
+	state, verifier, err := s.store.CreateGoogleDriveOAuthFlow(r.Context(), user, target, callbackURI)
+	if err != nil {
+		s.renderBackupTargetsError(w, r, user, err)
+		return
+	}
+	challenge := sha256.Sum256([]byte(verifier))
+	parameters := url.Values{
+		"client_id": {strings.TrimSpace(target.GoogleClientID)}, "redirect_uri": {callbackURI},
+		"response_type": {"code"}, "scope": {"https://www.googleapis.com/auth/drive.file"},
+		"access_type": {"offline"}, "prompt": {"consent"}, "include_granted_scopes": {"true"},
+		"state": {state}, "code_challenge": {base64.RawURLEncoding.EncodeToString(challenge[:])}, "code_challenge_method": {"S256"},
+	}
+	http.Redirect(w, r, s.googleAuthURL+"?"+parameters.Encode(), http.StatusSeeOther)
+}
+
+func (s *Server) googleDriveOAuthCallback(w http.ResponseWriter, r *http.Request) {
+	flow, err := s.store.ConsumeGoogleDriveOAuthFlow(r.Context(), r.URL.Query().Get("state"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if !rbac.Allows(flow.Actor.Role, rbac.ManageServer) {
+		http.Error(w, "permission denied", http.StatusForbidden)
+		return
+	}
+	if providerError := r.URL.Query().Get("error"); providerError != "" {
+		s.renderBackupTargetsError(w, r, flow.Actor, fmt.Errorf("Google authorization was not completed (%s)", safeOAuthError(providerError)))
+		return
+	}
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		s.renderBackupTargetsError(w, r, flow.Actor, errors.New("Google did not return an authorization code"))
+		return
+	}
+	token, err := s.exchangeGoogleDriveCode(r, flow, code)
+	if err != nil {
+		s.logger.Warn("Google Drive OAuth exchange failed", "error", err)
+		s.renderBackupTargetsError(w, r, flow.Actor, errors.New("Google Drive could not be connected; verify the client credentials and exact redirect URI, then try again"))
+		return
+	}
+	flow.Target.GoogleToken = token
+	_, password, err := s.store.CreateGoogleDriveTarget(r.Context(), flow.Actor, flow.Target)
+	if err != nil {
+		s.renderBackupTargetsError(w, r, flow.Actor, err)
+		return
+	}
+	targets, _ := s.store.ListBackupTargets(r.Context())
+	callbackURI, _ := googleDriveCallbackURI(r)
+	s.render(w, "backup_targets.html", pageData{Title: "Backup storage", User: &flow.Actor, CSRF: s.ensureCSRF(w, r), BackupTargets: targets, BackupPassword: password, GoogleCallbackURI: callbackURI, Message: "Google Drive is connected and the encrypted repository is being verified. Save the generated recovery password now."})
+}
+
+func (s *Server) exchangeGoogleDriveCode(r *http.Request, flow store.GoogleDriveOAuthFlow, code string) (string, error) {
+	form := url.Values{
+		"client_id": {flow.Target.GoogleClientID}, "client_secret": {flow.Target.GoogleClientSecret},
+		"code": {code}, "code_verifier": {flow.Verifier}, "grant_type": {"authorization_code"},
+		"redirect_uri": {flow.RedirectURI},
+	}
+	request, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.googleTokenURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", err
+	}
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	response, err := s.oauthHTTP.Do(request)
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(response.Body, 64<<10))
+	if err != nil {
+		return "", err
+	}
+	if response.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("token endpoint returned %s", response.Status)
+	}
+	var result struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		TokenType    string `json:"token_type"`
+		Scope        string `json:"scope"`
+		ExpiresIn    int64  `json:"expires_in"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", err
+	}
+	if result.AccessToken == "" || result.RefreshToken == "" || !strings.EqualFold(result.TokenType, "Bearer") || result.ExpiresIn <= 0 || !hasOAuthScope(result.Scope, "https://www.googleapis.com/auth/drive.file") {
+		return "", errors.New("Google token response is incomplete")
+	}
+	rcloneToken := struct {
+		AccessToken  string `json:"access_token"`
+		TokenType    string `json:"token_type"`
+		RefreshToken string `json:"refresh_token"`
+		Expiry       string `json:"expiry"`
+	}{result.AccessToken, "Bearer", result.RefreshToken, time.Now().UTC().Add(time.Duration(result.ExpiresIn) * time.Second).Format(time.RFC3339Nano)}
+	encoded, err := json.Marshal(rcloneToken)
+	return string(encoded), err
+}
+
+func hasOAuthScope(granted, required string) bool {
+	for _, scope := range strings.Fields(granted) {
+		if scope == required {
+			return true
+		}
+	}
+	return false
+}
+
+func googleDriveCallbackURI(r *http.Request) (string, error) {
+	host := strings.TrimSpace(r.Host)
+	parsed, err := url.Parse("https://" + host)
+	if err != nil || parsed.User != nil || parsed.Host == "" || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", errors.New("open WPX using its public HTTPS domain before connecting Google Drive")
+	}
+	hostname := parsed.Hostname()
+	if hostname == "" || net.ParseIP(hostname) != nil || strings.EqualFold(hostname, "localhost") || !strings.Contains(hostname, ".") {
+		return "", errors.New("Google Drive requires WPX to be opened through a public HTTPS domain")
+	}
+	if port := parsed.Port(); port != "" {
+		value, err := strconv.Atoi(port)
+		if err != nil || value < 1 || value > 65535 {
+			return "", errors.New("the panel URL has an invalid port")
+		}
+	}
+	return "https://" + parsed.Host + "/backups/google-drive/callback", nil
+}
+
+func safeOAuthError(value string) string {
+	for _, allowed := range []string{"access_denied", "temporarily_unavailable", "server_error"} {
+		if value == allowed {
+			return strings.ReplaceAll(value, "_", " ")
+		}
+	}
+	return "authorization error"
+}
+
+func (s *Server) renderBackupTargetsError(w http.ResponseWriter, r *http.Request, user store.User, err error) {
+	targets, _ := s.store.ListBackupTargets(r.Context())
+	callbackURI, _ := googleDriveCallbackURI(r)
+	s.renderStatus(w, "backup_targets.html", http.StatusBadRequest, pageData{Title: "Backup storage", User: &user, CSRF: s.ensureCSRF(w, r), BackupTargets: targets, GoogleCallbackURI: callbackURI, Error: err.Error()})
 }
 
 func (s *Server) createSiteBackup(w http.ResponseWriter, r *http.Request, user store.User) {

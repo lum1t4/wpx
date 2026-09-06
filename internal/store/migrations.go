@@ -213,6 +213,35 @@ var migrations = []string{
 		)
 	)
 	BEGIN SELECT RAISE(ABORT,'site is reserved by a domain change or deletion'); END;`,
+	// OAuth credentials are encrypted while an authorization is in flight. Only
+	// a hash of the browser-visible state is stored, and every flow is single-use.
+	`CREATE TABLE oauth_flows (
+		state_hash BLOB PRIMARY KEY,
+		user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		kind TEXT NOT NULL CHECK(kind IN ('google_drive')),
+		config_ciphertext BLOB NOT NULL,
+		redirect_uri TEXT NOT NULL,
+		created_at TEXT NOT NULL,
+		expires_at TEXT NOT NULL
+	);
+	CREATE INDEX oauth_flows_expiry ON oauth_flows(expires_at);`,
+	`CREATE TABLE databases (
+		id TEXT PRIMARY KEY,
+		site_id TEXT REFERENCES sites(id) ON DELETE SET NULL,
+		label TEXT NOT NULL,
+		name TEXT NOT NULL UNIQUE,
+		username TEXT NOT NULL UNIQUE,
+		status TEXT NOT NULL CHECK(status IN ('queued','active','failed','deleting','delete_failed')),
+		config_ciphertext BLOB NOT NULL,
+		created_at TEXT NOT NULL,
+		updated_at TEXT NOT NULL
+	);
+	CREATE INDEX databases_site ON databases(site_id);
+	CREATE TABLE database_admin (
+		id INTEGER PRIMARY KEY CHECK(id=1),
+		status TEXT NOT NULL CHECK(status IN ('queued','active','failed')),
+		updated_at TEXT NOT NULL
+	);`,
 }
 
 func (s *Store) migrate(ctx context.Context) error {

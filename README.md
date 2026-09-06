@@ -2,7 +2,7 @@
 
 WPX is a free, GPL-3.0 server panel written in Go. It manages WordPress, PHP,
 Python, static, and reverse-proxy sites on one server, with local accounts,
-site permissions, staging, backups, DNS tools, and local resource monitoring.
+site permissions, staging, backups, database tools, DNS tools, and local resource monitoring.
 There is no hosted WPX account or product telemetry.
 
 The interface keeps server administration separate from work on an individual
@@ -61,8 +61,8 @@ not independently verify those attestations or use a project signing key.
 
 ## Find your way around
 
-Server navigation contains Overview, Sites, Activity, Monitoring, Storage, DNS
-providers, Users, and Account. Server resources such as storage credentials are configured
+Server navigation contains Overview, Sites, Activity, Monitoring, Databases,
+Storage, DNS providers, Users, and Account. Server resources such as storage credentials are configured
 once. Inside a site, Overview, WordPress, Staging, Backups, SSL & security,
 Settings, Files, DNS, and Logs expose the tools relevant to that site and your role.
 

@@ -36,6 +36,14 @@ The file editor uses Linux `openat2` confinement, rejects symlink traversal, and
 preserves site ownership. These are process/filesystem boundaries, not container
 isolation between mutually hostile tenants.
 
+phpMyAdmin is optional and runs as the separate `wpx-pma` identity in an
+on-demand PHP-FPM pool. Its Nginx listener binds only to loopback; the browser
+reaches it through an authenticated reverse proxy in `wpx serve`. The proxy
+removes panel cookies before forwarding. Database sign-on credentials cross the
+root broker into a random one-minute token file readable by `wpx-pma`, then the
+PHP sign-on endpoint consumes and removes it. phpMyAdmin receives the selected
+database user, never the MariaDB root account.
+
 ## Source map
 
 | Location | Responsibility and boundary |
@@ -46,7 +54,7 @@ isolation between mutually hostile tenants.
 | `internal/store` | SQLite transactions, accounts, desired state, job and audit records. |
 | `internal/worker` | Claim queued work, resolve persisted inputs, call host/DNS operations, record results. |
 | `internal/broker` | Versioned root protocol, peer credentials, operation dispatch. |
-| `internal/provision` | Nginx/PHP/Python, WordPress, files, backups, certificates, staging, local observation. |
+| `internal/provision` | Nginx/PHP/Python, WordPress, databases/phpMyAdmin, files, backups, certificates, staging, local observation. |
 | `internal/dns` | Cloudflare and Route 53 API requests and record ownership checks. |
 | `internal/monitor` | Unprivileged Linux resource reads, interval rates, bounded in-memory history. |
 | `internal/install`, `internal/platform` | Ubuntu detection, dependencies, identities, units, first-run state. |
@@ -82,7 +90,7 @@ Ownership markers protect generated configuration from silently taking over
 unmanaged files. Expert changes belong in validated snippets, not generated
 files that later reconciliation will replace.
 
-Backup and DNS credentials and TOTP secrets are encrypted in SQLite with
+Backup, DNS, additional-database, pending OAuth credentials and TOTP secrets are encrypted in SQLite with
 AES-GCM using `/var/lib/wpx/secret.key`. The key is a separate, protected file on
 the same server. This protects a database copy without the key, not a root
 compromise or a backup containing both. Passwords and recovery codes are hashed;
@@ -99,8 +107,13 @@ application databases. See [backup scope](OPERATIONS.md#backups-and-recovery).
 New browser-created sites, staging copies, and restored copies receive a
 cryptographically random UUIDv4. The domain is an editable address, not the
 storage key. Existing slug identifiers remain valid and are not migrated.
-Validation accepts both formats; derived Unix/database names stay short because
+Validation accepts both formats; derived Unix/WordPress-database names stay short because
 they are based on a hash of the identifier.
+
+Additional databases have their own UUIDv4 identities. Their SQL database and
+user names are derived from a hash of that UUID rather than a form field. The
+encrypted credential record survives loss of its site association, so site
+deletion cannot silently destroy unrelated application data.
 
 Keep this separation when adding features. A domain change must not move files,
 replace a site account, or orphan backup references. SQLite uniqueness checks

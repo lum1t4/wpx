@@ -117,15 +117,8 @@ func ValidateBackupTarget(target BackupTarget) error {
 			return errors.New("invalid repository prefix")
 		}
 	case BackupGoogleDrive:
-		folder := strings.Trim(target.DriveFolder, "/")
-		if folder == "" || len(folder) > 512 || path.Clean(folder) != folder || strings.HasPrefix(folder, "../") || strings.ContainsAny(folder, "\r\n:") {
-			return errors.New("invalid Google Drive backup folder")
-		}
-		if !strings.HasSuffix(target.GoogleClientID, ".apps.googleusercontent.com") || len(target.GoogleClientID) > 256 || len(target.GoogleClientSecret) < 12 || len(target.GoogleClientSecret) > 512 || strings.ContainsAny(target.GoogleClientID+target.GoogleClientSecret, "\r\n") {
-			return errors.New("a user-owned Google OAuth client is required")
-		}
-		if len(target.GoogleToken) > 8192 || (target.GoogleSharedDrive != "" && !providerIDPattern.MatchString(target.GoogleSharedDrive)) {
-			return errors.New("invalid Google authorization or Shared Drive identifier")
+		if err := ValidateGoogleDriveSetup(target); err != nil {
+			return err
 		}
 		var token struct {
 			RefreshToken string `json:"refresh_token"`
@@ -135,6 +128,29 @@ func ValidateBackupTarget(target BackupTarget) error {
 		}
 	default:
 		return errors.New("invalid backup target kind")
+	}
+	return nil
+}
+
+// ValidateGoogleDriveSetup checks the user-entered fields before WPX sends the
+// browser to Google. The access and refresh tokens do not exist at that point;
+// ValidateBackupTarget performs the additional token check after the callback.
+func ValidateGoogleDriveSetup(target BackupTarget) error {
+	if len(strings.TrimSpace(target.Name)) < 2 || len(target.Name) > 64 {
+		return errors.New("backup target name must be 2-64 characters")
+	}
+	if target.RepositoryPassword != "" && len(target.RepositoryPassword) < 20 {
+		return errors.New("repository password must contain at least 20 characters")
+	}
+	folder := strings.Trim(target.DriveFolder, "/")
+	if folder == "" || len(folder) > 512 || path.Clean(folder) != folder || strings.HasPrefix(folder, "../") || strings.ContainsAny(folder, "\r\n:") {
+		return errors.New("invalid Google Drive backup folder")
+	}
+	if !strings.HasSuffix(target.GoogleClientID, ".apps.googleusercontent.com") || len(target.GoogleClientID) > 256 || len(target.GoogleClientSecret) < 12 || len(target.GoogleClientSecret) > 512 || strings.ContainsAny(target.GoogleClientID+target.GoogleClientSecret, "\r\n") {
+		return errors.New("a user-owned Google OAuth client is required")
+	}
+	if target.GoogleSharedDrive != "" && !providerIDPattern.MatchString(target.GoogleSharedDrive) {
+		return errors.New("invalid Shared Drive identifier")
 	}
 	return nil
 }

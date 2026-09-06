@@ -121,10 +121,21 @@ func seed(ctx context.Context, state *store.Store, path string) (store.User, err
 		"UPDATE backup_targets SET status='active'",
 		"UPDATE jobs SET status='succeeded',phase='complete',progress=100,finished_at=updated_at",
 		"UPDATE jobs SET status='failed',error='Sample failure: PHP configuration could not be validated. Review the site settings and retry.' WHERE target_id='customer-portal'",
+		"INSERT INTO database_admin(id,status,updated_at) VALUES(1,'active',CURRENT_TIMESTAMP)",
 	} {
 		if _, err := db.ExecContext(ctx, query); err != nil {
 			return owner, err
 		}
+	}
+	database, _, err := state.CreateDatabase(ctx, owner, "northstar", "Membership data")
+	if err != nil {
+		return owner, err
+	}
+	if _, err := db.ExecContext(ctx, "UPDATE databases SET status='active' WHERE id=?", database.ID); err != nil {
+		return owner, err
+	}
+	if _, err := db.ExecContext(ctx, "UPDATE jobs SET status='succeeded',phase='complete',progress=100,finished_at=updated_at WHERE target_id=?", database.ID); err != nil {
+		return owner, err
 	}
 	_, err = db.ExecContext(ctx, "INSERT INTO backup_snapshots(id,site_id,target_id,restic_snapshot_id,created_at) VALUES(?,?,?,?,?)", "snapshot-preview", "northstar", target.ID, strings.Repeat("a", 64), time.Now().UTC().Add(-time.Hour).Format(time.RFC3339))
 	return owner, err

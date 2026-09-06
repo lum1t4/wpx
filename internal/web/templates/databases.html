@@ -1,0 +1,102 @@
+{{define "databases.html"}}
+{{template "shell-start" .}}
+<header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight text-zinc-950">Databases</h1>
+    <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Create isolated MariaDB databases, retrieve application credentials, or open a database directly in phpMyAdmin.</p>
+  </div>
+</header>
+
+{{if .Error}}<p role="alert" class="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{.Error}}</p>{{end}}
+{{if .Message}}<p role="status" class="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{{.Message}}</p>{{end}}
+
+<section class="mt-8 rounded-lg border border-zinc-200 bg-white p-5">
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <div class="flex items-center gap-2">
+        <h2 class="text-base font-semibold">phpMyAdmin</h2>
+        <span class="rounded-md border border-zinc-200 px-2 py-1 text-xs font-medium capitalize">{{if eq .DatabaseAdminStatus "not_installed"}}Not installed{{else}}{{.DatabaseAdminStatus}}{{end}}</span>
+      </div>
+      <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Runs behind your WPX login and signs in with only the selected database user's privileges. It is not exposed as a separate public service.</p>
+    </div>
+    {{if or (eq .DatabaseAdminStatus "not_installed") (eq .DatabaseAdminStatus "failed")}}
+    <form method="post" action="/databases/phpmyadmin/install">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <button class="shrink-0 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">{{if eq .DatabaseAdminStatus "failed"}}Retry installation{{else}}Enable phpMyAdmin{{end}}</button>
+    </form>
+    {{else if eq .DatabaseAdminStatus "queued"}}
+    <a class="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50" href="/jobs">View installation</a>
+    {{end}}
+  </div>
+</section>
+
+{{if .SelectedDatabase}}
+<section class="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-5">
+  <h2 class="text-base font-semibold">Credentials for {{.SelectedDatabase.Label}}</h2>
+  <p class="mt-2 text-sm text-zinc-600">Copy these into the site's environment or configuration. The password is shown only for this response.</p>
+  <dl class="mt-4 grid gap-4 sm:grid-cols-2">
+    <div><dt class="text-xs font-medium text-zinc-500">Host</dt><dd class="mt-1"><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" readonly value="localhost"></dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500">Database</dt><dd class="mt-1"><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" readonly value="{{.SelectedDatabase.Name}}"></dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500">Username</dt><dd class="mt-1"><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" readonly value="{{.SelectedDatabase.Username}}"></dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500">Password</dt><dd class="mt-1"><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" readonly value="{{.SelectedDatabase.Password}}"></dd></div>
+  </dl>
+</section>
+{{end}}
+
+<section class="mt-8 overflow-hidden rounded-lg border border-zinc-200 bg-white">
+  <div class="border-b border-zinc-200 px-5 py-4"><h2 class="text-base font-semibold">Managed databases</h2></div>
+  <div class="divide-y divide-zinc-100">
+    {{range .Databases}}
+    <article class="p-5">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2"><h3 class="font-medium">{{.Label}}</h3><span class="rounded-md border border-zinc-200 px-2 py-0.5 text-xs capitalize">{{.Status}}</span></div>
+          <p class="mt-1 text-sm text-zinc-500">{{if .SiteDomain}}{{.SiteDomain}}{{else}}Former site{{end}} · <span class="font-mono text-xs">{{.Name}}</span></p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          {{if eq .Status "active"}}
+          {{if eq $.DatabaseAdminStatus "active"}}<form method="post" action="/databases/{{.ID}}/open"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><button class="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800">Open phpMyAdmin</button></form>{{end}}
+          <form method="post" action="/databases/{{.ID}}/reveal"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><button class="rounded-md border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">Show credentials</button></form>
+          {{end}}
+        </div>
+      </div>
+      {{if or (eq .Status "active") (eq .Status "failed") (eq .Status "delete_failed")}}
+      <details class="mt-4 rounded-md border border-red-200">
+        <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-red-700">Delete database</summary>
+        <form class="border-t border-red-200 p-4" method="post" action="/databases/{{.ID}}/delete">
+          <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+          <p class="text-sm leading-6 text-zinc-600">This permanently removes the database and its SQL user. Type <strong class="font-mono">{{.Name}}</strong> to confirm.</p>
+          <div class="mt-3 flex flex-col gap-2 sm:flex-row"><input class="min-w-0 flex-1 rounded-md border border-zinc-200 px-3 py-2 font-mono text-sm" name="confirmation" autocomplete="off" required><button class="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800">Delete permanently</button></div>
+        </form>
+      </details>
+      {{end}}
+    </article>
+    {{else}}
+    <div class="p-8 text-center"><p class="font-medium">No additional databases</p><p class="mt-1 text-sm text-zinc-500">WordPress databases are created automatically and listed below.</p></div>
+    {{end}}
+  </div>
+</section>
+
+<details class="mt-6 rounded-lg border border-zinc-200 bg-white">
+  <summary class="cursor-pointer px-5 py-4 text-sm font-semibold">Create a database</summary>
+  <form class="grid gap-5 border-t border-zinc-200 p-5 sm:grid-cols-2" method="post" action="/databases">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <label><span class="mb-2 block text-sm font-medium">Label</span><input class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" name="label" placeholder="Application database" minlength="2" maxlength="64" required></label>
+    <label><span class="mb-2 block text-sm font-medium">Website</span><select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="site_id" required><option value="">Choose a website</option>{{range .Sites}}{{if eq .Status "active"}}<option value="{{.ID}}">{{.Domain}}</option>{{end}}{{end}}</select></label>
+    <p class="text-xs leading-5 text-zinc-500 sm:col-span-2">WPX generates the UUID, database name, SQL user, and password. The website association is for organization and does not broaden SQL privileges.</p>
+    <div class="sm:col-span-2"><button class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Create database</button></div>
+  </form>
+</details>
+
+<section class="mt-8 overflow-hidden rounded-lg border border-zinc-200 bg-white">
+  <div class="border-b border-zinc-200 px-5 py-4"><h2 class="text-base font-semibold">WordPress databases</h2><p class="mt-1 text-sm text-zinc-500">These are provisioned with their sites and use their own restricted SQL users.</p></div>
+  <div class="divide-y divide-zinc-100">
+    {{$found := false}}
+    {{range .Sites}}{{if eq .Kind "wordpress"}}{{$found = true}}
+    <div class="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-medium">{{.Domain}}</p><p class="mt-1 text-xs capitalize text-zinc-500">{{.Status}}</p></div>{{if and (eq .Status "active") (eq $.DatabaseAdminStatus "active")}}<form method="post" action="/sites/{{.ID}}/database/open"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><button class="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800">Open phpMyAdmin</button></form>{{end}}</div>
+    {{end}}{{end}}
+    {{if not $found}}<div class="p-8 text-center text-sm text-zinc-500">No WordPress sites yet.</div>{{end}}
+  </div>
+</section>
+{{template "shell-end" .}}
+{{end}}

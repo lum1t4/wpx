@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"net/http"
+	"strings"
 
 	"github.com/lum1t4/wpx/internal/model"
 	"github.com/lum1t4/wpx/internal/rbac"
@@ -123,7 +124,11 @@ func mustRandomHex(bytes int) string {
 
 func (s *Server) securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+		// phpMyAdmin maintains its own CSP. Applying the panel's intentionally
+		// narrow script policy would make its authenticated application unusable.
+		if !strings.HasPrefix(r.URL.Path, "/phpmyadmin/") {
+			w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+		}
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")

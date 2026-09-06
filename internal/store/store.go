@@ -786,6 +786,33 @@ func (s *Store) FinishJob(ctx context.Context, job Job, resultJSON string, opera
 			return err
 		}
 	}
+	if job.Kind == "database.create" {
+		databaseStatus := "active"
+		if operationErr != nil {
+			databaseStatus = "failed"
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE databases SET status=?,updated_at=? WHERE id=?`, databaseStatus, now, job.TargetID); err != nil {
+			return err
+		}
+	}
+	if job.Kind == "database.delete" {
+		if operationErr == nil {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM databases WHERE id=?`, job.TargetID); err != nil {
+				return err
+			}
+		} else if _, err := tx.ExecContext(ctx, `UPDATE databases SET status='delete_failed',updated_at=? WHERE id=?`, now, job.TargetID); err != nil {
+			return err
+		}
+	}
+	if job.Kind == "database.admin_install" {
+		status := "active"
+		if operationErr != nil {
+			status = "failed"
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE database_admin SET status=?,updated_at=? WHERE id=1`, status, now); err != nil {
+			return err
+		}
+	}
 	if job.Kind == "dns.provider_verify" {
 		providerStatus := "active"
 		if operationErr != nil {

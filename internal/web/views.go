@@ -87,6 +87,8 @@ func preparePageData(name string, data *pageData) {
 		data.NavSection = "overview"
 	case "monitoring.html":
 		data.NavSection = "monitoring"
+	case "databases.html":
+		data.NavSection = "databases"
 	case "sites.html":
 		data.NavSection = "sites"
 	case "jobs.html":

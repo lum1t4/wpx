@@ -47,6 +47,48 @@ type MariaDB struct {
 	SQL         SQLExecutor
 }
 
+func (m *MariaDB) Create(ctx context.Context, database model.Database) error {
+	if m.SQL == nil {
+		return errors.New("MariaDB executor is unavailable")
+	}
+	if err := model.ValidateDatabase(database); err != nil {
+		return err
+	}
+	if database.Password == "" {
+		return errors.New("database password is required")
+	}
+	statement := fmt.Sprintf(
+		"CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\n"+
+			"CREATE USER IF NOT EXISTS '%s'@'localhost' IDENTIFIED BY '%s';\n"+
+			"ALTER USER '%s'@'localhost' IDENTIFIED BY '%s';\n"+
+			"GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'localhost';\n",
+		database.Name, database.Username, database.Password,
+		database.Username, database.Password, database.Name, database.Username,
+	)
+	return m.SQL.Execute(ctx, statement)
+}
+
+func (m *MariaDB) Delete(ctx context.Context, database model.Database) error {
+	if m.SQL == nil {
+		return errors.New("MariaDB executor is unavailable")
+	}
+	if err := model.ValidateDatabase(database); err != nil {
+		return err
+	}
+	statement := fmt.Sprintf("DROP DATABASE IF EXISTS `%s`;\nDROP USER IF EXISTS '%s'@'localhost';\n", database.Name, database.Username)
+	return m.SQL.Execute(ctx, statement)
+}
+
+func (m *MariaDB) Primary(site model.Site) (DatabaseCredentials, error) {
+	if err := model.ValidateSite(site); err != nil {
+		return DatabaseCredentials{}, err
+	}
+	if site.Kind != model.WordPress {
+		return DatabaseCredentials{}, errors.New("only WordPress sites have an automatic database")
+	}
+	return loadDatabaseCredentials(filepath.Join(m.SecretsRoot, site.ID+".json"))
+}
+
 func (m *MariaDB) Ensure(ctx context.Context, site model.Site) (DatabaseCredentials, error) {
 	if m.SQL == nil || !filepath.IsAbs(m.SecretsRoot) || filepath.Clean(m.SecretsRoot) != m.SecretsRoot || m.SecretsRoot == "/" {
 		return DatabaseCredentials{}, errors.New("invalid MariaDB manager configuration")

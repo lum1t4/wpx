@@ -28,12 +28,15 @@ import (
 var templateFiles embed.FS
 
 type Server struct {
-	cfg       config.Config
-	store     *store.Store
-	templates *template.Template
-	logger    *slog.Logger
-	broker    brokerCaller
-	resources *monitor.Monitor
+	cfg            config.Config
+	store          *store.Store
+	templates      *template.Template
+	logger         *slog.Logger
+	broker         brokerCaller
+	resources      *monitor.Monitor
+	oauthHTTP      *http.Client
+	googleAuthURL  string
+	googleTokenURL string
 }
 
 type brokerCaller interface {
@@ -55,7 +58,12 @@ func New(cfg config.Config, state *store.Store, privileged brokerCaller, logger 
 	resources := monitor.New(func() (monitor.Raw, error) {
 		return monitor.ReadSystem([]string{"/", cfg.SiteRoot, cfg.DataRoot})
 	})
-	return &Server{cfg: cfg, store: state, templates: tmpl, logger: logger, broker: privileged, resources: resources}, nil
+	return &Server{
+		cfg: cfg, store: state, templates: tmpl, logger: logger, broker: privileged, resources: resources,
+		oauthHTTP:      &http.Client{Timeout: 20 * time.Second},
+		googleAuthURL:  "https://accounts.google.com/o/oauth2/v2/auth",
+		googleTokenURL: "https://oauth2.googleapis.com/token",
+	}, nil
 }
 
 func (s *Server) ListenAndServe(ctx context.Context) error {

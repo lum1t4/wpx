@@ -43,6 +43,10 @@ const (
 	OpSiteObservability    Operation = "site.observability"
 	OpWordPressPerformance Operation = "wordpress.performance_apply"
 	OpWordPressUpdate      Operation = "wordpress.update"
+	OpDatabaseCreate       Operation = "database.create"
+	OpDatabaseDelete       Operation = "database.delete"
+	OpDatabaseAdminInstall Operation = "database.admin_install"
+	OpDatabaseOpen         Operation = "database.open"
 )
 
 type Request struct {
@@ -185,6 +189,19 @@ type FileReadResult struct {
 
 type BackupTargetInitRequest struct {
 	Target model.BackupTarget `json:"target"`
+}
+
+type DatabaseRequest struct {
+	Database model.Database `json:"database"`
+}
+
+type DatabaseOpenRequest struct {
+	Site     *model.Site     `json:"site,omitempty"`
+	Database *model.Database `json:"database,omitempty"`
+}
+
+type DatabaseOpenResult struct {
+	Token string `json:"token"`
 }
 
 type BackupSiteRequest struct {

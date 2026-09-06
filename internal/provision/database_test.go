@@ -45,3 +45,21 @@ func TestMariaDBCredentialsSurviveRetry(t *testing.T) {
 		t.Fatalf("secret mode is %o", info.Mode().Perm())
 	}
 }
+
+func TestManagedMariaDBUsesOnlyUUIDDerivedIdentifiers(t *testing.T) {
+	sql := &captureSQL{}
+	manager := &MariaDB{SQL: sql}
+	id := "01234567-89ab-4cde-8f01-23456789abcd"
+	name, username, _ := model.DatabaseIdentifiers(id)
+	database := model.Database{ID: id, SiteID: "example-com", Label: "Application", Name: name, Username: username, Password: "abcdefghijklmnopqrstuvwxyz123456", Status: "queued"}
+	if err := manager.Create(context.Background(), database); err != nil {
+		t.Fatal(err)
+	}
+	if len(sql.statements) != 1 || !strings.Contains(sql.statements[0], "CREATE DATABASE IF NOT EXISTS `"+name+"`") {
+		t.Fatalf("unexpected SQL: %q", sql.statements)
+	}
+	database.Name = "unsafe`; DROP DATABASE important; --"
+	if err := manager.Create(context.Background(), database); err == nil || len(sql.statements) != 1 {
+		t.Fatal("unsafe identifier reached the SQL executor")
+	}
+}

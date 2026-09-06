@@ -124,6 +124,17 @@ type DatabaseManager interface {
 	Ensure(context.Context, model.Site) (DatabaseCredentials, error)
 }
 
+type ManagedDatabaseManager interface {
+	Create(context.Context, model.Database) error
+	Delete(context.Context, model.Database) error
+	Primary(model.Site) (DatabaseCredentials, error)
+}
+
+type DatabaseAdminManager interface {
+	Ensure(context.Context) error
+	CreateSignon(context.Context, DatabaseCredentials) (string, error)
+}
+
 type WordPressManager interface {
 	Ensure(context.Context, model.Site, Identity, string, DatabaseCredentials) error
 	EnableHTTPS(context.Context, model.Site, Identity, string) error
@@ -197,6 +208,7 @@ type Host struct {
 	Identities       IdentityManager
 	PHP              PHPRuntime
 	Database         DatabaseManager
+	DatabaseAdmin    DatabaseAdminManager
 	WordPress        WordPressManager
 	Python           PythonRuntime
 
@@ -225,9 +237,61 @@ func DefaultHost(siteRoot, dataRoot string) *Host {
 		Identities:       SystemIdentities{Runner: runner},
 		PHP:              &AptPHPRuntime{Runner: runner, ConfigRoot: "/etc/php", RunRoot: "/run/php", SnippetRoot: "/etc/wpx/snippets/php"},
 		Database:         &MariaDB{SecretsRoot: filepath.Join(dataRoot, "secrets", "sites"), SQL: ExecSQL{}},
+		DatabaseAdmin:    DefaultPHPMyAdmin(runner, dataRoot),
 		WordPress:        &WPCLI{Runner: runner, Path: "/usr/local/lib/wpx/wp-cli.phar"},
 		Python:           &SystemPython{Runner: runner, UnitRoot: "/etc/systemd/system", RunRoot: "/run/wpx-sites"},
 	}
+}
+
+func (h *Host) CreateDatabase(ctx context.Context, database model.Database) error {
+	manager, ok := h.Database.(ManagedDatabaseManager)
+	if !ok {
+		return errors.New("managed databases are unavailable")
+	}
+	return manager.Create(ctx, database)
+}
+
+func (h *Host) DeleteDatabase(ctx context.Context, database model.Database) error {
+	manager, ok := h.Database.(ManagedDatabaseManager)
+	if !ok {
+		return errors.New("managed databases are unavailable")
+	}
+	return manager.Delete(ctx, database)
+}
+
+func (h *Host) EnsureDatabaseAdmin(ctx context.Context) error {
+	if h.DatabaseAdmin == nil {
+		return errors.New("phpMyAdmin is unavailable")
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.DatabaseAdmin.Ensure(ctx)
+}
+
+func (h *Host) OpenDatabase(ctx context.Context, site *model.Site, database *model.Database) (string, error) {
+	if h.DatabaseAdmin == nil {
+		return "", errors.New("phpMyAdmin is unavailable")
+	}
+	var credentials DatabaseCredentials
+	if site != nil {
+		manager, ok := h.Database.(ManagedDatabaseManager)
+		if !ok {
+			return "", errors.New("automatic databases are unavailable")
+		}
+		var err error
+		credentials, err = manager.Primary(*site)
+		if err != nil {
+			return "", err
+		}
+	} else if database != nil {
+		if err := model.ValidateDatabase(*database); err != nil || database.Password == "" || database.Status != "active" {
+			return "", errors.New("managed database is not active")
+		}
+		credentials = DatabaseCredentials{Name: database.Name, User: database.Username, Password: database.Password, Host: "localhost"}
+	} else {
+		return "", errors.New("database selection is required")
+	}
+	return h.DatabaseAdmin.CreateSignon(ctx, credentials)
 }
 
 func (h *Host) Provision(ctx context.Context, site model.Site) error {

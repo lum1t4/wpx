@@ -284,6 +284,7 @@ func runBroker(args []string) error {
 		Files:       host,
 		Backups:     host,
 		Metrics:     host,
+		Databases:   host,
 	}
 	slog.Info("starting WPX privileged broker", "socket", cfg.BrokerSocket)
 	return server.Run(ctx)

@@ -29,6 +29,7 @@ type Server struct {
 	Files       FileOperator
 	Backups     BackupOperator
 	Metrics     ObservabilityOperator
+	Databases   DatabaseOperator
 
 	mu       sync.Mutex
 	listener net.Listener
@@ -71,6 +72,13 @@ type BackupOperator interface {
 
 type ObservabilityOperator interface {
 	Observability(context.Context, model.Site) (SiteObservabilityResult, error)
+}
+
+type DatabaseOperator interface {
+	CreateDatabase(context.Context, model.Database) error
+	DeleteDatabase(context.Context, model.Database) error
+	EnsureDatabaseAdmin(context.Context) error
+	OpenDatabase(context.Context, *model.Site, *model.Database) (string, error)
 }
 
 func (s *Server) Run(ctx context.Context) error {
@@ -171,6 +179,84 @@ func (s *Server) dispatch(request Request) Response {
 	case OpProbe:
 		response.OK = true
 		response.Result = json.RawMessage(`{"ready":true}`)
+	case OpDatabaseCreate:
+		var payload DatabaseRequest
+		decoder := json.NewDecoder(strings.NewReader(string(request.Payload)))
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(&payload) != nil || model.ValidateDatabase(payload.Database) != nil || payload.Database.Password == "" || payload.Database.Status != "queued" {
+			response.Error = "invalid database creation request"
+			return response
+		}
+		if s.Databases == nil {
+			response.Error = "database operations are unavailable"
+			return response
+		}
+		if err := s.Databases.CreateDatabase(context.Background(), payload.Database); err != nil {
+			response.Error = "create database: " + err.Error()
+			return response
+		}
+		response.OK = true
+		response.Result = json.RawMessage(`{"created":true}`)
+	case OpDatabaseDelete:
+		var payload DatabaseRequest
+		decoder := json.NewDecoder(strings.NewReader(string(request.Payload)))
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(&payload) != nil || model.ValidateDatabase(payload.Database) != nil || payload.Database.Status != "deleting" {
+			response.Error = "invalid database deletion request"
+			return response
+		}
+		if s.Databases == nil {
+			response.Error = "database operations are unavailable"
+			return response
+		}
+		if err := s.Databases.DeleteDatabase(context.Background(), payload.Database); err != nil {
+			response.Error = "delete database: " + err.Error()
+			return response
+		}
+		response.OK = true
+		response.Result = json.RawMessage(`{"deleted":true}`)
+	case OpDatabaseAdminInstall:
+		if string(request.Payload) != "{}" && string(request.Payload) != "null" {
+			response.Error = "invalid phpMyAdmin installation request"
+			return response
+		}
+		if s.Databases == nil {
+			response.Error = "database operations are unavailable"
+			return response
+		}
+		if err := s.Databases.EnsureDatabaseAdmin(context.Background()); err != nil {
+			response.Error = "install phpMyAdmin: " + err.Error()
+			return response
+		}
+		response.OK = true
+		response.Result = json.RawMessage(`{"installed":true}`)
+	case OpDatabaseOpen:
+		var payload DatabaseOpenRequest
+		decoder := json.NewDecoder(strings.NewReader(string(request.Payload)))
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(&payload) != nil || (payload.Site == nil) == (payload.Database == nil) {
+			response.Error = "invalid database sign-in request"
+			return response
+		}
+		if payload.Site != nil && (model.ValidateSite(*payload.Site) != nil || payload.Site.Kind != model.WordPress || payload.Site.Status != "active") {
+			response.Error = "invalid automatic database sign-in request"
+			return response
+		}
+		if payload.Database != nil && (model.ValidateDatabase(*payload.Database) != nil || payload.Database.Password == "" || payload.Database.Status != "active") {
+			response.Error = "invalid managed database sign-in request"
+			return response
+		}
+		if s.Databases == nil {
+			response.Error = "database operations are unavailable"
+			return response
+		}
+		token, err := s.Databases.OpenDatabase(context.Background(), payload.Site, payload.Database)
+		if err != nil {
+			response.Error = "open database: " + err.Error()
+			return response
+		}
+		response.OK = true
+		response.Result, _ = json.Marshal(DatabaseOpenResult{Token: token})
 	case OpEnsureSiteRoot:
 		var payload EnsureSiteRootRequest
 		decoder := json.NewDecoder(strings.NewReader(string(request.Payload)))

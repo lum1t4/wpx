@@ -31,6 +31,9 @@ type SiteProvisioner interface {
 	DeployStaging(context.Context, model.Site, model.Site, model.BackupTarget, model.StagingSelection, string) (string, error)
 	ApplyPerformance(context.Context, model.Site, string) error
 	UpdateWordPress(context.Context, model.Site, model.BackupTarget, model.WordPressUpdate, string) (string, error)
+	CreateDatabase(context.Context, model.Database, string) error
+	DeleteDatabase(context.Context, model.Database, string) error
+	InstallDatabaseAdmin(context.Context, string) error
 }
 
 type DNSOperator interface {
@@ -115,6 +118,18 @@ func (p BrokerProvisioner) UpdateWordPress(ctx context.Context, site model.Site,
 	return result.RecoverySnapshotID, err
 }
 
+func (p BrokerProvisioner) CreateDatabase(ctx context.Context, database model.Database, idempotencyKey string) error {
+	return p.Client.Call(ctx, broker.OpDatabaseCreate, idempotencyKey, broker.DatabaseRequest{Database: database}, nil)
+}
+
+func (p BrokerProvisioner) DeleteDatabase(ctx context.Context, database model.Database, idempotencyKey string) error {
+	return p.Client.Call(ctx, broker.OpDatabaseDelete, idempotencyKey, broker.DatabaseRequest{Database: database}, nil)
+}
+
+func (p BrokerProvisioner) InstallDatabaseAdmin(ctx context.Context, idempotencyKey string) error {
+	return p.Client.Call(ctx, broker.OpDatabaseAdminInstall, idempotencyKey, struct{}{}, nil)
+}
+
 type Worker struct {
 	Store        *store.Store
 	Provisioner  SiteProvisioner
@@ -171,6 +186,20 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 	var operationErr error
 	resultJSON := "{}"
 	switch job.Kind {
+	case "database.create":
+		var database model.Database
+		database, operationErr = w.Store.Database(ctx, job.TargetID)
+		if operationErr == nil {
+			operationErr = w.Provisioner.CreateDatabase(ctx, database, job.IdempotencyKey)
+		}
+	case "database.delete":
+		var database model.Database
+		database, operationErr = w.Store.Database(ctx, job.TargetID)
+		if operationErr == nil {
+			operationErr = w.Provisioner.DeleteDatabase(ctx, database, job.IdempotencyKey)
+		}
+	case "database.admin_install":
+		operationErr = w.Provisioner.InstallDatabaseAdmin(ctx, job.IdempotencyKey)
 	case "site.domain_change":
 		operationErr = w.changeDomain(ctx, job)
 	case "site.delete":

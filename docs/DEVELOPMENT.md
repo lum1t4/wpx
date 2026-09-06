@@ -112,7 +112,11 @@ workflow, and result in the PR/release notes. A useful host exercise is:
 4. Test panel domain/private access changes, including a failed certificate step.
 5. For backup/staging changes, use disposable data and actual configured storage;
    restore it and compare the recovered files/database.
-6. Upgrade from the preceding release and exercise a forced readiness failure
+6. For database/phpMyAdmin changes, create and delete a disposable additional
+   database, verify exact privileges, exercise WordPress and additional-database
+   sign-on, restart the services, and confirm the loopback service is not public.
+   For Google Drive, complete a live OAuth consent and repository initialization.
+7. Upgrade from the preceding release and exercise a forced readiness failure
    with recoverable fixtures. Check the old binary/state can restart.
 
 For identity/domain/deletion work, use disposable sites and record their IDs,
