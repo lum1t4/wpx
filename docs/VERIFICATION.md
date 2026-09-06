@@ -237,6 +237,40 @@ live-browser review of this release remained pending because the workstation
 was locked. The successful disposable-host workflows and preview checks above
 are separate evidence, not a substitute for that review.
 
+## 2026-09-06: HTTP-01 repair and alpha.8 deployment
+
+The first certificate request after changing the production WordPress domain
+failed because Nginx received `EACCES` while reading Certbot's HTTP-01 token.
+DNS resolved the new hostname to the expected VPS, and Let's Encrypt reached
+port 80, but the intermediate `.well-known` directory retained the privileged
+broker's group and mode. Its child challenge directory alone had been assigned
+to the site identity. The repair now explicitly reconciles both directories;
+a public challenge probe returned 200 before another ACME request was made.
+
+Let's Encrypt then issued the certificate for `ds2.mitadev.com`, valid through
+2026-12-05. Its first panel activation exposed stale WordPress options after the
+HTTP-to-HTTPS SQL replacement. The final repair invalidates only the immutable
+site-ID Redis namespace before option updates and again after all URLs are
+final; it never flushes the shared Redis database. Focused provision race tests
+and vet passed for each correction.
+
+Release [v0.1.0-alpha.8](https://github.com/lum1t4/wpx/releases/tag/v0.1.0-alpha.8)
+was published at 21:03:17 UTC from source commit
+`397abab9b8d12728349a0d7c802b36191c0669f1`. GitHub
+[Verify](https://github.com/lum1t4/wpx/actions/runs/34059622976) and
+[Release](https://github.com/lum1t4/wpx/actions/runs/34059624060) passed; the
+release workflow completed in 4 minutes 32 seconds with the full race suite,
+vet, UI drift checks, portable builds, and artifact attestations.
+
+The README installer upgraded the VPS and created recovery snapshot
+`/var/lib/wpx/upgrades/20260906T210331.428926405Z`. The installed version and
+source commit matched alpha.8. The certificate job completed, the panel stored
+the site's TLS state as active, both WordPress URL options used HTTPS, and a
+trusted request to `https://ds2.mitadev.com/` returned 200. All five core
+services were active, SQLite integrity passed, and the site ID/domain/status
+were unchanged. Configuration, encryption-key, and panel TLS hashes matched
+their pre-upgrade values.
+
 For future entries, record the commit/release, OS and architecture, exact action,
 observed result, and untested boundary. A fake-runner unit test, a rendered
 preview, and a real provider transaction are different evidence and should
