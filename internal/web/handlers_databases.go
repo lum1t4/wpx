@@ -143,11 +143,40 @@ func (s *Server) proxyDatabaseAdmin(w http.ResponseWriter, r *http.Request, _ st
 		request.Header.Set("X-Forwarded-Proto", "https")
 		request.Header.Set("Cookie", databaseAdminCookies(request.Header.Get("Cookie")))
 	}
+	proxy.ModifyResponse = scopeDatabaseAdminCookies
 	proxy.ErrorHandler = func(response http.ResponseWriter, _ *http.Request, err error) {
 		s.logger.Warn("phpMyAdmin proxy", "error", err)
 		http.Error(response, "phpMyAdmin is temporarily unavailable", http.StatusBadGateway)
 	}
 	proxy.ServeHTTP(w, r)
+}
+
+// scopeDatabaseAdminCookies is the HTTPS boundary for the loopback-only
+// phpMyAdmin upstream. PHP sees a plain HTTP FastCGI hop and can consequently
+// omit Secure even while choosing a __Secure- cookie name from the forwarded
+// public scheme. Browsers must reject that invalid cookie, which gives each
+// request a fresh phpMyAdmin session and makes its CSRF token appear stale.
+//
+// Keep every upstream cookie inside the mounted application, add the attributes
+// required by the public HTTPS origin, and never let the upstream replace a WPX
+// authentication cookie on their shared origin.
+func scopeDatabaseAdminCookies(response *http.Response) error {
+	cookies := response.Cookies()
+	if len(cookies) == 0 {
+		return nil
+	}
+	response.Header.Del("Set-Cookie")
+	for _, cookie := range cookies {
+		if cookie.Name == "wpx_session" || cookie.Name == "wpx_csrf" {
+			continue
+		}
+		cookie.Domain = ""
+		cookie.Path = "/phpmyadmin/"
+		cookie.Secure = true
+		cookie.SameSite = http.SameSiteStrictMode
+		response.Header.Add("Set-Cookie", cookie.String())
+	}
+	return nil
 }
 
 func databaseAdminCookies(header string) string {

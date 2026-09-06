@@ -62,6 +62,10 @@ func TestPHPMyAdminIsLoopbackOnlyAndUsesSingleUseSignon(t *testing.T) {
 	if !strings.Contains(config, "auth_type'] = 'signon'") || strings.Contains(config, "auth_type'] = 'cookie'") || strings.Contains(config, "root") {
 		t.Fatalf("phpMyAdmin config does not enforce sign-on:\n%s", config)
 	}
+	pool := manager.renderPool(Identity{Name: "wpx-pma"})
+	if !strings.Contains(pool, "php_admin_flag[session.cookie_secure] = on") || !strings.Contains(pool, "php_admin_value[session.cookie_path] = /phpmyadmin/") {
+		t.Fatalf("phpMyAdmin session cookies are not HTTPS-scoped:\n%s", pool)
+	}
 	signon := phpMyAdminSignon(manager.TokenRoot)
 	if !strings.Contains(signon, "@unlink($path)") || !strings.Contains(signon, "expires_at") || strings.Contains(signon, "PMA_single_signon_user'] = 'root'") {
 		t.Fatalf("sign-on endpoint is not one-time and scoped:\n%s", signon)

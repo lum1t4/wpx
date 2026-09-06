@@ -44,6 +44,12 @@ root broker into a random one-minute token file readable by `wpx-pma`, then the
 PHP sign-on endpoint consumes and removes it. phpMyAdmin receives the selected
 database user, never the MariaDB root account.
 
+The public proxy also owns the cookie trust boundary. It removes panel cookies
+before forwarding, prevents phpMyAdmin from replacing them in a response, and
+forces upstream session cookies to be Secure, SameSite=Strict, and scoped to
+`/phpmyadmin/`. This is required because the isolated upstream hop itself is
+plain HTTP even though the browser-facing panel origin is HTTPS.
+
 ## Source map
 
 | Location | Responsibility and boundary |

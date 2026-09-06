@@ -4,6 +4,24 @@ This record separates automated coverage, development previews, and real host
 observations. Results apply to the candidate and environment described here;
 they are not a claim that every supported workflow has been exercised live.
 
+## 2026-09-07: phpMyAdmin proxy-session regression
+
+The live browser reproduced phpMyAdmin's “token mismatch” response when changing
+the interface language. Firefox's network inspector showed that phpMyAdmin named
+its main session cookie `__Secure-phpMyAdmin_https` from the forwarded HTTPS
+scheme, while PHP omitted the mandatory `Secure` attribute because its isolated
+FastCGI hop is local HTTP. Firefox correctly rejected the cookie, so subsequent
+requests used fresh sessions and rejected the previous session's CSRF token.
+
+WPX now enforces Secure, SameSite=Strict, and `/phpmyadmin/` scope on every
+phpMyAdmin response cookie, blocks the upstream from overwriting WPX session or
+CSRF cookies, and configures the dedicated PHP-FPM pool to emit Secure session
+cookies itself. The regression test covers the response boundary and PHP pool.
+The patched VPS response included `Secure; SameSite=Strict` and the
+`/phpmyadmin/` path on both sign-on and main session cookies. A second request
+using that cookie changed the interface language with HTTP 200 and no token
+mismatch. The disposable panel session and request files were then removed.
+
 ## 2026-09-07: databases and phpMyAdmin
 
 Environment: existing Ubuntu 24.04 amd64 VPS. The candidate was installed with

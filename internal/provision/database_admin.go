@@ -405,6 +405,7 @@ func (p *PHPMyAdmin) renderPool(identity Identity) string {
 		"clear_env = yes\ncatch_workers_output = yes\n" +
 		"php_admin_value[upload_tmp_dir] = " + filepath.Join(p.StateRoot, "tmp") + "\n" +
 		"php_admin_value[session.save_path] = " + filepath.Join(p.StateRoot, "sessions") + "\n" +
+		"php_admin_flag[session.cookie_secure] = on\n" +
 		"php_admin_value[session.cookie_path] = /phpmyadmin/\n"
 }
 
