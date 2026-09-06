@@ -64,7 +64,7 @@ not independently verify those attestations or use a project signing key.
 Server navigation contains Overview, Sites, Activity, Monitoring, Databases,
 Storage, DNS providers, Users, and Account. Server resources such as storage credentials are configured
 once. Inside a site, Overview, WordPress, Staging, Backups, SSL & security,
-Settings, Files, DNS, and Logs expose the tools relevant to that site and your role.
+Settings, Files, Databases, DNS, and Logs expose the tools relevant to that site and your role.
 
 Start with Sites → create a site. Connect storage before using protected
 WordPress updates, restores, or staging deployment. Activity shows whether a

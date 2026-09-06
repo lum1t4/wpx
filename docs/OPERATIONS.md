@@ -278,19 +278,21 @@ target.
 
 ## Databases and phpMyAdmin
 
-Databases is an owner/administrator server page. WordPress databases appear
-automatically. Additional MariaDB databases can be associated with an active
-site; the label is for people, while WPX generates the UUID, SQL database name,
-SQL user, and password. Every SQL user receives privileges only on its own
-database. Credentials are encrypted in panel state and are revealed only after
-an authenticated, CSRF-protected request; the access is recorded locally.
+Every site has a Databases tool that shows only its WordPress database and
+additional MariaDB databases. Owners and administrators also have a server-wide
+Databases page. Collaborators can use the site tool for assigned sites;
+customers cannot open database tools or retrieve credentials. The label is for
+people, while WPX generates the UUID, SQL database name, SQL user, and password.
+Every SQL user receives privileges only on its own database. Credentials are
+encrypted in panel state and are revealed only after an authenticated,
+CSRF-protected request; the access is recorded locally.
 
 phpMyAdmin is an optional one-click installation from that page. The durable
 installation downloads phpMyAdmin 5.2.3 from its official immutable URL,
 verifies the pinned SHA-256, omits its setup application, and configures a
 dedicated PHP 8.4 FPM pool with on-demand workers. Browser traffic stays below
 the panel's `/phpmyadmin/` path and must pass the WPX owner/administrator
-session. A one-minute, one-use broker token signs phpMyAdmin into the selected
+session with the database capability. A one-minute, one-use broker token signs phpMyAdmin into the selected
 database account; MariaDB root credentials are never handed to the browser.
 The loopback Nginx service is not a separately published database console.
 

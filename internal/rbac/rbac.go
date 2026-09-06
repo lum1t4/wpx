@@ -22,6 +22,7 @@ const (
 	ViewSite        Capability = "site.view"
 	DeploySite      Capability = "site.deploy"
 	ManageBackups   Capability = "site.backups"
+	ManageDatabases Capability = "site.databases"
 	ManageFiles     Capability = "site.files"
 	ManageDNS       Capability = "site.dns"
 	ViewLogs        Capability = "site.logs"
@@ -32,10 +33,10 @@ const (
 
 var presets = map[Role]map[Capability]struct{}{
 	Owner: set(ManageOwnership, ManageServer, ManageUsers, ManageAllSites, ViewSite,
-		DeploySite, ManageBackups, ManageFiles, ManageDNS, ViewLogs, WordPressLogin, ManageTLS, ManageWordPress),
+		DeploySite, ManageBackups, ManageDatabases, ManageFiles, ManageDNS, ViewLogs, WordPressLogin, ManageTLS, ManageWordPress),
 	Administrator: set(ManageServer, ManageUsers, ManageAllSites, ViewSite,
-		DeploySite, ManageBackups, ManageFiles, ManageDNS, ViewLogs, WordPressLogin, ManageTLS, ManageWordPress),
-	Collaborator: set(ViewSite, DeploySite, ManageBackups, ManageFiles, ManageDNS,
+		DeploySite, ManageBackups, ManageDatabases, ManageFiles, ManageDNS, ViewLogs, WordPressLogin, ManageTLS, ManageWordPress),
+	Collaborator: set(ViewSite, DeploySite, ManageBackups, ManageDatabases, ManageFiles, ManageDNS,
 		ViewLogs, WordPressLogin, ManageTLS, ManageWordPress),
 	Customer: set(ViewSite, ManageBackups, ViewLogs, WordPressLogin),
 }

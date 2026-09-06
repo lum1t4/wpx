@@ -14,7 +14,7 @@ func TestOwnershipIsOwnerOnly(t *testing.T) {
 }
 
 func TestCustomerHasNoMutationCapabilities(t *testing.T) {
-	for _, capability := range []Capability{DeploySite, ManageFiles, ManageDNS, ManageServer} {
+	for _, capability := range []Capability{DeploySite, ManageDatabases, ManageFiles, ManageDNS, ManageServer} {
 		if Allows(Customer, capability) {
 			t.Fatalf("customer unexpectedly has %q", capability)
 		}

@@ -364,7 +364,7 @@ func phpMyAdminConfig(secret, stateRoot string) string {
 		"$cfg['Servers'][$i]['auth_type'] = 'signon';\n" +
 		"$cfg['Servers'][$i]['SignonSession'] = 'WPXSignon';\n" +
 		"$cfg['Servers'][$i]['SignonURL'] = '/phpmyadmin/wpx-signon.php';\n" +
-		"$cfg['Servers'][$i]['LogoutURL'] = '/databases';\n" +
+		"$cfg['Servers'][$i]['LogoutURL'] = '/sites';\n" +
 		"$cfg['Servers'][$i]['host'] = 'localhost';\n" +
 		"$cfg['Servers'][$i]['connect_type'] = 'socket';\n" +
 		"$cfg['Servers'][$i]['socket'] = '/run/mysqld/mysqld.sock';\n" +

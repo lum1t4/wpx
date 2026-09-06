@@ -1,0 +1,96 @@
+{{define "site-databases"}}
+<section class="rounded-lg border border-zinc-200 bg-white">
+  <div class="flex flex-col gap-3 border-b border-zinc-200 p-5 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h2 class="text-base font-semibold text-zinc-950">Database access</h2>
+      <p class="mt-1 max-w-2xl text-sm leading-6 text-zinc-500">Each database has its own MariaDB user. Opening phpMyAdmin signs in with access to that database only.</p>
+    </div>
+    <span class="w-fit rounded-md border border-zinc-200 px-2 py-1 text-xs font-medium">phpMyAdmin · {{if eq .DatabaseAdminStatus "not_installed"}}Not installed{{else if eq .DatabaseAdminStatus "active"}}Active{{else if eq .DatabaseAdminStatus "queued"}}Installing{{else}}Failed{{end}}</span>
+  </div>
+  {{if ne .DatabaseAdminStatus "active"}}
+  <div class="p-5 text-sm leading-6 text-zinc-600">
+    phpMyAdmin is not ready. {{if .CanManageServer}}<a class="font-medium text-zinc-950 underline underline-offset-4" href="/databases">Enable it in server databases</a>.{{else}}Ask an owner or administrator to enable it.{{end}}
+  </div>
+  {{end}}
+</section>
+
+{{if eq .Site.Kind "wordpress"}}
+<section class="mt-6 rounded-lg border border-zinc-200 bg-white p-5">
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <div class="flex flex-wrap items-center gap-2"><h2 class="text-base font-semibold text-zinc-950">WordPress database</h2><span class="rounded-md border border-zinc-200 px-2 py-0.5 text-xs capitalize">{{.Site.Status}}</span></div>
+      <p class="mt-2 text-sm leading-6 text-zinc-500">Created with WordPress and included in this site's WordPress backup and staging workflows.</p>
+    </div>
+    {{if and (eq .Site.Status "active") (eq .DatabaseAdminStatus "active")}}
+    <form method="post" action="/sites/{{.Site.ID}}/database/open">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <button class="rounded-md bg-zinc-950 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800">Open phpMyAdmin <span aria-hidden="true">↗</span></button>
+    </form>
+    {{end}}
+  </div>
+</section>
+{{end}}
+
+{{if .SelectedDatabase}}
+<section class="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-5">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div><h2 class="text-base font-semibold text-zinc-950">Credentials for {{.SelectedDatabase.Label}}</h2><p class="mt-1 text-sm text-zinc-600">Copy them directly into this application's configuration. Credential access is recorded locally.</p></div>
+    <a class="text-sm font-medium text-zinc-700 underline underline-offset-4 hover:text-zinc-950" href="/sites/{{.Site.ID}}/databases">Hide credentials</a>
+  </div>
+  <dl class="mt-4 grid gap-4 sm:grid-cols-2">
+    <div><dt class="text-xs font-medium text-zinc-500">Host</dt><dd class="mt-1"><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" readonly value="localhost"></dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500">Database</dt><dd class="mt-1"><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" readonly value="{{.SelectedDatabase.Name}}"></dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500">Username</dt><dd class="mt-1"><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" readonly value="{{.SelectedDatabase.Username}}"></dd></div>
+    <div><dt class="text-xs font-medium text-zinc-500">Password</dt><dd class="mt-1"><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" readonly value="{{.SelectedDatabase.Password}}"></dd></div>
+  </dl>
+</section>
+{{end}}
+
+<section class="mt-6 overflow-hidden rounded-lg border border-zinc-200 bg-white">
+  <div class="border-b border-zinc-200 px-5 py-4"><h2 class="text-base font-semibold text-zinc-950">Application databases</h2><p class="mt-1 text-sm leading-6 text-zinc-500">Additional databases associated with {{.Site.Domain}}. They are not included in automatic site backups.</p></div>
+  <div class="divide-y divide-zinc-100">
+    {{range .Databases}}
+    <article class="p-5">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2"><h3 class="font-medium text-zinc-950">{{.Label}}</h3><span class="rounded-md border border-zinc-200 px-2 py-0.5 text-xs capitalize">{{.Status}}</span></div>
+          <p class="mt-1 break-all font-mono text-xs text-zinc-500">{{.Name}}</p>
+        </div>
+        {{if eq .Status "active"}}
+        <div class="flex flex-wrap gap-2">
+          {{if eq $.DatabaseAdminStatus "active"}}<form method="post" action="/sites/{{$.Site.ID}}/databases/{{.ID}}/open"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><button class="rounded-md bg-zinc-950 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800">Open phpMyAdmin</button></form>{{end}}
+          <form method="post" action="/sites/{{$.Site.ID}}/databases/{{.ID}}/reveal"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><button class="rounded-md border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">Show credentials</button></form>
+        </div>
+        {{end}}
+      </div>
+      {{if or (eq .Status "active") (eq .Status "failed") (eq .Status "delete_failed")}}
+      <details class="mt-4 rounded-md border border-red-200">
+        <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-red-700">Delete database</summary>
+        <form class="border-t border-red-200 p-4" method="post" action="/sites/{{$.Site.ID}}/databases/{{.ID}}/delete">
+          <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+          <p class="text-sm leading-6 text-zinc-600">This permanently removes the database and SQL user. Type <strong class="font-mono">{{.Name}}</strong> to confirm.</p>
+          <div class="mt-3 flex flex-col gap-2 sm:flex-row"><input class="min-w-0 flex-1 rounded-md border border-zinc-200 px-3 py-2 font-mono text-sm" name="confirmation" autocomplete="off" required><button class="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800">Delete permanently</button></div>
+        </form>
+      </details>
+      {{end}}
+    </article>
+    {{else}}
+    <div class="p-8 text-center"><p class="font-medium text-zinc-950">No application databases</p><p class="mt-1 text-sm text-zinc-500">Create one when this site needs data outside its WordPress database.</p></div>
+    {{end}}
+  </div>
+</section>
+
+{{if eq .Site.Status "active"}}
+<details class="mt-6 rounded-lg border border-zinc-200 bg-white">
+  <summary class="cursor-pointer px-5 py-4 text-sm font-semibold text-zinc-950">Create an application database</summary>
+  <form class="border-t border-zinc-200 p-5" method="post" action="/sites/{{.Site.ID}}/databases">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <label class="block max-w-xl"><span class="mb-2 block text-sm font-medium text-zinc-950">Label</span><input class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" name="label" placeholder="Application database" minlength="2" maxlength="64" required></label>
+    <p class="mt-3 max-w-2xl text-xs leading-5 text-zinc-500">WPX generates the UUID, database name, SQL user, and password. Association with this site controls panel access; the SQL user can access only its own database.</p>
+    <button class="mt-4 rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Create database</button>
+  </form>
+</details>
+{{else}}
+<p class="mt-6 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm leading-6 text-zinc-600">The site must be active before you can create another database.</p>
+{{end}}
+{{end}}

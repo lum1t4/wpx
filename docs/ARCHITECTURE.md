@@ -121,6 +121,12 @@ user names are derived from a hash of that UUID rather than a form field. The
 encrypted credential record survives loss of its site association, so site
 deletion cannot silently destroy unrelated application data.
 
+Database authorization follows the association, not a submitted identifier.
+Site routes load the database and require its stored `site_id` to match the
+authorized site. Owner/admin server routes remain the only way to manage a
+database whose site association was removed. Collaborators receive the
+database capability only on assigned sites; customers do not receive it.
+
 Keep this separation when adding features. A domain change must not move files,
 replace a site account, or orphan backup references. SQLite uniqueness checks
 remain the final collision boundary, and deleted identifiers stay reserved in

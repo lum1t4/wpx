@@ -242,6 +242,13 @@ var migrations = []string{
 		status TEXT NOT NULL CHECK(status IN ('queued','active','failed')),
 		updated_at TEXT NOT NULL
 	);`,
+	// Site database access is deliberately separate from server administration.
+	// Backfill existing collaborator assignments from their view grant so an
+	// upgrade does not silently hide a tool they would receive when newly added.
+	`INSERT OR IGNORE INTO site_grants(user_id,site_id,capability)
+		SELECT g.user_id,g.site_id,'site.databases'
+		FROM site_grants g JOIN users u ON u.id=g.user_id
+		WHERE g.capability='site.view' AND u.role='collaborator';`,
 }
 
 func (s *Store) migrate(ctx context.Context) error {

@@ -106,8 +106,24 @@ func (s *Server) sitePage(w http.ResponseWriter, r *http.Request, user store.Use
 		http.Error(w, "permission denied", http.StatusForbidden)
 		return
 	}
-	data := pageData{Title: site.Domain, User: &user, CSRF: s.ensureCSRF(w, r), Site: &site, CanManageSites: rbac.Allows(user.Role, rbac.ManageAllSites), CanManageUsers: rbac.Allows(user.Role, rbac.ManageUsers), CanWordPressLogin: site.Kind == model.WordPress && s.store.UserCanSite(r.Context(), user, site.ID, rbac.WordPressLogin), CanManageTLS: s.store.UserCanSite(r.Context(), user, site.ID, rbac.ManageTLS), CanManageWordPress: site.Kind == model.WordPress && s.store.UserCanSite(r.Context(), user, site.ID, rbac.ManageWordPress), CanManageFiles: s.store.UserCanSite(r.Context(), user, site.ID, rbac.ManageFiles), CanManageBackups: s.store.UserCanSite(r.Context(), user, site.ID, rbac.ManageBackups), CanDeploySite: s.store.UserCanSite(r.Context(), user, site.ID, rbac.DeploySite), CanViewLogs: s.store.UserCanSite(r.Context(), user, site.ID, rbac.ViewLogs), CanManageDNS: s.store.UserCanSite(r.Context(), user, site.ID, rbac.ManageDNS)}
+	data := pageData{Title: site.Domain, User: &user, CSRF: s.ensureCSRF(w, r), Site: &site, CanManageSites: rbac.Allows(user.Role, rbac.ManageAllSites), CanManageUsers: rbac.Allows(user.Role, rbac.ManageUsers), CanWordPressLogin: site.Kind == model.WordPress && s.store.UserCanSite(r.Context(), user, site.ID, rbac.WordPressLogin), CanManageTLS: s.store.UserCanSite(r.Context(), user, site.ID, rbac.ManageTLS), CanManageWordPress: site.Kind == model.WordPress && s.store.UserCanSite(r.Context(), user, site.ID, rbac.ManageWordPress), CanManageFiles: s.store.UserCanSite(r.Context(), user, site.ID, rbac.ManageFiles), CanManageBackups: s.store.UserCanSite(r.Context(), user, site.ID, rbac.ManageBackups), CanManageDatabases: s.store.UserCanSite(r.Context(), user, site.ID, rbac.ManageDatabases), CanDeploySite: s.store.UserCanSite(r.Context(), user, site.ID, rbac.DeploySite), CanViewLogs: s.store.UserCanSite(r.Context(), user, site.ID, rbac.ViewLogs), CanManageDNS: s.store.UserCanSite(r.Context(), user, site.ID, rbac.ManageDNS)}
 	data.Section = section
+	if section == "databases" {
+		if !data.CanManageDatabases {
+			http.Error(w, "permission denied", http.StatusForbidden)
+			return
+		}
+		data.Databases, err = s.store.ListDatabasesForSite(r.Context(), site.ID)
+		if err != nil {
+			http.Error(w, "could not load site databases", http.StatusInternalServerError)
+			return
+		}
+		data.DatabaseAdminStatus, err = s.store.DatabaseAdminStatus(r.Context())
+		if err != nil {
+			http.Error(w, "could not load database tools", http.StatusInternalServerError)
+			return
+		}
+	}
 	if site.Kind == model.WordPress && (section == "overview" || section == "staging") {
 		sites, listErr := s.store.ListSitesForUser(r.Context(), user)
 		if listErr != nil {
@@ -190,6 +206,12 @@ func (s *Server) sitePage(w http.ResponseWriter, r *http.Request, user store.Use
 	}
 	if r.URL.Query().Get("wordpress") == "queued" {
 		data.Message = "WordPress change queued. Follow its progress in Activity."
+	}
+	if r.URL.Query().Get("database") == "queued" {
+		data.Message = "Database creation is queued. Activity will show when it is ready."
+	}
+	if r.URL.Query().Get("database-delete") == "queued" {
+		data.Message = "Database deletion is queued."
 	}
 	if (section == "backups" && data.CanManageBackups) || (section == "wordpress" && data.CanManageWordPress) || (section == "staging" && data.CanDeploySite) {
 		data.BackupTargets, err = s.store.ListBackupTargets(r.Context())

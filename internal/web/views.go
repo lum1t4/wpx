@@ -21,6 +21,8 @@ func canViewSiteSection(user store.User, site model.Site, section string) bool {
 		return site.Kind == model.WordPress && rbac.Allows(user.Role, rbac.DeploySite)
 	case "backups":
 		return rbac.Allows(user.Role, rbac.ManageBackups)
+	case "databases":
+		return rbac.Allows(user.Role, rbac.ManageDatabases)
 	case "security":
 		return rbac.Allows(user.Role, rbac.ManageTLS)
 	case "settings":
@@ -48,6 +50,7 @@ func preparePageData(name string, data *pageData) {
 			data.CanManageTLS = rbac.Allows(role, rbac.ManageTLS)
 			data.CanManageFiles = rbac.Allows(role, rbac.ManageFiles)
 			data.CanManageBackups = rbac.Allows(role, rbac.ManageBackups)
+			data.CanManageDatabases = rbac.Allows(role, rbac.ManageDatabases)
 			data.CanDeploySite = rbac.Allows(role, rbac.DeploySite)
 			data.CanViewLogs = rbac.Allows(role, rbac.ViewLogs)
 			data.CanManageDNS = rbac.Allows(role, rbac.ManageDNS)

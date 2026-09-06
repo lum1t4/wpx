@@ -1,6 +1,7 @@
 package web
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/lum1t4/wpx/internal/broker"
 	"github.com/lum1t4/wpx/internal/model"
+	"github.com/lum1t4/wpx/internal/rbac"
 	"github.com/lum1t4/wpx/internal/store"
 )
 
@@ -78,7 +80,12 @@ func (s *Server) openManagedDatabase(w http.ResponseWriter, r *http.Request, use
 		s.renderDatabases(w, r, user, http.StatusBadRequest, "database is not active", nil)
 		return
 	}
-	s.openDatabase(w, r, user, broker.DatabaseOpenRequest{Database: &database})
+	location, failureStatus, err := s.prepareDatabaseOpen(r, user, broker.DatabaseOpenRequest{Database: &database})
+	if err != nil {
+		s.renderDatabases(w, r, user, failureStatus, err.Error(), nil)
+		return
+	}
+	http.Redirect(w, r, location, http.StatusSeeOther)
 }
 
 func (s *Server) openPrimaryDatabase(w http.ResponseWriter, r *http.Request, user store.User) {
@@ -86,24 +93,34 @@ func (s *Server) openPrimaryDatabase(w http.ResponseWriter, r *http.Request, use
 		http.Error(w, "invalid request token", http.StatusForbidden)
 		return
 	}
-	site, err := s.store.Site(r.Context(), r.PathValue("id"))
-	if err != nil || site.Kind != model.WordPress || site.Status != "active" {
-		s.renderDatabases(w, r, user, http.StatusBadRequest, "WordPress database is unavailable", nil)
+	site, ok := s.authorizedDatabaseSite(w, r, user)
+	if !ok {
 		return
 	}
-	s.openDatabase(w, r, user, broker.DatabaseOpenRequest{Site: &site})
+	if site.Kind != model.WordPress || site.Status != "active" {
+		s.renderSiteDatabases(w, r, user, site, http.StatusBadRequest, "WordPress database is unavailable", nil)
+		return
+	}
+	location, failureStatus, err := s.prepareDatabaseOpen(r, user, broker.DatabaseOpenRequest{Site: &site})
+	if err != nil {
+		s.renderSiteDatabases(w, r, user, site, failureStatus, err.Error(), nil)
+		return
+	}
+	http.Redirect(w, r, location, http.StatusSeeOther)
 }
 
-func (s *Server) openDatabase(w http.ResponseWriter, r *http.Request, user store.User, request broker.DatabaseOpenRequest) {
-	if status, err := s.store.DatabaseAdminStatus(r.Context()); err != nil || status != "active" {
-		s.renderDatabases(w, r, user, http.StatusBadRequest, "install phpMyAdmin before opening a database", nil)
-		return
+func (s *Server) prepareDatabaseOpen(r *http.Request, user store.User, request broker.DatabaseOpenRequest) (string, int, error) {
+	status, err := s.store.DatabaseAdminStatus(r.Context())
+	if err != nil {
+		return "", http.StatusInternalServerError, errors.New("could not load phpMyAdmin status")
+	}
+	if status != "active" {
+		return "", http.StatusBadRequest, errors.New("install phpMyAdmin before opening a database")
 	}
 	var result broker.DatabaseOpenResult
 	if err := s.broker.Call(r.Context(), broker.OpDatabaseOpen, "database.open:"+mustRandomHex(16), request, &result); err != nil || result.Token == "" {
 		s.logger.Warn("prepare phpMyAdmin sign-in", "error", err)
-		s.renderDatabases(w, r, user, http.StatusBadGateway, "phpMyAdmin sign-in could not be prepared", nil)
-		return
+		return "", http.StatusBadGateway, errors.New("phpMyAdmin sign-in could not be prepared")
 	}
 	targetType, targetID := "", ""
 	if request.Site != nil {
@@ -112,10 +129,131 @@ func (s *Server) openDatabase(w http.ResponseWriter, r *http.Request, user store
 		targetType, targetID = "database", request.Database.ID
 	}
 	if err := s.store.RecordDatabaseAccess(r.Context(), user, "database.phpmyadmin_opened", targetType, targetID); err != nil {
-		http.Error(w, "could not record database access", http.StatusInternalServerError)
+		return "", http.StatusInternalServerError, errors.New("could not record database access")
+	}
+	return "/phpmyadmin/wpx-signon.php?token=" + url.QueryEscape(result.Token), 0, nil
+}
+
+func (s *Server) createSiteDatabase(w http.ResponseWriter, r *http.Request, user store.User) {
+	if !s.validCSRF(r) {
+		http.Error(w, "invalid request token", http.StatusForbidden)
 		return
 	}
-	http.Redirect(w, r, "/phpmyadmin/wpx-signon.php?token="+url.QueryEscape(result.Token), http.StatusSeeOther)
+	site, ok := s.authorizedDatabaseSite(w, r, user)
+	if !ok {
+		return
+	}
+	if !allowSiteMutation(w, r, site) {
+		return
+	}
+	if _, _, err := s.store.CreateDatabase(r.Context(), user, site.ID, r.FormValue("label")); err != nil {
+		s.renderSiteDatabases(w, r, user, site, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	http.Redirect(w, r, "/sites/"+url.PathEscape(site.ID)+"/databases?database=queued", http.StatusSeeOther)
+}
+
+func (s *Server) revealSiteDatabase(w http.ResponseWriter, r *http.Request, user store.User) {
+	if !s.validCSRF(r) {
+		http.Error(w, "invalid request token", http.StatusForbidden)
+		return
+	}
+	site, database, ok := s.authorizedSiteDatabase(w, r, user)
+	if !ok {
+		return
+	}
+	if database.Status != "active" {
+		s.renderSiteDatabases(w, r, user, site, http.StatusBadRequest, "database credentials are unavailable until creation succeeds", nil)
+		return
+	}
+	if err := s.store.RecordDatabaseAccess(r.Context(), user, "database.credentials_viewed", "database", database.ID); err != nil {
+		http.Error(w, "could not record credential access", http.StatusInternalServerError)
+		return
+	}
+	s.renderSiteDatabases(w, r, user, site, http.StatusOK, "", &database)
+}
+
+func (s *Server) openSiteDatabase(w http.ResponseWriter, r *http.Request, user store.User) {
+	if !s.validCSRF(r) {
+		http.Error(w, "invalid request token", http.StatusForbidden)
+		return
+	}
+	site, database, ok := s.authorizedSiteDatabase(w, r, user)
+	if !ok {
+		return
+	}
+	if database.Status != "active" {
+		s.renderSiteDatabases(w, r, user, site, http.StatusBadRequest, "database is not active", nil)
+		return
+	}
+	location, failureStatus, err := s.prepareDatabaseOpen(r, user, broker.DatabaseOpenRequest{Database: &database})
+	if err != nil {
+		s.renderSiteDatabases(w, r, user, site, failureStatus, err.Error(), nil)
+		return
+	}
+	http.Redirect(w, r, location, http.StatusSeeOther)
+}
+
+func (s *Server) deleteSiteDatabase(w http.ResponseWriter, r *http.Request, user store.User) {
+	if !s.validCSRF(r) {
+		http.Error(w, "invalid request token", http.StatusForbidden)
+		return
+	}
+	site, database, ok := s.authorizedSiteDatabase(w, r, user)
+	if !ok {
+		return
+	}
+	if !allowSiteMutation(w, r, site) {
+		return
+	}
+	if _, err := s.store.EnqueueDatabaseDelete(r.Context(), user, database.ID, r.FormValue("confirmation")); err != nil {
+		s.renderSiteDatabases(w, r, user, site, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	http.Redirect(w, r, "/sites/"+url.PathEscape(site.ID)+"/databases?database-delete=queued", http.StatusSeeOther)
+}
+
+func (s *Server) authorizedDatabaseSite(w http.ResponseWriter, r *http.Request, user store.User) (model.Site, bool) {
+	site, err := s.store.Site(r.Context(), r.PathValue("id"))
+	if err != nil {
+		http.NotFound(w, r)
+		return model.Site{}, false
+	}
+	if !s.store.UserCanSite(r.Context(), user, site.ID, rbac.ManageDatabases) {
+		http.Error(w, "permission denied", http.StatusForbidden)
+		return model.Site{}, false
+	}
+	return site, true
+}
+
+func (s *Server) authorizedSiteDatabase(w http.ResponseWriter, r *http.Request, user store.User) (model.Site, model.Database, bool) {
+	site, ok := s.authorizedDatabaseSite(w, r, user)
+	if !ok {
+		return model.Site{}, model.Database{}, false
+	}
+	database, err := s.store.Database(r.Context(), r.PathValue("database"))
+	if err != nil || database.SiteID != site.ID {
+		http.NotFound(w, r)
+		return model.Site{}, model.Database{}, false
+	}
+	return site, database, true
+}
+
+func (s *Server) renderSiteDatabases(w http.ResponseWriter, r *http.Request, user store.User, site model.Site, status int, message string, selected *model.Database) {
+	databases, databaseErr := s.store.ListDatabasesForSite(r.Context(), site.ID)
+	adminStatus, adminErr := s.store.DatabaseAdminStatus(r.Context())
+	if databaseErr != nil || adminErr != nil {
+		http.Error(w, "could not load site databases", http.StatusInternalServerError)
+		return
+	}
+	if selected != nil && selected.SiteID != site.ID {
+		selected = nil
+	}
+	data := pageData{Title: site.Domain, Section: "databases", User: &user, CSRF: s.ensureCSRF(w, r), Site: &site, CanManageDatabases: true, Databases: databases, DatabaseAdminStatus: adminStatus, SelectedDatabase: selected}
+	if message != "" {
+		data.Error = message
+	}
+	s.renderStatus(w, "site.html", status, data)
 }
 
 func (s *Server) proxyDatabaseAdmin(w http.ResponseWriter, r *http.Request, _ store.User) {

@@ -16,11 +16,11 @@ import (
 )
 
 func (s *Store) CreateDatabase(ctx context.Context, actor User, siteID, label string) (model.Database, string, error) {
-	if !rbac.Allows(actor.Role, rbac.ManageServer) {
-		return model.Database{}, "", errors.New("permission denied")
-	}
 	if err := model.ValidateSiteID(siteID); err != nil {
 		return model.Database{}, "", err
+	}
+	if !s.UserCanSite(ctx, actor, siteID, rbac.ManageDatabases) {
+		return model.Database{}, "", errors.New("permission denied")
 	}
 	id, err := model.NewDatabaseID()
 	if err != nil {
@@ -78,7 +78,18 @@ func (s *Store) CreateDatabase(ctx context.Context, actor User, siteID, label st
 }
 
 func (s *Store) ListDatabases(ctx context.Context) ([]model.Database, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT d.id,COALESCE(d.site_id,''),COALESCE(s.domain,''),d.label,d.name,d.username,d.status,d.created_at FROM databases d LEFT JOIN sites s ON s.id=d.site_id ORDER BY d.label,d.name`)
+	return s.listDatabases(ctx, "", nil)
+}
+
+func (s *Store) ListDatabasesForSite(ctx context.Context, siteID string) ([]model.Database, error) {
+	if err := model.ValidateSiteID(siteID); err != nil {
+		return nil, err
+	}
+	return s.listDatabases(ctx, ` WHERE d.site_id=?`, []any{siteID})
+}
+
+func (s *Store) listDatabases(ctx context.Context, condition string, args []any) ([]model.Database, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT d.id,COALESCE(d.site_id,''),COALESCE(s.domain,''),d.label,d.name,d.username,d.status,d.created_at FROM databases d LEFT JOIN sites s ON s.id=d.site_id`+condition+` ORDER BY d.label,d.name`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -121,12 +132,12 @@ func (s *Store) Database(ctx context.Context, id string) (model.Database, error)
 }
 
 func (s *Store) EnqueueDatabaseDelete(ctx context.Context, actor User, id, confirmation string) (string, error) {
-	if !rbac.Allows(actor.Role, rbac.ManageServer) {
-		return "", errors.New("permission denied")
-	}
 	database, err := s.Database(ctx, id)
 	if err != nil {
 		return "", errors.New("database does not exist")
+	}
+	if !s.userCanDatabase(ctx, actor, database) {
+		return "", errors.New("permission denied")
 	}
 	if confirmation != database.Name {
 		return "", errors.New("type the database name exactly to confirm deletion")
@@ -204,15 +215,28 @@ func (s *Store) DatabaseAdminStatus(ctx context.Context) (string, error) {
 }
 
 func (s *Store) RecordDatabaseAccess(ctx context.Context, actor User, action, targetType, targetID string) error {
-	if !rbac.Allows(actor.Role, rbac.ManageServer) {
-		return errors.New("permission denied")
-	}
 	if action != "database.credentials_viewed" && action != "database.phpmyadmin_opened" {
 		return errors.New("invalid database audit action")
 	}
 	if targetType != "database" && targetType != "site" {
 		return errors.New("invalid database audit target")
 	}
+	allowed := false
+	if targetType == "site" {
+		allowed = s.UserCanSite(ctx, actor, targetID, rbac.ManageDatabases)
+	} else if database, err := s.Database(ctx, targetID); err == nil {
+		allowed = s.userCanDatabase(ctx, actor, database)
+	}
+	if !allowed {
+		return errors.New("permission denied")
+	}
 	_, err := s.db.ExecContext(ctx, `INSERT INTO audit_events(id,actor_id,action,target_type,target_id,result,created_at) VALUES(?,?,?,?,?,?,?)`, mustID("aud_"), actor.ID, action, targetType, targetID, "success", s.now().UTC().Format(time.RFC3339Nano))
 	return err
+}
+
+func (s *Store) userCanDatabase(ctx context.Context, actor User, database model.Database) bool {
+	if rbac.Allows(actor.Role, rbac.ManageServer) {
+		return true
+	}
+	return database.SiteID != "" && s.UserCanSite(ctx, actor, database.SiteID, rbac.ManageDatabases)
 }

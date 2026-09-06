@@ -35,15 +35,19 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /databases/{id}/reveal", s.requireSession(s.requireCapability(rbac.ManageServer, s.revealDatabase)))
 	mux.HandleFunc("POST /databases/{id}/open", s.requireSession(s.requireCapability(rbac.ManageServer, s.openManagedDatabase)))
 	mux.HandleFunc("POST /databases/{id}/delete", s.requireSession(s.requireCapability(rbac.ManageServer, s.deleteDatabase)))
-	mux.HandleFunc("POST /sites/{id}/database/open", s.requireSession(s.requireCapability(rbac.ManageServer, s.openPrimaryDatabase)))
-	mux.HandleFunc("/phpmyadmin/", s.requireSession(s.requireCapability(rbac.ManageServer, s.proxyDatabaseAdmin)))
+	mux.HandleFunc("POST /sites/{id}/database/open", s.requireSession(s.openPrimaryDatabase))
+	mux.HandleFunc("/phpmyadmin/", s.requireSession(s.requireCapability(rbac.ManageDatabases, s.proxyDatabaseAdmin)))
 	mux.HandleFunc("GET /sites", s.requireSession(s.sitesPage))
 	mux.HandleFunc("GET /sites/new", s.requireSession(s.requireCapability(rbac.ManageAllSites, s.newSitePage)))
 	mux.HandleFunc("POST /sites", s.requireSession(s.requireCapability(rbac.ManageAllSites, s.createSite)))
 	mux.HandleFunc("GET /sites/{id}", s.requireSession(s.sitePage))
-	for _, section := range []string{"wordpress", "staging", "backups", "security", "settings"} {
+	for _, section := range []string{"wordpress", "staging", "backups", "databases", "security", "settings"} {
 		mux.HandleFunc("GET /sites/{id}/"+section, s.requireSession(s.sitePage))
 	}
+	mux.HandleFunc("POST /sites/{id}/databases", s.requireSession(s.createSiteDatabase))
+	mux.HandleFunc("POST /sites/{id}/databases/{database}/reveal", s.requireSession(s.revealSiteDatabase))
+	mux.HandleFunc("POST /sites/{id}/databases/{database}/open", s.requireSession(s.openSiteDatabase))
+	mux.HandleFunc("POST /sites/{id}/databases/{database}/delete", s.requireSession(s.deleteSiteDatabase))
 	mux.HandleFunc("POST /sites/{id}/disable", s.requireSession(s.requireCapability(rbac.ManageAllSites, s.disableSite)))
 	mux.HandleFunc("POST /sites/{id}/enable", s.requireSession(s.requireCapability(rbac.ManageAllSites, s.enableSite)))
 	mux.HandleFunc("POST /sites/{id}/retry", s.requireSession(s.requireCapability(rbac.ManageAllSites, s.retrySiteProvision)))

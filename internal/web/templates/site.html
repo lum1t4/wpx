@@ -6,7 +6,7 @@
       <span class="break-all">{{.Site.Domain}}</span>
       {{if eq .Site.Environment "staging"}}<span class="rounded-md border border-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700">Staging</span>{{end}}
     </p>
-    <h1 class="text-2xl font-semibold tracking-tight text-zinc-950">{{if eq .Section "wordpress"}}WordPress{{else if eq .Section "staging"}}Staging{{else if eq .Section "backups"}}Backups{{else if eq .Section "security"}}Security{{else if eq .Section "settings"}}Site settings{{else}}Site overview{{end}}</h1>
+    <h1 class="text-2xl font-semibold tracking-tight text-zinc-950">{{if eq .Section "wordpress"}}WordPress{{else if eq .Section "staging"}}Staging{{else if eq .Section "backups"}}Backups{{else if eq .Section "databases"}}Databases{{else if eq .Section "security"}}Security{{else if eq .Section "settings"}}Site settings{{else}}Site overview{{end}}</h1>
   </div>
   <a class="inline-flex items-center justify-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm transition hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950" href="{{if eq .Site.TLSStatus "active"}}https{{else}}http{{end}}://{{.Site.Domain}}" target="_blank" rel="noopener noreferrer">Visit site <span aria-hidden="true">↗</span><span class="sr-only"> (opens in a new tab)</span></a>
 </header>
@@ -20,6 +20,8 @@
   {{template "site-staging" .}}
 {{else if eq .Section "backups"}}
   {{template "site-backups" .}}
+{{else if eq .Section "databases"}}
+  {{template "site-databases" .}}
 {{else if eq .Section "security"}}
   {{template "site-security" .}}
 {{else if eq .Section "settings"}}

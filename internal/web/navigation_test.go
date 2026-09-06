@@ -115,7 +115,7 @@ func TestSiteSectionPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, section := range []string{"", "/wordpress", "/staging", "/backups", "/security", "/settings", "/files", "/observability", "/dns"} {
+	for _, section := range []string{"", "/wordpress", "/staging", "/backups", "/databases", "/security", "/settings", "/files", "/observability", "/dns"} {
 		t.Run("owner"+section, func(t *testing.T) {
 			response := navigationRequest(t, server, owner, http.MethodGet, "/sites/team-site"+section, nil)
 			requireNavigationStatus(t, response, http.StatusOK)
@@ -126,7 +126,7 @@ func TestSiteSectionPermissions(t *testing.T) {
 			response := navigationRequest(t, server, customer, http.MethodGet, "/sites/team-site"+section, nil)
 			requireNavigationStatus(t, response, http.StatusOK)
 			links := navigationLinks(response.Body.String())
-			for _, restricted := range []string{"/wordpress", "/staging", "/security", "/settings", "/files", "/dns"} {
+			for _, restricted := range []string{"/wordpress", "/staging", "/security", "/settings", "/files", "/databases", "/dns"} {
 				if links["/sites/team-site"+restricted] {
 					t.Errorf("customer navigation exposes unavailable tool %s", restricted)
 				}
@@ -138,18 +138,62 @@ func TestSiteSectionPermissions(t *testing.T) {
 			}
 		})
 	}
-	for _, path := range []string{"/sites/team-site/wordpress", "/sites/team-site/staging", "/sites/team-site/security", "/sites/team-site/settings", "/sites/team-site/files", "/sites/team-site/dns", "/sites/new", "/sites/private-site", "/sites/private-site/backups"} {
+	for _, path := range []string{"/sites/team-site/wordpress", "/sites/team-site/staging", "/sites/team-site/security", "/sites/team-site/settings", "/sites/team-site/files", "/sites/team-site/databases", "/sites/team-site/dns", "/sites/new", "/sites/private-site", "/sites/private-site/backups", "/phpmyadmin/"} {
 		t.Run("customer denied "+path, func(t *testing.T) {
 			requireNavigationStatus(t, navigationRequest(t, server, customer, http.MethodGet, path, nil), http.StatusForbidden)
 		})
 	}
-	for _, section := range []string{"/wordpress", "/staging", "/security", "/backups"} {
+	for _, section := range []string{"/wordpress", "/staging", "/security", "/backups", "/databases"} {
 		t.Run("collaborator"+section, func(t *testing.T) {
 			requireNavigationStatus(t, navigationRequest(t, server, collaborator, http.MethodGet, "/sites/team-site"+section, nil), http.StatusOK)
 		})
 	}
 	requireNavigationStatus(t, navigationRequest(t, server, collaborator, http.MethodGet, "/sites/team-site/settings", nil), http.StatusForbidden)
 	requireNavigationStatus(t, navigationRequest(t, server, collaborator, http.MethodGet, "/sites/new", nil), http.StatusForbidden)
+}
+
+func TestSiteDatabaseToolsAreScopedToTheSite(t *testing.T) {
+	server, owner, _ := navigationServer(t)
+	navigationSite(t, server, owner, model.Site{ID: "team-site", Domain: "team.example.com", Kind: model.PHP, PHPVersion: "8.4"})
+	navigationSite(t, server, owner, model.Site{ID: "private-site", Domain: "private.example.com", Kind: model.PHP, PHPVersion: "8.4"})
+	collaborator, err := server.store.CreateUser(context.Background(), owner, "database-developer", "navigation-test-password", rbac.Collaborator, []string{"team-site"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	teamDatabase, _, err := server.store.CreateDatabase(context.Background(), owner, "team-site", "Team application")
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateDatabase, _, err := server.store.CreateDatabase(context.Background(), owner, "private-site", "Private application")
+	if err != nil {
+		t.Fatal(err)
+	}
+	job, found, err := server.store.ClaimNextJob(context.Background())
+	if err != nil || !found || job.TargetID != teamDatabase.ID {
+		t.Fatalf("claim team database job: job=%#v found=%v err=%v", job, found, err)
+	}
+	if err := server.store.FinishJob(context.Background(), job, "{}", nil); err != nil {
+		t.Fatal(err)
+	}
+	response := navigationRequest(t, server, collaborator, http.MethodGet, "/sites/team-site/databases", nil)
+	requireNavigationStatus(t, response, http.StatusOK)
+	if !strings.Contains(response.Body.String(), "Team application") || strings.Contains(response.Body.String(), "Private application") {
+		t.Fatal("site database page did not keep its database list scoped")
+	}
+	response = navigationRequest(t, server, collaborator, http.MethodPost, "/sites/team-site/databases/"+teamDatabase.ID+"/reveal", url.Values{})
+	requireNavigationStatus(t, response, http.StatusOK)
+	if !strings.Contains(response.Body.String(), teamDatabase.Name) || !strings.Contains(response.Body.String(), "Credentials for Team application") {
+		t.Fatal("assigned collaborator could not reveal site database credentials")
+	}
+	response = navigationRequest(t, server, collaborator, http.MethodPost, "/sites/team-site/databases", url.Values{"label": {"Second application"}})
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/sites/team-site/databases?database=queued" {
+		t.Fatalf("site database creation returned %d %q: %s", response.Code, response.Header().Get("Location"), response.Body.String())
+	}
+	response = navigationRequest(t, server, collaborator, http.MethodPost, "/sites/team-site/databases/"+privateDatabase.ID+"/reveal", url.Values{})
+	requireNavigationStatus(t, response, http.StatusNotFound)
+	response = navigationRequest(t, server, collaborator, http.MethodPost, "/sites/private-site/databases/"+teamDatabase.ID+"/reveal", url.Values{})
+	requireNavigationStatus(t, response, http.StatusForbidden)
+	requireNavigationStatus(t, navigationRequest(t, server, collaborator, http.MethodGet, "/databases", nil), http.StatusForbidden)
 }
 
 func TestSiteOverviewDoesNotLoadWordPressInventory(t *testing.T) {

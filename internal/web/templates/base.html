@@ -56,6 +56,9 @@
     {{if .CanManageFiles}}
     <a href="/sites/{{.Site.ID}}/files" {{if eq .Section "files"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "files"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}">Files</a>
     {{end}}
+    {{if .CanManageDatabases}}
+    <a href="/sites/{{.Site.ID}}/databases" {{if eq .Section "databases"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "databases"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}">Databases</a>
+    {{end}}
     {{if .CanManageDNS}}
     <a href="/sites/{{.Site.ID}}/dns" {{if eq .Section "dns"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "dns"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}">DNS</a>
     {{end}}

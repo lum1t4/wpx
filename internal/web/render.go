@@ -55,6 +55,7 @@ type pageData struct {
 	EditingFile         bool
 	CanManageServer     bool
 	CanManageBackups    bool
+	CanManageDatabases  bool
 	CanDeploySite       bool
 	CanViewLogs         bool
 	StagingSites        []model.Site

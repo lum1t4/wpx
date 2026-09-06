@@ -59,7 +59,7 @@ func TestPHPMyAdminIsLoopbackOnlyAndUsesSingleUseSignon(t *testing.T) {
 		t.Fatalf("phpMyAdmin listener is not loopback-only:\n%s", nginx)
 	}
 	config := phpMyAdminConfig(strings.Repeat("a", 43), manager.StateRoot)
-	if !strings.Contains(config, "auth_type'] = 'signon'") || strings.Contains(config, "auth_type'] = 'cookie'") || strings.Contains(config, "root") {
+	if !strings.Contains(config, "auth_type'] = 'signon'") || !strings.Contains(config, "LogoutURL'] = '/sites'") || strings.Contains(config, "auth_type'] = 'cookie'") || strings.Contains(config, "root") {
 		t.Fatalf("phpMyAdmin config does not enforce sign-on:\n%s", config)
 	}
 	pool := manager.renderPool(Identity{Name: "wpx-pma"})
