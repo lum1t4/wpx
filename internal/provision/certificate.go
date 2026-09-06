@@ -29,7 +29,7 @@ func (h *Host) IssueCertificate(ctx context.Context, site model.Site) error {
 	if err != nil {
 		return err
 	}
-	if err := ensureDirectory(filepath.Join(publicDir, ".well-known", "acme-challenge"), 0750, identity); err != nil {
+	if err := ensureACMEChallengeDirectories(publicDir, identity); err != nil {
 		return err
 	}
 	if err := h.Runner.Run(ctx, "/usr/bin/certbot", "certonly", "--webroot", "--webroot-path", publicDir, "--domain", site.Domain, "--non-interactive", "--agree-tos", "--register-unsafely-without-email", "--keep-until-expiring", "--deploy-hook", "/usr/bin/systemctl reload nginx.service"); err != nil {

@@ -257,7 +257,7 @@ func (h *Host) Provision(ctx context.Context, site model.Site) error {
 	if err := ensureDirectory(publicDir, 0750, identity); err != nil {
 		return fmt.Errorf("prepare public directory: %w", err)
 	}
-	if err := ensureDirectory(filepath.Join(publicDir, ".well-known", "acme-challenge"), 0750, identity); err != nil {
+	if err := ensureACMEChallengeDirectories(publicDir, identity); err != nil {
 		return fmt.Errorf("prepare ACME challenge directory: %w", err)
 	}
 
@@ -429,6 +429,19 @@ func ensureDirectory(path string, mode os.FileMode, identity Identity) error {
 		return err
 	}
 	return os.Chown(path, identity.UID, identity.GID)
+}
+
+// MkdirAll only applies ownership and the requested mode to its final path.
+// Prepare both ACME directories explicitly: Certbot runs as root while Nginx
+// reads the token as a member of the site's group, so an intermediate directory
+// inherited from a restrictive broker umask would otherwise make every HTTP-01
+// challenge fail with 403.
+func ensureACMEChallengeDirectories(publicDir string, identity Identity) error {
+	wellKnown := filepath.Join(publicDir, ".well-known")
+	if err := ensureDirectory(wellKnown, 0750, identity); err != nil {
+		return err
+	}
+	return ensureDirectory(filepath.Join(wellKnown, "acme-challenge"), 0750, identity)
 }
 
 func ensureWelcomePage(publicDir string, identity Identity) error {

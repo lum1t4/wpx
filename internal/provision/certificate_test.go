@@ -107,6 +107,32 @@ func TestIssueCertificateActivatesManagedTLSVirtualHost(t *testing.T) {
 	}
 }
 
+func TestIssueCertificateRepairsIntermediateChallengeDirectory(t *testing.T) {
+	runner := &certificateRunner{}
+	host := testHost(t, runner)
+	runner.host = host
+	site := model.Site{ID: "example-com", Domain: "example.com", Kind: model.Static}
+	if err := host.Provision(context.Background(), site); err != nil {
+		t.Fatal(err)
+	}
+	wellKnown := filepath.Join(host.SiteRoot, site.ID, "public", ".well-known")
+	if err := os.Chmod(wellKnown, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := host.IssueCertificate(context.Background(), site); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{wellKnown, filepath.Join(wellKnown, "acme-challenge")} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != 0750 {
+			t.Fatalf("challenge path %s mode = %o, want 750", path, got)
+		}
+	}
+}
+
 func TestIssueCloudflareDNSCertificateUsesTemporaryCredentialFile(t *testing.T) {
 	runner := &certificateRunner{}
 	host := testHost(t, runner)
