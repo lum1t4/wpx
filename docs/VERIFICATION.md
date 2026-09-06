@@ -167,16 +167,17 @@ existing VPS. The WordPress hostname still had no public DNS answer, so public
 browser access to that site remains unverified. These limits do not change the
 separate disposable-host and automated results above.
 
-## Unreleased candidate: site lifecycle and monitoring
+## 2026-09-06: pre-release site lifecycle and monitoring checks
 
 These checks concern the candidate adding automatic site UUIDs, domain changes,
-permanent deletion, and local monitoring. It has not yet been released or
-deployed to the production VPS; no production mutation was performed.
+permanent deletion, and local monitoring. At this stage, it had not yet been
+released or deployed to the production VPS; no production mutation was performed.
+Final release and deployment results follow this section.
 
 Integrated `go test -race ./...`, `go vet ./...`, and static Linux amd64/arm64
 builds passed before the final site-scoped Redis invalidation correction.
 Focused domain race tests and vet passed after that correction. CI verification
-of the exact final source is still pending; the earlier full-suite result is not
+of the exact final source was still pending; the earlier full-suite result is not
 a claim that it covered that last change. The final provision race suite also
 passed in 7.422 seconds; the final web race rerun was still pending at this entry.
 
@@ -204,6 +205,37 @@ large databases, sustained load, and power-loss interruption were not exercised.
 The disposable host was removed afterwards. Monitoring's local sampling and
 failure handling have automated coverage; these checks do not establish
 long-term production resource usage.
+
+## 2026-09-06: alpha.6 release and VPS upgrade
+
+Release [v0.1.0-alpha.6](https://github.com/lum1t4/wpx/releases/tag/v0.1.0-alpha.6)
+was published at 20:31:52 UTC from source commit
+`5ea63d0bb1a291b18c4b34ff7f1acb5871947005`.
+GitHub [Verify](https://github.com/lum1t4/wpx/actions/runs/34057998310) passed in
+4 minutes 28 seconds and
+[Release](https://github.com/lum1t4/wpx/actions/runs/34058041606) passed in
+4 minutes 30 seconds. The exact final source passed full race tests, vet, CSS
+and bootstrap checks, static Linux amd64/arm64 builds, and attestation
+publication. Final local web race tests passed in 163.403 seconds; provision
+race tests passed in 7.422 seconds, and vet passed.
+
+At 20:32:15 UTC, the README one-line installation command successfully upgraded
+the existing Ubuntu 24.04 amd64 VPS.
+
+| Check | Observation |
+| --- | --- |
+| Installed release | `wpx version` confirmed alpha.6 and its source commit. |
+| Recovery snapshot | Upgrade created `/var/lib/wpx/upgrades/20260906T203215.838873441Z`. |
+| Configuration and secrets | All four configuration, encryption-key, and panel TLS file hashes matched their pre-upgrade values. |
+| Services and access | All five core services were active; trusted public `/healthz` passed. Port 9443 remained loopback-only behind Nginx on 443, with normal restart logs. |
+| Existing WordPress workload | Local HTTP through Nginx with the site's Host header returned 200. |
+| Existing site identity | The legacy site's ID, domain, kind, and active status were unchanged. |
+| Panel state | SQLite integrity passed, no foreign-key errors were reported, the lifecycle tables were present, and no jobs were pending. |
+
+No domain-change or deletion form was submitted on production. Authenticated
+live-browser review of this release remained pending because the workstation
+was locked. The successful disposable-host workflows and preview checks above
+are separate evidence, not a substitute for that review.
 
 For future entries, record the commit/release, OS and architecture, exact action,
 observed result, and untested boundary. A fake-runner unit test, a rendered

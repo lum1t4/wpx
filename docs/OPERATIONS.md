@@ -240,8 +240,9 @@ Review those retained resources separately; they may still be in use elsewhere.
 The deletion journal under `/var/lib/wpx/deletions` is kept outside the site's
 tree so retries can finish even after that tree or account has gone.
 Other private recovery copies outside that tree, such as prior domain-change
-SQL exports, also remain. Deletion is not an erasure of every backup or copy of
-the site's data. Normal log rotation continues to apply to retained logs.
+SQL exports, also remain. Deletion does not purge the site's cached Redis data.
+It is not an erasure of every backup or copy of the site's data. Normal log
+rotation continues to apply to retained logs.
 
 ## Backups and recovery
 

@@ -153,7 +153,8 @@ after files, database, or account may already be gone. Only confirmed host
 completion removes the panel site row. Snapshot references, audit/jobs, and an
 ID tombstone remain; remote DNS, backup objects, and certificates are not deleted
 as a side effect of removing panel associations. Private recovery data outside
-the site tree is also retained, so site deletion is not a complete data erasure.
+the site tree and cached Redis data are also retained, so site deletion is not
+a complete data erasure.
 
 ## Failure boundaries
 
