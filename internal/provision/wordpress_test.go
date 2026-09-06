@@ -55,6 +55,30 @@ func TestWordPressSubdomainMultisiteUsesNetworkInstaller(t *testing.T) {
 	}
 }
 
+func TestEnableHTTPSInvalidatesOnlySiteCacheAroundOptionUpdates(t *testing.T) {
+	runner := &wordpressInstallRunner{}
+	wpcli := &WPCLI{Runner: runner, Path: "/usr/local/lib/wpx/wp-cli.phar"}
+	site := model.Site{ID: "site-id", Domain: "example.com", Kind: model.WordPress, PHPVersion: "8.4"}
+	if err := wpcli.EnableHTTPS(context.Background(), site, Identity{Name: "wpxsite"}, "/srv/site/public"); err != nil {
+		t.Fatal(err)
+	}
+	commands := make([]string, 0, len(runner.calls))
+	for _, call := range runner.calls {
+		commands = append(commands, strings.Join(call, " "))
+	}
+	joined := strings.Join(commands, "\n")
+	firstCache := strings.Index(joined, "eval ")
+	home := strings.Index(joined, "option update home https://example.com")
+	siteURL := strings.Index(joined, "option update siteurl https://example.com")
+	lastCache := strings.LastIndex(joined, "eval ")
+	if firstCache < 0 || !(firstCache < home && home < siteURL && siteURL < lastCache) {
+		t.Fatalf("unexpected HTTPS/cache command order:\n%s", joined)
+	}
+	if strings.Contains(joined, "FLUSHDB") || strings.Contains(joined, "cache flush") || !strings.Contains(joined, "wpx:site-id:") {
+		t.Fatalf("HTTPS cache invalidation is not site-scoped:\n%s", joined)
+	}
+}
+
 func TestProtectWordPressConfigRejectsSymlinkAndRestrictsFile(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(root, "target")

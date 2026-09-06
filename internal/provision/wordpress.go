@@ -173,11 +173,20 @@ func (w *WPCLI) EnableHTTPS(ctx context.Context, site model.Site, identity Ident
 	if err := run("search-replace", from, to, "--all-tables-with-prefix", "--precise", "--skip-columns=guid"); err != nil {
 		return fmt.Errorf("update serialized WordPress URLs: %w", err)
 	}
+	// search-replace writes SQL directly, bypassing persistent object-cache
+	// invalidation. Clear only this site's managed Redis namespace before the
+	// option commands read home/siteurl and once more after every URL is final.
+	if err := run("eval", domainClearSiteCache(site.ID)); err != nil {
+		return fmt.Errorf("invalidate WordPress URL cache: %w", err)
+	}
 	if err := run("option", "update", "home", to); err != nil {
 		return fmt.Errorf("update WordPress home URL: %w", err)
 	}
 	if err := run("option", "update", "siteurl", to); err != nil {
 		return fmt.Errorf("update WordPress site URL: %w", err)
+	}
+	if err := run("eval", domainClearSiteCache(site.ID)); err != nil {
+		return fmt.Errorf("invalidate final WordPress URL cache: %w", err)
 	}
 	return nil
 }
