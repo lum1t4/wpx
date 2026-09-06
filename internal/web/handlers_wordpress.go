@@ -27,6 +27,9 @@ func (s *Server) setWordPressPlugin(w http.ResponseWriter, r *http.Request, user
 		http.Error(w, "permission denied", http.StatusForbidden)
 		return
 	}
+	if !allowSiteMutation(w, r, site) {
+		return
+	}
 	action := r.FormValue("action")
 	if action != "activate" && action != "deactivate" {
 		http.Error(w, "invalid plugin action", http.StatusBadRequest)
@@ -116,6 +119,9 @@ func (s *Server) wordpressLogin(w http.ResponseWriter, r *http.Request, user sto
 	}
 	if site.Kind != model.WordPress || !s.store.UserCanSite(r.Context(), user, site.ID, rbac.WordPressLogin) {
 		http.Error(w, "permission denied", http.StatusForbidden)
+		return
+	}
+	if !allowSiteMutation(w, r, site) {
 		return
 	}
 	if s.broker == nil {

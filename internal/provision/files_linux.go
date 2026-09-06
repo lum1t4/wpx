@@ -105,6 +105,11 @@ func (h *Host) ReadFile(_ context.Context, site model.Site, requested string) (s
 }
 
 func (h *Host) WriteFile(ctx context.Context, site model.Site, requested, content string) error {
+	// Authorization can predate a queued domain change or deletion. Share their
+	// host lock until the replacement is complete, and open the tree afterwards.
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	if len(content) > maxEditableFile || !utf8.ValidString(content) {
 		return errors.New("file must be UTF-8 text no larger than 1 MiB")
 	}

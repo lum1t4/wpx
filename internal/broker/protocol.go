@@ -18,6 +18,8 @@ const (
 	OpEnsureSiteRoot       Operation = "site.ensure_root"
 	OpProvisionSite        Operation = "site.provision"
 	OpDisableSite          Operation = "site.disable"
+	OpDeleteSite           Operation = "site.delete"
+	OpChangeDomain         Operation = "site.domain"
 	OpChangePHPVersion     Operation = "site.php_version"
 	OpApplySiteSnippets    Operation = "site.apply_snippets"
 	OpWordPressLogin       Operation = "wordpress.magic_login"

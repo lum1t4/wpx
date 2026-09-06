@@ -20,6 +20,7 @@ import (
 
 	"github.com/lum1t4/wpx/internal/broker"
 	"github.com/lum1t4/wpx/internal/config"
+	"github.com/lum1t4/wpx/internal/monitor"
 	"github.com/lum1t4/wpx/internal/store"
 )
 
@@ -32,6 +33,7 @@ type Server struct {
 	templates *template.Template
 	logger    *slog.Logger
 	broker    brokerCaller
+	resources *monitor.Monitor
 }
 
 type brokerCaller interface {
@@ -41,7 +43,8 @@ type brokerCaller interface {
 func New(cfg config.Config, state *store.Store, privileged brokerCaller, logger *slog.Logger) (*Server, error) {
 	tmpl, err := template.New("wpx").Funcs(template.FuncMap{
 		"bytes": humanBytes, "jobLabel": jobLabel,
-		"assigned": userAssignedSite, "selectedSite": selectedSite,
+		"siteStatus": siteStatusLabel,
+		"assigned":   userAssignedSite, "selectedSite": selectedSite,
 	}).ParseFS(templateFiles, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parse web templates: %w", err)
@@ -49,10 +52,16 @@ func New(cfg config.Config, state *store.Store, privileged brokerCaller, logger 
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Server{cfg: cfg, store: state, templates: tmpl, logger: logger, broker: privileged}, nil
+	resources := monitor.New(func() (monitor.Raw, error) {
+		return monitor.ReadSystem([]string{"/", cfg.SiteRoot, cfg.DataRoot})
+	})
+	return &Server{cfg: cfg, store: state, templates: tmpl, logger: logger, broker: privileged, resources: resources}, nil
 }
 
 func (s *Server) ListenAndServe(ctx context.Context) error {
+	monitorCtx, stopMonitoring := context.WithCancel(ctx)
+	defer stopMonitoring()
+	go s.MonitorResources(monitorCtx)
 	httpServer := &http.Server{
 		Addr: s.cfg.ListenAddress, Handler: s.Handler(),
 		ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second,
@@ -70,6 +79,13 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		return nil
 	}
 	return err
+}
+
+// MonitorResources lets the read-only preview use the same lifecycle as the
+// production listener. The caller must cancel ctx when its HTTP server stops.
+// It collects real host data only; preview authentication never enters here.
+func (s *Server) MonitorResources(ctx context.Context) {
+	s.resources.Run(ctx)
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {

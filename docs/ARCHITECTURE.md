@@ -11,6 +11,7 @@ Browser
   -> wpx serve (Unix user wpx)
        -> SQLite: identities, site records, jobs, audit events
        -> one in-process job worker
+       -> bounded in-memory server-resource sampler
        -> /run/wpx/broker.sock
             -> wpx broker (root)
                  -> host configuration and services
@@ -47,6 +48,7 @@ isolation between mutually hostile tenants.
 | `internal/broker` | Versioned root protocol, peer credentials, operation dispatch. |
 | `internal/provision` | Nginx/PHP/Python, WordPress, files, backups, certificates, staging, local observation. |
 | `internal/dns` | Cloudflare and Route 53 API requests and record ownership checks. |
+| `internal/monitor` | Unprivileged Linux resource reads, interval rates, bounded in-memory history. |
 | `internal/install`, `internal/platform` | Ubuntu detection, dependencies, identities, units, first-run state. |
 | `internal/panelaccess`, `internal/upgrade` | Root-only reachability changes and panel binary replacement. |
 | `internal/config`, `internal/updatecheck` | Process configuration and optional GitHub release discovery. |
@@ -62,7 +64,9 @@ framework or routing abstraction.
 `cmd/wpx-preview` is a separate development executable. It uses synthetic data
 and read-only request handling to display the same templates, with no privileged
 broker, real worker, or provider connection. Its injected session never becomes
-a production authentication mode.
+a production authentication mode. Monitoring is the exception to synthetic
+data: on Linux it reads the local environment's kernel counters; other operating
+systems report monitoring as unavailable.
 
 `platform` currently detects and gates Ubuntu 24.04; it is not a complete
 cross-distribution adapter. Package names, fixed executable paths, systemd, and
@@ -90,6 +94,19 @@ site's public tree, site metadata, and a WordPress database export when relevant
 They do not include all panel state, operating-system configuration, or arbitrary
 application databases. See [backup scope](OPERATIONS.md#backups-and-recovery).
 
+## Stable site identity
+
+New browser-created sites, staging copies, and restored copies receive a
+cryptographically random UUIDv4. The domain is an editable address, not the
+storage key. Existing slug identifiers remain valid and are not migrated.
+Validation accepts both formats; derived Unix/database names stay short because
+they are based on a hash of the identifier.
+
+Keep this separation when adding features. A domain change must not move files,
+replace a site account, or orphan backup references. SQLite uniqueness checks
+remain the final collision boundary, and deleted identifiers stay reserved in
+`deleted_sites` because old journals and snapshots still refer to them.
+
 ## Job lifecycle and retries
 
 One worker runs inside `wpx serve`. It enqueues due schedules, claims one queued
@@ -106,6 +123,37 @@ state, and file/database replacement has operation-specific recovery copies.
 Do not describe this as exactly-once execution. New operations must document
 what happens after the host change succeeds but before the worker saves success.
 Failed jobs remain visible; supported site lifecycle retries are explicit.
+
+Domain changes reserve their destination hostname before changing the host.
+Conflicting creation and jobs involving the site, including source-side clone
+or staging work, must wait. The store changes the visible domain only after host
+success. Verified recovery releases the reservation; unknown or incomplete
+recovery keeps it and reuses the same job key/payload.
+
+Domain journals under the private data root retain prior Nginx configuration,
+WordPress SQL where applicable, and durable operation phases. The activation
+boundary is recorded before writing the new vhost: after that point, retries
+finish activation rather than importing old SQL over potentially newer writes.
+Before activation, recovery restores SQL and then records a separate
+traffic-restoration phase; replay must not import SQL again once old-domain
+traffic might have resumed. Completion is recorded before returning success so
+a lost reply need not repeat a finished rewrite.
+
+SQL replacement bypasses WordPress object-cache invalidation. Domain changes
+therefore require either no persistent object cache or the managed PhpRedis
+integration with the exact immutable-site prefix. Incremental scans invalidate
+only that site's namespace in bounded batches; a global Redis flush would
+affect neighboring sites. Unsupported integrations fail the preflight check.
+The temporary Nginx maintenance response pauses new site requests, not external
+database writers or already-running requests.
+
+Deletion also freezes its request and writes a journal outside the site tree.
+It is permanent cleanup rather than rollback: retries finish the same deletion
+after files, database, or account may already be gone. Only confirmed host
+completion removes the panel site row. Snapshot references, audit/jobs, and an
+ID tombstone remain; remote DNS, backup objects, and certificates are not deleted
+as a side effect of removing panel associations. Private recovery data outside
+the site tree is also retained, so site deletion is not a complete data erasure.
 
 ## Failure boundaries
 
@@ -128,6 +176,20 @@ or every hosted site's behavior. Those are separate operator checks.
 Upgrade recovery concerns the panel binary, SQLite, and WPX systemd units.
 It is not an operating-system/package rollback or a site restore. Keep the
 recovery directory if an upgrade reports a rollback error.
+
+## Local monitoring
+
+One sampler belongs to the web process lifetime and reads `/proc` and filesystem
+capacity every 10 seconds without subprocesses or broker calls. Page requests
+copy a snapshot; extra browser tabs cannot increase sampling work. Only owners
+and administrators can view these server-wide values.
+
+History holds at most 361 compact points and drops anything older than one hour.
+It is not persisted to SQLite and disappears on process restart. Rates require
+two compatible counter samples; read failures, clock gaps, counter resets, or
+interface changes break the baseline instead of producing invented spikes or
+zero readings. A failed read retains the last successful values with a stale
+warning. The monitor does not provide per-site attribution or container quotas.
 
 ## Interface and network
 

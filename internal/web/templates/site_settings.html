@@ -11,6 +11,8 @@
   </dl>
 </section>
 
+{{template "site-domain" .}}
+
 {{if and .CanManageSites (or (eq .Site.Kind "php") (eq .Site.Kind "wordpress"))}}
 <section id="php-version" class="mt-6 rounded-lg border border-zinc-200 bg-white p-5" aria-labelledby="php-version-heading">
   <h2 id="php-version-heading" class="text-base font-semibold text-zinc-950">PHP version</h2>
@@ -67,7 +69,7 @@
 
 {{if .CanManageSites}}
 <section class="mt-6 rounded-lg border border-zinc-200 bg-white p-5" aria-labelledby="availability-heading">
-  <div class="flex flex-wrap items-center gap-3"><h2 id="availability-heading" class="text-base font-semibold text-zinc-950">Site availability</h2><span class="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-700">{{if eq .Site.Status "php_changing"}}Changing PHP{{else if eq .Site.Status "php_change_failed"}}PHP change failed{{else}}{{.Site.Status}}{{end}}</span></div>
+  <div class="flex flex-wrap items-center gap-3"><h2 id="availability-heading" class="text-base font-semibold text-zinc-950">Site availability</h2><span class="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-700">{{siteStatus .Site.Status}}</span></div>
   {{if or (eq .Site.Status "active") (eq .Site.Status "disable_failed")}}
   <p class="mt-2 text-sm leading-6 text-zinc-500">Disable the site to stop serving requests. Its files, database, certificates, and backups are retained.</p>
   <details class="mt-5 rounded-md border border-red-200">
@@ -88,9 +90,12 @@
   <p class="mt-2 text-sm leading-6 text-zinc-500">The PHP runtime needs attention. Review the error in <a class="font-medium text-zinc-950 underline underline-offset-4" href="/jobs">Activity</a>, then retry the change in <a class="font-medium text-zinc-950 underline underline-offset-4" href="#php-version">PHP version</a> above.</p>
   {{else if eq .Site.Status "php_changing"}}
   <p class="mt-2 text-sm leading-6 text-zinc-500">PHP is being changed for this site. <a class="font-medium text-zinc-950 underline underline-offset-4" href="/jobs">View activity</a> to follow progress.</p>
+  {{else if or (eq .Site.Status "domain_change_failed") (eq .Site.Status "delete_failed")}}
+  <p class="mt-2 text-sm leading-6 text-zinc-500">The site has an unfinished operation. Review Activity and use the matching recovery action on this page before changing availability.</p>
   {{else}}
   <p class="mt-2 text-sm leading-6 text-zinc-500">An operation is in progress. <a class="font-medium text-zinc-950 underline underline-offset-4" href="/jobs">View activity</a> to follow its progress.</p>
   {{end}}
 </section>
 {{end}}
+{{template "site-delete" .}}
 {{end}}

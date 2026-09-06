@@ -25,6 +25,7 @@ const (
 )
 
 var siteIDPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{2,47}$`)
+var siteUUIDPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 var domainPattern = regexp.MustCompile(`^(?i:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+)$`)
 
 func ValidateDomain(domain string) error {
@@ -116,8 +117,14 @@ func ValidPHPVersion(version string) bool {
 }
 
 func ValidateSiteID(id string) error {
+	if siteUUIDPattern.MatchString(id) {
+		return nil
+	}
+	// Installed sites may still use their original slug in database records,
+	// filesystem paths, and host configuration. Keep precisely that old grammar;
+	// accepting generated UUIDs must not require renaming those resources.
 	if !siteIDPattern.MatchString(id) || strings.Contains(id, "--") || strings.HasSuffix(id, "-") {
-		return errors.New("site id must be 3-48 lowercase letters, digits, and single hyphens, starting with a letter")
+		return errors.New("site id must be a lowercase UUID v4 or a legacy site identifier")
 	}
 	return nil
 }

@@ -494,6 +494,7 @@ func (s *Store) DeleteSession(ctx context.Context, token string) error {
 }
 
 func (s *Store) CreateSite(ctx context.Context, actor User, site model.Site) (string, error) {
+	site.Domain = normalizedSiteDomain(site.Domain)
 	if err := model.ValidateSite(site); err != nil {
 		return "", err
 	}
@@ -722,6 +723,16 @@ func (s *Store) FinishJob(ctx context.Context, job Job, resultJSON string, opera
 	}
 	if job.Kind == "site.php_version" {
 		if err := finishPHPVersionChange(ctx, tx, job, now, operationErr); err != nil {
+			return err
+		}
+	}
+	if job.Kind == "site.domain_change" {
+		if err := finishDomainChange(ctx, tx, job, now, operationErr); err != nil {
+			return err
+		}
+	}
+	if job.Kind == "site.delete" {
+		if err := finishSiteDelete(ctx, tx, job, now, operationErr); err != nil {
 			return err
 		}
 	}

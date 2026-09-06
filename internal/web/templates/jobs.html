@@ -5,6 +5,7 @@
     {{if .ActiveJobs}}<span role="status" class="inline-flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700"><span class="size-1.5 rounded-full bg-blue-600" aria-hidden="true"></span>Work in progress · refreshes every 5s</span>{{end}}
   </header>
   {{if .Error}}<div role="alert" class="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{.Error}}</div>{{end}}
+  {{if .Message}}<div role="status" class="mt-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{.Message}}</div>{{end}}
   <section class="mt-8 overflow-hidden rounded-lg border border-zinc-200" aria-label="Recent operations">
     {{if .Jobs}}
     <div class="overflow-x-auto"><table class="w-full min-w-[760px] text-sm">

@@ -7,12 +7,12 @@
   <span class="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700"><span class="size-1.5 rounded-full bg-emerald-600" aria-hidden="true"></span>Active</span>
   {{else if eq .Status "disabled"}}
   <span class="inline-flex rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600">Disabled</span>
-  {{else if or (eq .Status "failed") (eq .Status "disable_failed") (eq .Status "enable_failed") (eq .Status "php_change_failed")}}
+  {{else if or (eq .Status "failed") (eq .Status "disable_failed") (eq .Status "enable_failed") (eq .Status "php_change_failed") (eq .Status "domain_change_failed") (eq .Status "delete_failed")}}
   <span class="inline-flex rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Needs attention</span>
   {{else if eq .Status "php_changing"}}
   <span class="inline-flex rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">Changing PHP</span>
   {{else}}
-  <span class="inline-flex rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium capitalize text-blue-700">{{.Status}}</span>
+  <span class="inline-flex rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium capitalize text-blue-700">{{siteStatus .Status}}</span>
   {{end}}
 {{end}}
 
@@ -45,6 +45,13 @@
       <p class="mt-1 text-xs text-zinc-500">{{if .AttentionSiteCount}}Review errors in Activity{{else}}No failed site operations{{end}}</p>
     </a>
   </section>
+
+  {{if .CanManageServer}}
+  <a href="/monitoring" class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 px-5 py-4 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-zinc-900">
+    <div><p class="text-sm font-medium">Server resources</p><p class="mt-1 text-sm text-zinc-500">CPU, memory, disk space, and network traffic with recent usage charts.</p></div>
+    <span class="text-sm font-medium text-zinc-600">Open monitoring <span aria-hidden="true">→</span></span>
+  </a>
+  {{end}}
 
   <section class="mt-8 overflow-hidden rounded-lg border border-zinc-200" aria-labelledby="your-sites-heading">
     <div class="flex items-center justify-between gap-4 border-b border-zinc-200 px-5 py-4">

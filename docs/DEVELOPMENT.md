@@ -60,6 +60,11 @@ pages as read-only. GET/HEAD navigation works; form submissions are rejected.
 It does not start the worker, read an installed configuration, or call providers.
 Ctrl+C shuts it down and removes its temporary state.
 
+Monitoring uses real, local Linux kernel counters even in the preview; the site
+data remains synthetic. A native macOS preview reports monitoring as unavailable.
+Use the Docker preview to exercise the Linux monitoring page, remembering that
+environment-visible `/proc` counters are not container-quota accounting.
+
 The equivalent Docker preview keeps the published port on host loopback:
 
 ```sh
@@ -109,6 +114,19 @@ workflow, and result in the PR/release notes. A useful host exercise is:
    restore it and compare the recovered files/database.
 6. Upgrade from the preceding release and exercise a forced readiness failure
    with recoverable fixtures. Check the old binary/state can restart.
+
+For identity/domain/deletion work, use disposable sites and record their IDs,
+paths, and neighboring-site state before the operation. Cover a new UUID as well
+as an existing legacy identifier. A domain change should preserve identity and
+rewrite only the intended WordPress URLs; separately verify DNS/certificate
+behavior. Deletion should leave remote backups/DNS/certificates and unrelated
+host resources intact. Interrupt/retry tests must use the original job key,
+including a retry after host completion but before its result reaches SQLite.
+
+Monitoring tests should use controlled counters and clocks to cover warmup,
+resets, read errors, history bounds, and lifecycle shutdown. A `/proc` fixture
+proves parsing and rate calculation; it does not establish what a particular
+VPS or container exposes. Confirm that page refreshes do not create extra samplers.
 
 Not every change needs the entire exercise. Pick checks that can expose its
 failure mode. Unit tests with a fake command runner validate ordering and

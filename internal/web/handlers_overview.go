@@ -46,7 +46,11 @@ func (s *Server) jobsPage(w http.ResponseWriter, r *http.Request, user store.Use
 			break
 		}
 	}
-	s.render(w, "jobs.html", pageData{Title: "Activity", User: &user, CSRF: s.ensureCSRF(w, r), Jobs: jobs, ActiveJobs: active, CanManageSites: rbac.Allows(user.Role, rbac.ManageAllSites), CanManageUsers: rbac.Allows(user.Role, rbac.ManageUsers), CanManageServer: rbac.Allows(user.Role, rbac.ManageServer)})
+	data := pageData{Title: "Activity", User: &user, CSRF: s.ensureCSRF(w, r), Jobs: jobs, ActiveJobs: active, CanManageSites: rbac.Allows(user.Role, rbac.ManageAllSites), CanManageUsers: rbac.Allows(user.Role, rbac.ManageUsers), CanManageServer: rbac.Allows(user.Role, rbac.ManageServer)}
+	if r.URL.Query().Get("delete") == "queued" {
+		data.Message = "Site deletion queued. Follow cleanup here; the site is removed from Sites only after it completes."
+	}
+	s.render(w, "jobs.html", data)
 }
 
 func (s *Server) observabilityPage(w http.ResponseWriter, r *http.Request, user store.User) {

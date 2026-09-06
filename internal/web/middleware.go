@@ -52,7 +52,36 @@ func (s *Server) authorizedSite(w http.ResponseWriter, r *http.Request, user sto
 		http.Error(w, "permission denied", http.StatusForbidden)
 		return model.Site{}, false
 	}
+	if !allowSiteMutation(w, r, site) {
+		return model.Site{}, false
+	}
 	return site, true
+}
+
+// Reserved domain/deletion work may span a database export, a service reload,
+// or irreversible cleanup. Keep short broker-backed edits out of that window
+// too: those edits do not pass through the durable job queue's reservation.
+// Reading Settings and Activity remains possible, as do explicit failed-job
+// recovery requests. The store still rechecks state in its own transaction.
+func allowSiteMutation(w http.ResponseWriter, r *http.Request, site model.Site) bool {
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		return true
+	}
+	switch site.Status {
+	case "domain_changing", "deleting":
+	case "domain_change_failed":
+		if r.URL.Path == "/sites/"+site.ID+"/domain/retry" {
+			return true
+		}
+	case "delete_failed":
+		if r.URL.Path == "/sites/"+site.ID+"/delete" {
+			return true
+		}
+	default:
+		return true
+	}
+	http.Error(w, "This site has an unfinished domain change or deletion. Check Activity and complete its recovery before making other changes.", http.StatusConflict)
+	return false
 }
 
 func (s *Server) ensureCSRF(w http.ResponseWriter, r *http.Request) string {

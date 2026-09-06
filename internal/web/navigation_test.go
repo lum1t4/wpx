@@ -211,11 +211,11 @@ func TestSiteListFiltersAndDedicatedCreation(t *testing.T) {
 
 func TestCreateSiteValidationPreservesFormValues(t *testing.T) {
 	server, owner, _ := navigationServer(t)
-	form := url.Values{"id": {"invalid--id"}, "domain": {"draft.example.com"}, "kind": {"wordpress"}, "php_version": {"8.0"}, "allow_eol": {"yes"}, "wordpress_multisite": {"subdirectories"}}
+	form := url.Values{"id": {"ignored--id"}, "domain": {"https://draft.example.com"}, "kind": {"wordpress"}, "php_version": {"8.0"}, "allow_eol": {"yes"}, "wordpress_multisite": {"subdirectories"}}
 	response := navigationRequest(t, server, owner, http.MethodPost, "/sites", form)
 	requireNavigationStatus(t, response, http.StatusBadRequest)
 	body := response.Body.String()
-	for _, name := range []string{"id", "domain", "kind"} {
+	for _, name := range []string{"domain", "kind"} {
 		if got := navigationInputValue(body, name); got != form.Get(name) {
 			t.Errorf("%s after validation = %q, want %q", name, got, form.Get(name))
 		}

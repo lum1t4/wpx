@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -135,8 +136,17 @@ func (h *Host) SetPlugin(ctx context.Context, site model.Site, plugin string, ac
 }
 
 func (h *Host) runWordPressOutput(ctx context.Context, site model.Site, args ...string) ([]byte, error) {
+	// Lifecycle work can rewrite or restore the WordPress database. Serialize
+	// each command with that work; the inventory itself need not hold the lock
+	// across all of its independent reads.
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	if err := model.ValidateSite(site); err != nil || site.Kind != model.WordPress {
 		return nil, errors.New("operation requires a valid WordPress site")
+	}
+	if err := h.validate(); err != nil {
+		return nil, err
 	}
 	if h.Output == nil {
 		return nil, errors.New("command output runner is unavailable")
@@ -145,6 +155,14 @@ func (h *Host) runWordPressOutput(ctx context.Context, site model.Site, args ...
 	publicDir := filepath.Join(siteDir, "public")
 	if err := ensureContained(h.SiteRoot, publicDir); err != nil {
 		return nil, err
+	}
+	// A request authorized before deletion must not recreate the removed Unix
+	// user. Reject missing trees and symlinked site components before Ensure.
+	for _, directory := range []string{h.SiteRoot, siteDir, publicDir} {
+		info, err := os.Lstat(directory)
+		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return nil, fmt.Errorf("WordPress operation requires a real directory at %s", directory)
+		}
 	}
 	identity, err := h.Identities.Ensure(ctx, site, siteDir)
 	if err != nil {

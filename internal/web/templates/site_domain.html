@@ -1,0 +1,25 @@
+{{define "site-domain"}}
+{{if .CanManageSites}}
+<section id="domain" class="mt-6 rounded-lg border border-zinc-200 bg-white p-5" aria-labelledby="domain-heading">
+  <h2 id="domain-heading" class="text-base font-semibold text-zinc-950">Website domain</h2>
+  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Change the address of this website without creating a new site. Files, accounts, and backup references keep their existing identity.</p>
+  {{if eq .Site.Status "domain_changing"}}
+  <p role="status" class="mt-4 rounded-md bg-zinc-50 px-4 py-3 text-sm leading-6 text-zinc-600">The domain change is queued or running. The site may briefly show a maintenance response. <a class="font-medium text-zinc-950 underline underline-offset-4" href="/jobs">View activity</a>.</p>
+  {{else if eq .Site.Status "domain_change_failed"}}
+  <p role="alert" class="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800">The domain change needs recovery. Review the error in Activity and resolve its cause before retrying the same operation. Other changes are blocked until recovery completes.</p>
+  <form class="mt-4" method="post" action="/sites/{{.Site.ID}}/domain/retry"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Retry domain change</button></form>
+  {{else if .Site.WordPressMultisite}}
+  <p class="mt-4 text-sm leading-6 text-zinc-500">WordPress network domain changes are not supported here. They require a separate migration of network and subsite addresses.</p>
+  {{else if eq .Site.Status "active"}}
+  <form class="mt-5 grid max-w-xl gap-4" method="post" action="/sites/{{.Site.ID}}/domain">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <label class="block"><span class="mb-2 block text-sm font-medium text-zinc-700">New domain</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="domain" value="{{index .Form "domain"}}" placeholder="new.example.com" autocapitalize="none" spellcheck="false" autocomplete="off" required><span class="mt-2 block text-xs leading-5 text-zinc-500">Current domain: {{.Site.Domain}}. Enter a hostname without https:// or a path.</span></label>
+    <div class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900"><p>Point the new domain to this server first. DNS records and the old domain's certificate are not changed automatically. After the change, issue a certificate in <a class="font-medium underline underline-offset-4" href="/sites/{{.Site.ID}}/security">SSL &amp; security</a>; the new address initially uses HTTP.</p>{{if eq .Site.Kind "wordpress"}}<p class="mt-2">WordPress URLs in this site's database are updated safely, including serialized values. Back up first. Hard-coded URL constants, external integrations, and other sites are not rewritten.</p>{{else}}<p class="mt-2">Update any hard-coded application URLs or external integrations separately.</p>{{end}}</div>
+    <button class="justify-self-start rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Change domain</button>
+  </form>
+  {{else}}
+  <p class="mt-4 text-sm text-zinc-500">The site must be active and have no pending operations before its domain can change.</p>
+  {{end}}
+</section>
+{{end}}
+{{end}}

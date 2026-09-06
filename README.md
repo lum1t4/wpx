@@ -2,8 +2,8 @@
 
 WPX is a free, GPL-3.0 server panel written in Go. It manages WordPress, PHP,
 Python, static, and reverse-proxy sites on one server, with local accounts,
-site permissions, staging, backups, and DNS tools. There is no hosted WPX account
-or product telemetry.
+site permissions, staging, backups, DNS tools, and local resource monitoring.
+There is no hosted WPX account or product telemetry.
 
 The interface keeps server administration separate from work on an individual
 site. It uses server-rendered HTML and direct Tailwind utilities, with a quiet,
@@ -61,14 +61,20 @@ not independently verify those attestations or use a project signing key.
 
 ## Find your way around
 
-Server navigation contains Overview, Sites, Activity, Storage, DNS providers,
-Users, and Account. Server resources such as storage credentials are configured
+Server navigation contains Overview, Sites, Activity, Monitoring, Storage, DNS
+providers, Users, and Account. Server resources such as storage credentials are configured
 once. Inside a site, Overview, WordPress, Staging, Backups, SSL & security,
 Settings, Files, DNS, and Logs expose the tools relevant to that site and your role.
 
 Start with Sites → create a site. Connect storage before using protected
 WordPress updates, restores, or staging deployment. Activity shows whether a
 requested operation is waiting, running, complete, or failed.
+
+Name sites by their domain; WPX assigns an internal UUID to new sites and copies.
+Settings lets an owner or administrator change a site's domain or PHP version.
+The owner can also permanently delete a site with explicit domain confirmation.
+Monitoring shows current server resources and up to an hour of history held
+only in memory. See the operator guide for each action's scope and recovery limits.
 
 ## Documentation
 

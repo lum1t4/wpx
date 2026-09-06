@@ -222,6 +222,10 @@ func (s *Server) dispatch(request Request) Response {
 		}
 		response.OK = true
 		response.Result = json.RawMessage(`{"disabled":true}`)
+	case OpChangeDomain:
+		return s.changeDomain(request, response)
+	case OpDeleteSite:
+		return s.deleteSite(request, response)
 	case OpChangePHPVersion:
 		var payload ChangePHPVersionRequest
 		decoder := json.NewDecoder(strings.NewReader(string(request.Payload)))

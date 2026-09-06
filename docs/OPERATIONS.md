@@ -78,6 +78,11 @@ the panel's private state directory world-readable to fix certificate access.
 
 Server navigation manages shared resources. Site navigation manages one site.
 
+Use the domain to identify a site in the interface. New sites, staging copies,
+and restored copies get an automatically generated UUID; there is no editable
+site-ID field. Existing installations keep their original IDs and paths. A
+domain change does not rename the site's directory, Unix account, or database.
+
 1. In Sites, create the workload and wait for provisioning to finish. The first
    site using a PHP version may take longer because its packages are installed
    on demand. Point DNS at the host, then issue the site's certificate in
@@ -100,6 +105,25 @@ Generic PHP/Python/static application deployment remains an operator task. The
 file editor supports UTF-8 text up to 1 MiB, including PHP syntax checks before
 save. It is not an archive uploader, package manager, or browser terminal.
 Python currently starts the WSGI callable `app:application` from `public/app.py`.
+
+## Monitor server resources
+
+Owners and administrators can open Monitoring for server-wide CPU, memory,
+swap, load averages, uptime, network rates, and filesystem capacity. The panel
+samples local Linux counters every 10 seconds. Charts keep up to one hour in
+memory and start again when WPX restarts. Pausing page refresh does not stop
+collection, and opening extra tabs does not increase its frequency.
+
+CPU and network rates need two valid samples. A failed read, counter reset, or
+changed network interface set appears as a gap; any retained values are labeled
+as the last successful reading. Network rates combine non-loopback interfaces,
+so virtual interfaces can count the same traffic more than once. Filesystem
+cards describe the disk containing each path, not that directory's own size.
+Memory use excludes memory the kernel reports as reclaimable/available.
+
+Use a site's Logs & usage page for its files and recent requests. Monitoring is
+not per-site accounting, a quota meter, or a long-term metrics archive. Nothing
+is sent to a monitoring service or stored in SQLite for these charts.
 
 ## Change a site's PHP version
 
@@ -125,6 +149,46 @@ active configuration pattern. Keep this recovery file when investigating a
 failed change. A running FPM service is not a plugin/application compatibility
 test; verify the site's important pages after a successful change.
 
+## Change a site's domain
+
+An owner or administrator can use Settings → Website domain on an active site
+with no pending operations. Point the new domain's DNS at the server first, then
+enter the hostname without a scheme or path. The destination cannot already be
+used or reserved by another site.
+
+WPX briefly pauses this site's web traffic with a maintenance response while it
+updates its Nginx configuration. For single-site WordPress, it keeps a local SQL
+recovery copy, replaces this site's old HTTP/HTTPS URLs with serialized-data
+awareness, and updates `home` and `siteurl`. Files, site identity, runtime, and
+database names stay the same. Generic application configuration and external
+integrations are not rewritten.
+
+WordPress multisite, hard-coded `WP_HOME`/`WP_SITEURL` constants, or existing
+WordPress URL options that do not match the site's root hostname are refused.
+Persistent object caching must use WPX's managed PhpRedis integration with its
+unchanged site-specific prefix; other cache backends or prefixes are refused
+before rewriting. WPX invalidates this site's Redis keys, never the shared
+Redis database. Unsupported configurations need a separate migration.
+On sites taking orders or other live writes,
+schedule the change appropriately and keep an off-server backup: the temporary
+Nginx pause does not stop external cron jobs or requests already in progress.
+
+The new domain initially serves HTTP. Existing DNS records and certificate
+files are retained; neither DNS changes nor a new certificate request happen
+automatically. After the domain job succeeds, use SSL & security to issue a
+certificate for the new hostname. Existing staging copies retain their own
+domains. Check redirects, integrations, and the application's important pages
+afterwards.
+
+Activity shows the result. Before new-domain activation begins, a failure
+attempts to restore the old database and configuration. After activation begins,
+retries finish the new-domain activation instead: restoring an old SQL copy
+could discard writes already accepted on the new domain. An unresolved change
+blocks other changes and Settings offers a retry of the same operation.
+Preserve its journal and SQL recovery copy under `/var/lib/wpx/domain-changes`;
+these are local recovery material, not an off-server backup, and are not
+automatically pruned.
+
 ## Staging and deployment
 
 Create staging from the production site's Staging page. Keep its generated
@@ -148,6 +212,36 @@ external database writers.
 Deploy creates a recovery snapshot and runs WordPress checks. Browse the live
 site afterwards and exercise its critical workflow. A checksum/database check
 cannot confirm that checkout or a plugin integration works.
+
+## Disable or delete a site
+
+Disable a site in Settings when you want to stop serving it while retaining
+its files, database, and ability to re-enable it. Permanent deletion is a
+separate owner-only action in Settings → Delete site.
+
+Before deletion, make any backup you need and remove the site's staging copies.
+WPX does not create a backup as part of deletion. Type the complete domain
+exactly as displayed and acknowledge permanent removal. The panel rejects
+deletion while another operation involving that site is pending.
+
+| Removed after successful cleanup | Retained for separate management |
+| --- | --- |
+| Site files, generated Nginx/PHP/Python configuration, staging access file, dedicated Unix account, and WPX-generated WordPress database/user. | Remote backup data, stored snapshot references, remote DNS records, certificate files, logs, local recovery material outside the site tree, and separately created PHP/Python application databases. |
+| Site entry, grants, schedules, and site-specific panel associations. | Job/audit history, provider credentials, and a record reserving the deleted ID against reuse. |
+
+The site remains visible as deleting until cleanup succeeds. A failure may
+leave some resources already removed: review Activity and resume the same
+deletion job after fixing its cause. There is no undo, automatic reconstruction,
+or deleted-site restore screen. Retained snapshots can still support an
+independent recovery with their repository credentials and password.
+
+Deleting a panel association does not remove a remote DNS record or certificate.
+Review those retained resources separately; they may still be in use elsewhere.
+The deletion journal under `/var/lib/wpx/deletions` is kept outside the site's
+tree so retries can finish even after that tree or account has gone.
+Other private recovery copies outside that tree, such as prior domain-change
+SQL exports, also remain. Deletion is not an erasure of every backup or copy of
+the site's data. Normal log rotation continues to apply to retained logs.
 
 ## Backups and recovery
 

@@ -7,7 +7,7 @@
   <ul class="divide-y divide-zinc-200">
     {{range .StagingSites}}
     <li class="flex flex-wrap items-center justify-between gap-4 p-5">
-      <div class="min-w-0"><a class="break-all text-sm font-medium text-zinc-950 hover:underline" href="/sites/{{.ID}}/staging">{{.Domain}}</a><p class="mt-1 text-xs text-zinc-500">{{.Status}}</p></div>
+      <div class="min-w-0"><a class="break-all text-sm font-medium text-zinc-950 hover:underline" href="/sites/{{.ID}}/staging">{{.Domain}}</a><p class="mt-1 text-xs text-zinc-500">{{siteStatus .Status}}</p></div>
       <a class="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-950 shadow-sm hover:bg-zinc-50" href="/sites/{{.ID}}/staging">Manage staging <span aria-hidden="true">→</span></a>
     </li>
     {{end}}
@@ -21,11 +21,10 @@
   <h2 id="create-staging-heading" class="text-base font-semibold text-zinc-950">Create staging copy</h2>
   <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Copies this site's files and database. The copy is password protected, email is suppressed, and search indexing is disabled.</p>
   {{if eq .Site.Status "active"}}
-  <form class="mt-6 grid max-w-2xl gap-5 sm:grid-cols-2" method="post" action="/sites/{{.Site.ID}}/staging">
+  <form class="mt-6 grid max-w-xl gap-5" method="post" action="/sites/{{.Site.ID}}/staging">
     <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-    <label class="block"><span class="mb-2 block text-sm font-medium text-zinc-700">Staging site ID</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="id" placeholder="my-site-staging" required><span class="mt-2 block text-xs leading-5 text-zinc-500">A unique identifier using lowercase letters, numbers, and hyphens.</span></label>
     <label class="block"><span class="mb-2 block text-sm font-medium text-zinc-700">Staging domain</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="domain" placeholder="staging.{{.Site.Domain}}" required><span class="mt-2 block text-xs leading-5 text-zinc-500">Point this domain to the server before opening the copy.</span></label>
-    <div class="sm:col-span-2"><button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800">Create staging copy</button></div>
+    <div><button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800">Create staging copy</button></div>
   </form>
   {{else}}
   <p class="mt-5 rounded-md bg-zinc-50 p-3 text-sm text-zinc-600">The production site must be active before you can create a staging copy.</p>

@@ -22,7 +22,12 @@ func (s *Server) createStaging(w http.ResponseWriter, r *http.Request, user stor
 	if !ok {
 		return
 	}
-	stagingID := strings.TrimSpace(r.FormValue("id"))
+	stagingID, err := model.NewSiteID()
+	if err != nil {
+		s.logger.Error("generate staging identifier", "error", err)
+		http.Error(w, "could not create staging", http.StatusInternalServerError)
+		return
+	}
 	stagingDomain := strings.ToLower(strings.TrimSpace(r.FormValue("domain")))
 	_, password, err := s.store.CreateStaging(r.Context(), user, site.ID, stagingID, stagingDomain)
 	if err != nil {

@@ -167,6 +167,44 @@ existing VPS. The WordPress hostname still had no public DNS answer, so public
 browser access to that site remains unverified. These limits do not change the
 separate disposable-host and automated results above.
 
+## Unreleased candidate: site lifecycle and monitoring
+
+These checks concern the candidate adding automatic site UUIDs, domain changes,
+permanent deletion, and local monitoring. It has not yet been released or
+deployed to the production VPS; no production mutation was performed.
+
+Integrated `go test -race ./...`, `go vet ./...`, and static Linux amd64/arm64
+builds passed before the final site-scoped Redis invalidation correction.
+Focused domain race tests and vet passed after that correction. CI verification
+of the exact final source is still pending; the earlier full-suite result is not
+a claim that it covered that last change. The final provision race suite also
+passed in 7.422 seconds; the final web race rerun was still pending at this entry.
+
+Desktop and 390 × 844 visual checks covered Monitoring, new-site creation, and
+Settings. New-site forms had no editable site-ID input. These visual checks do
+not establish successful form submissions.
+
+A disposable Ubuntu 24.04 ARM64 host exercised the complete store → worker →
+Unix-socket broker → host path with real Nginx, PHP, WordPress, MariaDB, and Redis.
+
+| Check | Observation |
+| --- | --- |
+| Static site domain change | An automatically identified site changed domain; replay succeeded. |
+| WordPress domain change | Nested serialized URLs changed correctly, while hostname-boundary exclusions, GUIDs, row counts, credentials, Unix identity, and files were preserved. Cached post reads and HTTP responses used the new URL. |
+| Pre-activation recovery | An injected failure restored the old database and traffic. |
+| Activation retry | An injected activation failure resumed the same job and preserved a database write made after activation began. |
+| Partial deletion and replay | An injected late account-removal failure occurred after database/files cleanup. The same job resumed successfully, followed by two successful replays. |
+| Deletion scope | The generated WordPress database/user, Unix account, PHP pool, site tree, and panel site row were removed. A shared-PHP neighbor, unrelated SQL database, Redis sentinel, and external symlink target remained intact. |
+| Neighbor traffic and integrity | All 259 WordPress/deletion and 13 static-site neighbor samples succeeded. Nginx/PHP syntax checks and SQLite integrity passed. |
+
+These are bounded disposable-host checks, not proof of zero downtime, arbitrary
+WordPress integration compatibility, every interruption point, or production
+readiness. Public DNS/ACME/TLS transitions, multisite/custom cache integrations,
+large databases, sustained load, and power-loss interruption were not exercised.
+The disposable host was removed afterwards. Monitoring's local sampling and
+failure handling have automated coverage; these checks do not establish
+long-term production resource usage.
+
 For future entries, record the commit/release, OS and architecture, exact action,
 observed result, and untested boundary. A fake-runner unit test, a rendered
 preview, and a real provider transaction are different evidence and should

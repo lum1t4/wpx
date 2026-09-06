@@ -1,0 +1,25 @@
+{{define "site-delete"}}
+{{if eq .User.Role "owner"}}
+<section class="mt-6 rounded-lg border border-red-200 bg-white p-5" aria-labelledby="delete-heading">
+  <h2 id="delete-heading" class="text-base font-semibold text-red-700">Delete site</h2>
+  {{if eq .Site.Status "deleting"}}
+  <p role="status" class="mt-2 text-sm leading-6 text-zinc-600">Deletion is queued or running. The site disappears from Sites only after cleanup succeeds. <a class="font-medium text-zinc-950 underline underline-offset-4" href="/jobs">View activity</a>.</p>
+  {{else if or (eq .Site.Status "active") (eq .Site.Status "disabled") (eq .Site.Status "failed") (eq .Site.Status "disable_failed") (eq .Site.Status "enable_failed") (eq .Site.Status "php_change_failed") (eq .Site.Status "delete_failed")}}
+  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Permanently remove this site's files, runtime configuration, dedicated system account, and WPX-managed WordPress database. This cannot be undone from the panel. Delete its staging copies first.</p>
+  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Backups, local recovery copies, logs, DNS records, and certificate files are retained. Databases created separately for PHP or Python applications are not removed. Disable the site instead if you may need it again.</p>
+  {{if eq .Site.Status "delete_failed"}}<p role="alert" class="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm leading-6 text-red-800">Cleanup failed and may already have removed some resources. Resolve the error in Activity, then resume the same deletion below.</p>{{end}}
+  <details class="mt-5 rounded-md border border-red-200" {{if index .Form "confirmation"}}open{{end}}>
+    <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-red-700">{{if eq .Site.Status "delete_failed"}}Resume deletion{{else}}Permanently delete this site{{end}}</summary>
+    <form class="grid gap-4 border-t border-red-200 p-4" method="post" action="/sites/{{.Site.ID}}/delete">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <label class="block max-w-xl"><span class="mb-2 block text-sm font-medium text-zinc-700">Type {{.Site.Domain}} to confirm</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="confirmation" value="{{index .Form "confirmation"}}" autocomplete="off" autocapitalize="none" spellcheck="false" required></label>
+      <label class="flex items-start gap-3"><input class="mt-1 size-4 accent-red-600" type="checkbox" name="acknowledge_delete" value="yes" required><span class="text-sm leading-6 text-zinc-700">I understand that the site's files and managed WordPress database will be permanently deleted.</span></label>
+      <button class="justify-self-start rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">{{if eq .Site.Status "delete_failed"}}Resume deletion{{else}}Delete site permanently{{end}}</button>
+    </form>
+  </details>
+  {{else}}
+  <p class="mt-2 text-sm leading-6 text-zinc-500">Finish or recover the current operation before deleting this site.</p>
+  {{end}}
+</section>
+{{end}}
+{{end}}

@@ -17,6 +17,9 @@ import (
 )
 
 func (h *Host) MagicLogin(ctx context.Context, site model.Site) (string, time.Time, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	if err := model.ValidateSite(site); err != nil || site.Kind != model.WordPress {
 		return "", time.Time{}, errors.New("magic login requires a valid WordPress site")
 	}
@@ -28,11 +31,6 @@ func (h *Host) MagicLogin(ctx context.Context, site model.Site) (string, time.Ti
 	if err := ensureContained(h.SiteRoot, publicDir); err != nil {
 		return "", time.Time{}, err
 	}
-	identity, err := h.Identities.Ensure(ctx, site, siteDir)
-	if err != nil {
-		return "", time.Time{}, err
-	}
-
 	// Open the public directory without following any symbolic link in the path.
 	// A compromised site user can mutate content concurrently; openat2 keeps the
 	// root broker from being tricked into writing outside the site's directory.
@@ -47,6 +45,12 @@ func (h *Host) MagicLogin(ctx context.Context, site model.Site) (string, time.Ti
 	var core unix.Stat_t
 	if err := unix.Fstatat(dirFD, "wp-load.php", &core, unix.AT_SYMLINK_NOFOLLOW); err != nil || core.Mode&unix.S_IFMT != unix.S_IFREG {
 		return "", time.Time{}, errors.New("WordPress core is not installed")
+	}
+	// Deletion may have completed after this request was authorized. Never
+	// recreate its Unix identity unless the real WordPress tree still exists.
+	identity, err := h.Identities.Ensure(ctx, site, siteDir)
+	if err != nil {
+		return "", time.Time{}, err
 	}
 
 	tokenBytes := make([]byte, 32)

@@ -84,11 +84,7 @@
             <p class="mt-2 text-sm leading-6 text-zinc-600">Create a separate copy from this backup. Your current site remains unchanged.</p>
             <form class="mt-4 grid gap-3 sm:grid-cols-2" method="post" action="/sites/{{$.Site.ID}}/backups/{{.ID}}/clone">
               <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
-              <label class="block">
-                <span class="mb-2 block text-sm font-medium text-zinc-900">New site ID</span>
-                <input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-zinc-400 focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" name="target_id" placeholder="restored-site" autocomplete="off" spellcheck="false" required>
-              </label>
-              <label class="block">
+              <label class="block sm:col-span-2">
                 <span class="mb-2 block text-sm font-medium text-zinc-900">New domain</span>
                 <input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-zinc-400 focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" name="target_domain" placeholder="restored.example.com" autocomplete="off" spellcheck="false" required>
               </label>

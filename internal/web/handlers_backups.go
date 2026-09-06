@@ -141,7 +141,12 @@ func (s *Server) restoreSiteBackupClone(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	destination := r.FormValue("destination")
-	targetID := strings.TrimSpace(r.FormValue("target_id"))
+	targetID, err := model.NewSiteID()
+	if err != nil {
+		s.logger.Error("generate restore destination identifier", "error", err)
+		http.Error(w, "could not create restore destination", http.StatusInternalServerError)
+		return
+	}
 	targetDomain := strings.ToLower(strings.TrimSpace(r.FormValue("target_domain")))
 	_, password, err := s.store.EnqueueRestoreClone(r.Context(), user, source.ID, r.PathValue("snapshot"), targetID, targetDomain, destination)
 	if err != nil {

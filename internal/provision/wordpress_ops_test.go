@@ -3,6 +3,8 @@ package provision
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -37,6 +39,7 @@ func TestPluginInventoryAndMutationUseTypedArguments(t *testing.T) {
 	output := &fakeOutputRunner{output: []byte(`[{"name":"akismet","status":"inactive","version":"5.3","update":"available","update_version":"5.4"}]`)}
 	host.Output = output
 	site := model.Site{ID: "example-com", Domain: "example.com", Kind: model.WordPress, PHPVersion: "8.4"}
+	createWordPressPublicFixture(t, host, site)
 	plugins, err := host.Plugins(context.Background(), site)
 	if err != nil {
 		t.Fatal(err)
@@ -69,6 +72,7 @@ func TestWordPressInventoryIncludesCorePluginsAndThemes(t *testing.T) {
 		[]byte(`[{"version":"6.8.2"}]`),
 	}}
 	site := model.Site{ID: "example-com", Domain: "example.com", Kind: model.WordPress, PHPVersion: "8.4", Status: "active"}
+	createWordPressPublicFixture(t, host, site)
 	inventory, err := host.Inventory(context.Background(), site)
 	if err != nil {
 		t.Fatal(err)
@@ -92,6 +96,7 @@ func TestWordPressInventoryAcceptsDropInBooleanUpdateStatus(t *testing.T) {
 		[]byte(`[]`),
 	}}
 	site := model.Site{ID: "redis-site", Domain: "redis.example.com", Kind: model.WordPress, PHPVersion: "8.4", Status: "active"}
+	createWordPressPublicFixture(t, host, site)
 	inventory, err := host.Inventory(context.Background(), site)
 	if err != nil {
 		t.Fatalf("Redis drop-in prevented loading WordPress inventory: %v", err)
@@ -121,6 +126,7 @@ func TestWordPressThemeInventoryNormalizesBooleanUpdateStatus(t *testing.T) {
 		[]byte(`[]`),
 	}}
 	site := model.Site{ID: "theme-site", Domain: "theme.example.com", Kind: model.WordPress, PHPVersion: "8.4", Status: "active"}
+	createWordPressPublicFixture(t, host, site)
 	inventory, err := host.Inventory(context.Background(), site)
 	if err != nil {
 		t.Fatal(err)
@@ -136,9 +142,22 @@ func TestWordPressPluginInventoryRejectsUnexpectedUpdateTypes(t *testing.T) {
 			host := testHost(t, &recordRunner{})
 			host.Output = &fakeOutputRunner{output: []byte(`[{"name":"example","status":"active","update":` + value + `}]`)}
 			site := model.Site{ID: "plugin-site", Domain: "plugin.example.com", Kind: model.WordPress, PHPVersion: "8.4"}
-			if _, err := host.Plugins(context.Background(), site); err == nil {
+			createWordPressPublicFixture(t, host, site)
+			if _, err := host.Plugins(context.Background(), site); err == nil || !strings.Contains(err.Error(), "decode WP-CLI plugin inventory") {
 				t.Fatalf("unexpected WP-CLI update shape %s was silently accepted", value)
 			}
 		})
 	}
+}
+
+func createWordPressPublicFixture(t *testing.T, host *Host, site model.Site) string {
+	t.Helper()
+	publicDir := filepath.Join(host.SiteRoot, site.ID, "public")
+	if err := os.MkdirAll(publicDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(publicDir, "wp-load.php"), []byte("<?php\n"), 0640); err != nil {
+		t.Fatal(err)
+	}
+	return publicDir
 }

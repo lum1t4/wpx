@@ -58,8 +58,16 @@ func (s *Server) createSite(w http.ResponseWriter, r *http.Request, user store.U
 		http.Error(w, "invalid request token", http.StatusForbidden)
 		return
 	}
+	// The domain is the user-facing name. Generate the stable filesystem and
+	// database identity here, never from a submitted field or a mutable domain.
+	siteID, err := model.NewSiteID()
+	if err != nil {
+		s.logger.Error("generate site identifier", "error", err)
+		http.Error(w, "could not create site", http.StatusInternalServerError)
+		return
+	}
 	site := model.Site{
-		ID: strings.TrimSpace(r.FormValue("id")), Domain: strings.ToLower(strings.TrimSpace(r.FormValue("domain"))),
+		ID: siteID, Domain: strings.ToLower(strings.TrimSpace(r.FormValue("domain"))),
 		Kind: model.SiteKind(r.FormValue("kind")), PHPVersion: r.FormValue("php_version"), Upstream: strings.TrimSpace(r.FormValue("upstream")), AllowEOL: r.FormValue("allow_eol") == "yes",
 		WordPressMultisite: model.WordPressMultisiteMode(r.FormValue("wordpress_multisite")),
 	}
@@ -167,6 +175,9 @@ func (s *Server) sitePage(w http.ResponseWriter, r *http.Request, user store.Use
 	}
 	if r.URL.Query().Get("php") == "queued" {
 		data.Message = "PHP version change queued. The site may be briefly unavailable while its runtime switches. Follow progress in Activity."
+	}
+	if r.URL.Query().Get("domain") == "queued" {
+		data.Message = "Domain change queued. Follow progress in Activity, then issue a certificate for the new domain in SSL & security."
 	}
 	if r.URL.Query().Get("certificate") == "queued" {
 		data.Message = "Certificate request queued. Follow its progress in Activity."
@@ -315,7 +326,7 @@ func (s *Server) issueCertificate(w http.ResponseWriter, r *http.Request, user s
 
 func (s *Server) renderSiteError(w http.ResponseWriter, r *http.Request, user store.User, message string) {
 	form := make(map[string]string)
-	for _, key := range []string{"id", "domain", "kind", "php_version", "upstream", "allow_eol", "wordpress_multisite"} {
+	for _, key := range []string{"domain", "kind", "php_version", "upstream", "allow_eol", "wordpress_multisite"} {
 		form[key] = r.FormValue(key)
 	}
 	s.renderStatus(w, "sites.html", http.StatusBadRequest, pageData{Title: "Create site", User: &user, CSRF: s.ensureCSRF(w, r), NewSite: true, KindFilter: form["kind"], Form: form, Error: message})

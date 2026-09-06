@@ -171,6 +171,10 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 	var operationErr error
 	resultJSON := "{}"
 	switch job.Kind {
+	case "site.domain_change":
+		operationErr = w.changeDomain(ctx, job)
+	case "site.delete":
+		operationErr = w.deleteSite(ctx, job)
 	case "site.provision":
 		var site model.Site
 		site, operationErr = w.Store.Site(ctx, job.TargetID)
@@ -495,13 +499,20 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 	default:
 		operationErr = fmt.Errorf("unsupported job kind %q", job.Kind)
 	}
-	if job.Kind == "site.php_version" && (errors.Is(operationErr, broker.ErrOutcomeUnknown) || errors.Is(operationErr, broker.ErrUnavailable)) {
-		if err := w.Store.RetryPHPVersionChange(ctx, job.ID, "Waiting for broker confirmation: "+operationErr.Error()); err != nil {
-			return false, fmt.Errorf("retry PHP version job %s: %w", job.ID, err)
+	if (job.Kind == "site.php_version" || job.Kind == "site.domain_change" || job.Kind == "site.delete") && (errors.Is(operationErr, broker.ErrOutcomeUnknown) || errors.Is(operationErr, broker.ErrUnavailable)) {
+		detail := "Waiting for broker confirmation: " + operationErr.Error()
+		var retryErr error
+		if job.Kind == "site.php_version" {
+			retryErr = w.Store.RetryPHPVersionChange(ctx, job.ID, detail)
+		} else {
+			retryErr = w.Store.RetrySiteLifecycleJob(ctx, job.ID, detail)
+		}
+		if retryErr != nil {
+			return false, fmt.Errorf("retry %s job %s: %w", job.Kind, job.ID, retryErr)
 		}
 		// The privileged operation can outlive a lost socket connection. Keep
 		// the reservation and let Run wait for its next poll before replaying.
-		return false, fmt.Errorf("PHP version job %s is awaiting broker confirmation: %w", job.ID, operationErr)
+		return false, fmt.Errorf("%s job %s is awaiting broker confirmation: %w", job.Kind, job.ID, operationErr)
 	}
 	if err := w.Store.FinishJob(ctx, job, resultJSON, operationErr); err != nil {
 		return true, fmt.Errorf("finish job %s: %w", job.ID, err)

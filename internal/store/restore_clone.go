@@ -13,6 +13,7 @@ import (
 // EnqueueRestoreClone creates the destination and durable job atomically. A
 // staging password is returned once; only its encrypted form remains in state.
 func (s *Store) EnqueueRestoreClone(ctx context.Context, actor User, sourceID, snapshotRecordID, targetID, targetDomain, destination string) (string, string, error) {
+	targetDomain = normalizedSiteDomain(targetDomain)
 	if destination != "production" && destination != "staging" {
 		return "", "", errors.New("restore destination must be a new site or staging")
 	}

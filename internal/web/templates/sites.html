@@ -30,11 +30,6 @@
           <input id="site-domain" class="mt-2 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm shadow-xs placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900" name="domain" value="{{index .Form "domain"}}" placeholder="example.com" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="site-domain-help" required autofocus>
           <p id="site-domain-help" class="mt-2 text-xs leading-5 text-zinc-500">Enter the domain without https:// or a path. SSL can be configured after creation.</p>
         </div>
-        <div>
-          <label for="site-id" class="block text-sm font-medium">Site identifier</label>
-          <input id="site-id" class="mt-2 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm shadow-xs placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900" name="id" value="{{index .Form "id"}}" placeholder="example-com" minlength="3" maxlength="48" pattern="[a-z][a-z0-9-]{2,47}" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="site-id-help" required>
-          <p id="site-id-help" class="mt-2 text-xs leading-5 text-zinc-500">A permanent name for this site. Use 3–48 lowercase letters, numbers, or single hyphens, starting with a letter.</p>
-        </div>
         {{if or (eq .KindFilter "wordpress") (eq .KindFilter "php")}}
         <div>
           <label for="php-version" class="block text-sm font-medium">PHP version</label>
@@ -116,7 +111,7 @@
       <tbody class="divide-y divide-zinc-100">
         {{range .Sites}}
         <tr class="hover:bg-zinc-50/60">
-          <td class="px-5 py-4"><a href="/sites/{{.ID}}" class="font-medium text-zinc-950 hover:underline focus-visible:outline-2 focus-visible:outline-zinc-900">{{.Domain}}</a><div class="mt-1 text-xs text-zinc-500">{{.ID}}{{if eq .Environment "staging"}} <span class="ml-1 rounded border border-zinc-200 px-1 py-0.5 text-[11px]">Staging</span>{{end}}</div></td>
+          <td class="px-5 py-4"><a href="/sites/{{.ID}}" class="font-medium text-zinc-950 hover:underline focus-visible:outline-2 focus-visible:outline-zinc-900">{{.Domain}}</a>{{if eq .Environment "staging"}}<div class="mt-1 text-xs text-zinc-500"><span class="rounded border border-zinc-200 px-1 py-0.5 text-[11px]">Staging</span></div>{{end}}</td>
           <td class="px-5 py-4"><div class="text-zinc-700">{{template "site-kind" .}}</div>{{if .PHPVersion}}<div class="mt-1 text-xs text-zinc-500">PHP {{.PHPVersion}}</div>{{end}}</td>
           <td class="px-5 py-4">{{template "site-status" .}}</td>
           <td class="px-5 py-4 text-right"><a href="/sites/{{.ID}}" class="inline-flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-xs hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900" aria-label="Manage {{.Domain}}">Manage <span aria-hidden="true">→</span></a></td>

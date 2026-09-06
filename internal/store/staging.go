@@ -16,6 +16,7 @@ import (
 // production parent. It copies explicit grants so collaborators keep the same
 // access without silently gaining access to unrelated sites.
 func (s *Store) CreateStaging(ctx context.Context, actor User, sourceID, stagingID, stagingDomain string) (string, string, error) {
+	stagingDomain = normalizedSiteDomain(stagingDomain)
 	jobID, err := randomID("job_", 12)
 	if err != nil {
 		return "", "", err

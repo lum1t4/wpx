@@ -168,6 +168,51 @@ var migrations = []string{
 		php TEXT NOT NULL DEFAULT '',
 		updated_at TEXT NOT NULL
 	);`,
+	// A domain is reserved before the host is touched. Triggers protect every
+	// site-creation path, including older callers that know nothing about domain
+	// changes. Deleted identifiers stay unavailable because host journals and
+	// remote snapshots continue to refer to them after the site itself is gone.
+	`CREATE TABLE site_domain_reservations (
+		domain TEXT PRIMARY KEY COLLATE NOCASE,
+		site_id TEXT NOT NULL UNIQUE REFERENCES sites(id) ON DELETE CASCADE,
+		job_id TEXT NOT NULL UNIQUE REFERENCES jobs(id)
+	);
+	CREATE TABLE deleted_sites (
+		id TEXT PRIMARY KEY,
+		domain TEXT NOT NULL,
+		site_json TEXT NOT NULL,
+		deleted_at TEXT NOT NULL
+	);
+	CREATE TRIGGER sites_reserved_domain_insert BEFORE INSERT ON sites
+	WHEN EXISTS(SELECT 1 FROM site_domain_reservations WHERE domain=lower(rtrim(trim(NEW.domain),'.')) AND site_id<>NEW.id)
+	BEGIN SELECT RAISE(ABORT,'domain is reserved by a pending site operation'); END;
+	CREATE TRIGGER sites_reserved_domain_update BEFORE UPDATE OF domain ON sites
+	WHEN EXISTS(SELECT 1 FROM site_domain_reservations WHERE domain=lower(rtrim(trim(NEW.domain),'.')) AND site_id<>NEW.id)
+	BEGIN SELECT RAISE(ABORT,'domain is reserved by a pending site operation'); END;
+	CREATE TRIGGER sites_deleted_identifier BEFORE INSERT ON sites
+	WHEN EXISTS(SELECT 1 FROM deleted_sites WHERE id=NEW.id)
+	BEGIN SELECT RAISE(ABORT,'deleted site identifiers cannot be reused'); END;
+	CREATE TABLE retained_backup_snapshots (
+		id TEXT PRIMARY KEY,
+		site_id TEXT NOT NULL,
+		target_id TEXT NOT NULL REFERENCES backup_targets(id) ON DELETE CASCADE,
+		restic_snapshot_id TEXT NOT NULL,
+		created_at TEXT NOT NULL,
+		UNIQUE(target_id,restic_snapshot_id)
+	);
+	INSERT INTO retained_backup_snapshots SELECT * FROM backup_snapshots;
+	DROP TABLE backup_snapshots;
+	ALTER TABLE retained_backup_snapshots RENAME TO backup_snapshots;
+	CREATE INDEX backup_snapshots_site ON backup_snapshots(site_id);
+	CREATE TRIGGER jobs_site_lifecycle_lock BEFORE INSERT ON jobs
+	WHEN NEW.kind NOT IN ('site.domain_change','site.delete') AND EXISTS(
+		SELECT 1 FROM sites s WHERE s.status IN ('domain_changing','domain_change_failed','deleting','delete_failed') AND (
+			(NEW.target_type='site' AND NEW.target_id=s.id) OR
+			(NEW.target_type='dns_record' AND EXISTS(SELECT 1 FROM dns_records d WHERE d.id=NEW.target_id AND d.site_id=s.id)) OR
+			(json_valid(NEW.payload_json) AND (json_extract(NEW.payload_json,'$.source_id')=s.id OR json_extract(NEW.payload_json,'$.staging_id')=s.id))
+		)
+	)
+	BEGIN SELECT RAISE(ABORT,'site is reserved by a domain change or deletion'); END;`,
 }
 
 func (s *Store) migrate(ctx context.Context) error {

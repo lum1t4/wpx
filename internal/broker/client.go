@@ -29,6 +29,9 @@ func (c Client) Call(ctx context.Context, operation Operation, idempotencyKey st
 	if idempotencyKey == "" {
 		return errors.New("idempotency key is required")
 	}
+	if (operation == OpChangeDomain || operation == OpDeleteSite) && !validLifecycleKey(idempotencyKey) {
+		return errors.New("lifecycle idempotency key must contain 1 to 160 bytes")
+	}
 	timeout := c.Timeout
 	if timeout == 0 {
 		timeout = 10 * time.Second
@@ -59,6 +62,13 @@ func (c Client) Call(ctx context.Context, operation Operation, idempotencyKey st
 		return fmt.Errorf("%w: response does not match request", ErrOutcomeUnknown)
 	}
 	if !response.OK {
+		if operation == OpChangeDomain && len(response.Result) != 0 {
+			restored, err := decodeDomainRecovery(response.Result)
+			if err != nil {
+				return fmt.Errorf("%w: decode domain recovery state: %w", ErrOutcomeUnknown, err)
+			}
+			return &model.DomainChangeError{Err: errors.New(response.Error), PreviousRestored: restored}
+		}
 		if operation == OpChangePHPVersion && len(response.Result) != 0 {
 			var recovery ChangePHPVersionResult
 			if err := json.Unmarshal(response.Result, &recovery); err != nil {

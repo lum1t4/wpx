@@ -77,6 +77,7 @@ type pageData struct {
 	Jobs               []store.JobSummary
 	ActiveJobs         bool
 	SelectedUser       *store.User
+	Monitoring         *monitoringView
 }
 
 func (s *Server) render(w http.ResponseWriter, name string, data pageData) {
@@ -119,6 +120,8 @@ func jobLabel(kind string) string {
 		"site.disable":                "Disable site",
 		"site.enable":                 "Enable site",
 		"site.php_version":            "Change PHP version",
+		"site.domain_change":          "Change website domain",
+		"site.delete":                 "Delete site",
 		"site.config_apply":           "Apply expert configuration",
 		"site.certificate":            "Issue certificate",
 		"site.certificate_dns":        "Issue DNS certificate",
