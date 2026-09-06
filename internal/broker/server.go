@@ -222,6 +222,31 @@ func (s *Server) dispatch(request Request) Response {
 		}
 		response.OK = true
 		response.Result = json.RawMessage(`{"disabled":true}`)
+	case OpChangePHPVersion:
+		var payload ChangePHPVersionRequest
+		decoder := json.NewDecoder(strings.NewReader(string(request.Payload)))
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(&payload) != nil || model.ValidatePHPVersionChange(payload.Site, payload.Change) != nil || payload.Site.Status != "php_changing" {
+			response.Error = "invalid PHP version change request"
+			return response
+		}
+		manager, ok := s.Provisioner.(interface {
+			ChangePHPVersion(context.Context, model.Site, model.PHPVersionChange) error
+		})
+		if !ok {
+			response.Error = "PHP version changes are unavailable"
+			return response
+		}
+		if err := manager.ChangePHPVersion(context.Background(), payload.Site, payload.Change); err != nil {
+			response.Error = "change PHP version: " + err.Error()
+			var changeErr *model.PHPVersionChangeError
+			if errors.As(err, &changeErr) {
+				response.Result, _ = json.Marshal(ChangePHPVersionResult{PreviousRestored: changeErr.PreviousRestored})
+			}
+			return response
+		}
+		response.OK = true
+		response.Result = json.RawMessage(`{"changed":true}`)
 	case OpApplySiteSnippets:
 		var payload ApplySiteSnippetsRequest
 		decoder := json.NewDecoder(strings.NewReader(string(request.Payload)))

@@ -61,6 +61,6 @@ func (s *Store) OtherActiveSiteUsesPHP(ctx context.Context, siteID, version stri
 		return false, errors.New("invalid PHP usage query")
 	}
 	var count int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sites WHERE id<>? AND status='active' AND kind IN ('wordpress','php') AND php_version=?`, siteID, version).Scan(&count)
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sites WHERE id<>? AND status IN ('active','php_changing','php_change_failed') AND kind IN ('wordpress','php') AND php_version=?`, siteID, version).Scan(&count)
 	return count != 0, err
 }

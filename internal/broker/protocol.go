@@ -18,6 +18,7 @@ const (
 	OpEnsureSiteRoot       Operation = "site.ensure_root"
 	OpProvisionSite        Operation = "site.provision"
 	OpDisableSite          Operation = "site.disable"
+	OpChangePHPVersion     Operation = "site.php_version"
 	OpApplySiteSnippets    Operation = "site.apply_snippets"
 	OpWordPressLogin       Operation = "wordpress.magic_login"
 	OpIssueCertificate     Operation = "site.issue_certificate"
@@ -73,6 +74,15 @@ type ProvisionSiteRequest struct {
 type DisableSiteRequest struct {
 	Site    model.Site `json:"site"`
 	StopPHP bool       `json:"stop_php"`
+}
+
+type ChangePHPVersionRequest struct {
+	Site   model.Site             `json:"site"`
+	Change model.PHPVersionChange `json:"change"`
+}
+
+type ChangePHPVersionResult struct {
+	PreviousRestored bool `json:"previous_restored"`
 }
 
 type ApplySiteSnippetsRequest struct {

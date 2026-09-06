@@ -1,0 +1,71 @@
+{{define "site-staging"}}
+<p class="mb-6 max-w-2xl text-sm leading-6 text-zinc-500">Work on a separate copy of your WordPress site, test your changes, then choose what to publish.</p>
+{{if and .CanDeploySite (eq .Site.Kind "wordpress") (eq .Site.Environment "production")}}
+<section class="rounded-lg border border-zinc-200 bg-white" aria-labelledby="staging-copies-heading">
+  <div class="border-b border-zinc-200 px-5 py-4"><h2 id="staging-copies-heading" class="text-base font-semibold text-zinc-950">Staging copies</h2></div>
+  {{if .StagingSites}}
+  <ul class="divide-y divide-zinc-200">
+    {{range .StagingSites}}
+    <li class="flex flex-wrap items-center justify-between gap-4 p-5">
+      <div class="min-w-0"><a class="break-all text-sm font-medium text-zinc-950 hover:underline" href="/sites/{{.ID}}/staging">{{.Domain}}</a><p class="mt-1 text-xs text-zinc-500">{{.Status}}</p></div>
+      <a class="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-950 shadow-sm hover:bg-zinc-50" href="/sites/{{.ID}}/staging">Manage staging <span aria-hidden="true">→</span></a>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <div class="px-5 py-10 text-center"><h3 class="text-sm font-medium text-zinc-950">No staging copies yet</h3><p class="mx-auto mt-2 max-w-md text-sm leading-6 text-zinc-500">Create a copy before changing a theme, updating plugins, or trying a new feature. Your production site keeps running.</p></div>
+  {{end}}
+</section>
+
+<section class="mt-6 rounded-lg border border-zinc-200 bg-white p-5" aria-labelledby="create-staging-heading">
+  <h2 id="create-staging-heading" class="text-base font-semibold text-zinc-950">Create staging copy</h2>
+  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Copies this site's files and database. The copy is password protected, email is suppressed, and search indexing is disabled.</p>
+  {{if eq .Site.Status "active"}}
+  <form class="mt-6 grid max-w-2xl gap-5 sm:grid-cols-2" method="post" action="/sites/{{.Site.ID}}/staging">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <label class="block"><span class="mb-2 block text-sm font-medium text-zinc-700">Staging site ID</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="id" placeholder="my-site-staging" required><span class="mt-2 block text-xs leading-5 text-zinc-500">A unique identifier using lowercase letters, numbers, and hyphens.</span></label>
+    <label class="block"><span class="mb-2 block text-sm font-medium text-zinc-700">Staging domain</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="domain" placeholder="staging.{{.Site.Domain}}" required><span class="mt-2 block text-xs leading-5 text-zinc-500">Point this domain to the server before opening the copy.</span></label>
+    <div class="sm:col-span-2"><button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800">Create staging copy</button></div>
+  </form>
+  {{else}}
+  <p class="mt-5 rounded-md bg-zinc-50 p-3 text-sm text-zinc-600">The production site must be active before you can create a staging copy.</p>
+  {{end}}
+</section>
+{{else if and .CanDeploySite (eq .Site.Environment "staging")}}
+<section class="rounded-lg border border-zinc-200 bg-white p-5" aria-labelledby="staging-environment-heading">
+  <div class="flex flex-wrap items-center gap-3"><h2 id="staging-environment-heading" class="text-base font-semibold text-zinc-950">Your staging environment</h2><span class="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-700">{{.Site.Status}}</span></div>
+  {{if .ProductionSite}}<p class="mt-2 text-sm leading-6 text-zinc-500">A separate copy of <a class="font-medium text-zinc-950 underline underline-offset-4" href="/sites/{{.ProductionSite.ID}}">{{.ProductionSite.Domain}}</a>. Changes here are not published automatically.</p>{{end}}
+  <p class="mt-2 text-sm leading-6 text-zinc-500">Password protection, email suppression, and disabled search indexing keep this environment separate from production.</p>
+  <div class="mt-5 flex flex-wrap gap-3">
+    {{if and .CanWordPressLogin (eq .Site.Status "active")}}<form method="post" action="/sites/{{.Site.ID}}/wordpress/login"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800">Open WordPress admin</button></form>{{end}}
+    {{if .CanManageWordPress}}<a class="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-950 shadow-sm transition hover:bg-zinc-50" href="/sites/{{.Site.ID}}/wordpress">Manage WordPress</a>{{end}}
+  </div>
+</section>
+
+{{if .ProductionSite}}
+<section class="mt-6 rounded-lg border border-zinc-200 bg-white p-5" aria-labelledby="publish-staging-heading">
+  <h2 id="publish-staging-heading" class="text-base font-semibold text-zinc-950">Publish to production</h2>
+  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Review changed files and database tables, then choose a full or custom deployment. WPX creates a recovery backup before applying your changes.</p>
+  {{if eq .Site.Status "active"}}<a class="mt-5 inline-flex rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800" href="/sites/{{.Site.ID}}/staging/deploy">Review deployment <span class="ml-2" aria-hidden="true">→</span></a>{{else}}<p class="mt-5 text-sm text-zinc-500">This staging site must be active before you can review a deployment.</p>{{end}}
+</section>
+{{end}}
+
+<section class="mt-6 rounded-lg border border-zinc-200 bg-white p-5" aria-labelledby="refresh-staging-heading">
+  <h2 id="refresh-staging-heading" class="text-base font-semibold text-zinc-950">Refresh from production</h2>
+  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Start again from the current production site. This replaces the files and database in this staging copy.</p>
+  <details class="mt-5 rounded-md border border-red-200">
+    <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-red-700">Replace staging content</summary>
+    <div class="border-t border-red-200 p-4">
+      <p class="text-sm leading-6 text-red-800">Any changes made only in staging will be lost. Your production site is not changed.</p>
+      <form class="mt-4 flex max-w-xl flex-wrap items-end gap-3" method="post" action="/sites/{{.Site.ID}}/staging/sync">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+        <label class="min-w-0 flex-1"><span class="mb-2 block text-sm font-medium text-zinc-700">Type {{.Site.Domain}} to confirm</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="confirmation" autocomplete="off" required></label>
+        <button class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700">Replace staging</button>
+      </form>
+    </div>
+  </details>
+</section>
+{{else}}
+<div class="rounded-lg border border-zinc-200 bg-white p-8 text-center"><p class="text-sm text-zinc-500">Staging is available for WordPress sites with deployment access.</p></div>
+{{end}}
+{{end}}

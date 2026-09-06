@@ -1,5 +1,60 @@
 {{define "files.html"}}
-<!doctype html><html lang="en"><head>{{template "head"}}<title>{{.Title}} · WPX</title></head><body class="bg-slate-50 text-slate-900"><div class="md:flex">{{template "nav"}}<main class="w-full max-w-7xl p-5 md:p-10"><a class="text-sm font-semibold text-wpx-700 hover:underline" href="/sites/{{.Site.ID}}">← {{.Site.Domain}}</a><header class="mt-4"><h1 class="text-3xl font-bold tracking-tight">File manager</h1><p class="mt-2 font-mono text-sm text-slate-500">/public/{{.FilePath}}</p></header>{{if .Error}}<p class="mt-5 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-700">{{.Error}}</p>{{end}}
-<div class="mt-8 grid gap-5 {{if .EditingFile}}xl:grid-cols-[22rem_minmax(0,1fr)]{{end}}"><section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="border-b border-slate-200 px-5 py-4 text-sm font-semibold">Directory</div><div class="divide-y divide-slate-100">{{if .FilePath}}<a class="flex items-center gap-3 px-5 py-3 text-sm font-semibold text-wpx-700 hover:bg-slate-50" href="/sites/{{.Site.ID}}/files?path={{.ParentPath}}">↰ Parent directory</a>{{end}}{{range .Files}}{{if .IsDir}}<a class="flex items-center justify-between gap-3 px-5 py-3 text-sm hover:bg-slate-50" href="/sites/{{$.Site.ID}}/files?path={{.Path}}"><span class="font-semibold">📁 {{.Name}}</span></a>{{else}}<a class="flex items-center justify-between gap-3 px-5 py-3 text-sm hover:bg-slate-50" href="/sites/{{$.Site.ID}}/files?path={{$.FilePath}}&edit={{.Path}}"><span class="truncate">{{.Name}}</span><span class="shrink-0 text-xs text-slate-400">{{.Size}} B</span></a>{{end}}{{else}}<p class="px-5 py-8 text-center text-sm text-slate-500">This directory is empty.</p>{{end}}</div></section>
-{{if .EditingFile}}<section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div class="flex items-center justify-between gap-4"><h2 class="truncate font-mono text-sm font-bold">{{.FilePath}}</h2><span class="text-xs text-slate-500">Maximum 1 MiB</span></div><form class="mt-4" method="post" action="/sites/{{.Site.ID}}/files"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="path" value="{{.FilePath}}"><textarea class="min-h-[32rem] w-full resize-y rounded-xl border border-slate-300 bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-100 focus:border-wpx-500 focus:ring-2 focus:ring-wpx-100" name="content" spellcheck="false">{{.FileContent}}</textarea><div class="mt-4 flex items-center justify-between gap-4"><p class="text-xs text-slate-500">Saving creates a private revision. PHP files must pass syntax validation.</p><button class="rounded-lg bg-wpx-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-wpx-700">Save atomically</button></div></form></section>{{end}}</div></main></div></body></html>
+{{template "shell-start" .}}
+<a class="text-sm text-zinc-500 hover:text-zinc-950" href="/sites/{{.Site.ID}}">← {{.Site.Domain}}</a>
+<header class="mt-4">
+  <h1 class="text-2xl font-semibold tracking-tight text-zinc-950">File manager</h1>
+  <p class="mt-2 text-sm leading-6 text-zinc-500">Browse and edit files for {{.Site.Domain}}. Changes apply to this site.</p>
+</header>
+{{if .Error}}<p role="alert" class="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{.Error}}</p>{{end}}
+
+<div class="mt-8 grid items-start gap-6 {{if .EditingFile}}xl:grid-cols-[18rem_minmax(0,1fr)]{{end}}">
+  <section aria-labelledby="directory-heading" class="min-w-0 overflow-hidden rounded-lg border border-zinc-200 bg-white">
+    <div class="border-b border-zinc-200 px-5 py-4">
+      <h2 id="directory-heading" class="text-sm font-semibold">Directory</h2>
+      <p class="mt-1 break-all font-mono text-xs text-zinc-500">/public/{{.DirectoryPath}}</p>
+    </div>
+    <div class="divide-y divide-zinc-100">
+      {{if .DirectoryPath}}
+      <a class="flex items-center gap-3 px-5 py-3 text-sm text-zinc-600 hover:bg-zinc-50" href="/sites/{{.Site.ID}}/files?path={{urlquery .ParentPath}}">↑ Parent directory</a>
+      {{end}}
+      {{range .Files}}
+      {{if .IsDir}}
+      <a class="flex items-center gap-3 px-5 py-3 text-sm hover:bg-zinc-50" href="/sites/{{$.Site.ID}}/files?path={{urlquery .Path}}">
+        <svg class="size-4 shrink-0 text-zinc-400" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7V5a1 1 0 0 1 1-1h5l2 3h9a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z"/></svg>
+        <span class="min-w-0 truncate font-medium">{{.Name}}</span>
+      </a>
+      {{else}}
+      <a class="flex items-center justify-between gap-3 px-5 py-3 text-sm hover:bg-zinc-50 {{if eq .Path $.FilePath}}bg-zinc-50{{end}}" href="/sites/{{$.Site.ID}}/files?path={{urlquery $.DirectoryPath}}&amp;edit={{urlquery .Path}}">
+        <span class="min-w-0 truncate">{{.Name}}</span>
+        <span class="shrink-0 text-xs tabular-nums text-zinc-400">{{bytes .Size}}</span>
+      </a>
+      {{end}}
+      {{else}}
+      <p class="px-5 py-10 text-center text-sm text-zinc-500">This directory is empty.</p>
+      {{end}}
+    </div>
+  </section>
+
+  {{if .EditingFile}}
+  <section class="min-w-0 rounded-lg border border-zinc-200 bg-white p-5">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h2 class="min-w-0 break-all font-mono text-sm font-medium">{{.FilePath}}</h2>
+      <a class="text-sm text-zinc-500 hover:text-zinc-950" href="/sites/{{.Site.ID}}/files?path={{urlquery .DirectoryPath}}">Close editor</a>
+    </div>
+    <form class="mt-4" method="post" action="/sites/{{.Site.ID}}/files">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <input type="hidden" name="path" value="{{.FilePath}}">
+      <label for="file-content" class="sr-only">Contents of {{.FilePath}}</label>
+      <textarea id="file-content" class="min-h-[32rem] w-full resize-y rounded-md border border-zinc-200 bg-zinc-50 p-4 font-mono text-sm leading-6 text-zinc-900" name="content" spellcheck="false" autocapitalize="off" wrap="off">{{.FileContent}}</textarea>
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-4">
+        <p class="max-w-lg text-xs leading-5 text-zinc-500">A private revision is saved before each change. PHP files are checked for syntax errors. Maximum file size: 1 MiB.</p>
+        <button class="shrink-0 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Save changes</button>
+      </div>
+    </form>
+  </section>
+  {{else}}
+  <p class="text-sm leading-6 text-zinc-500">Select a file to open the editor. Select a folder to browse its contents.</p>
+  {{end}}
+</div>
+{{template "shell-end" .}}
 {{end}}

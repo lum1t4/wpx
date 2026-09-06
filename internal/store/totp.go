@@ -29,6 +29,28 @@ type TOTPEnrollment struct {
 	URI    string
 }
 
+// PendingTOTPEnrollment lets a user return to setup after a page refresh or an
+// invalid confirmation code without changing the key already in their app.
+// Only pending secrets are readable: the database decides whether a factor is
+// enabled, since the caller's User may predate a successful confirmation.
+func (s *Store) PendingTOTPEnrollment(ctx context.Context, user User) (TOTPEnrollment, error) {
+	var username string
+	var ciphertext []byte
+	if err := s.db.QueryRowContext(ctx, `SELECT username,
+		CASE WHEN totp_secret_ciphertext IS NULL THEN totp_pending_ciphertext END
+		FROM users WHERE id=?`, user.ID).Scan(&username, &ciphertext); err != nil {
+		return TOTPEnrollment{}, fmt.Errorf("read pending TOTP enrollment: %w", err)
+	}
+	if len(ciphertext) == 0 {
+		return TOTPEnrollment{}, nil
+	}
+	secret, err := s.decrypt(ciphertext)
+	if err != nil {
+		return TOTPEnrollment{}, fmt.Errorf("decrypt pending TOTP enrollment: %w", err)
+	}
+	return totpEnrollment(username, string(secret)), nil
+}
+
 func (s *Store) BeginTOTPEnrollment(ctx context.Context, user User) (TOTPEnrollment, error) {
 	var alreadyEnabled bool
 	if err := s.db.QueryRowContext(ctx, "SELECT totp_secret_ciphertext IS NOT NULL FROM users WHERE id=?", user.ID).Scan(&alreadyEnabled); err != nil {
@@ -49,9 +71,13 @@ func (s *Store) BeginTOTPEnrollment(ctx context.Context, user User) (TOTPEnrollm
 	if _, err := s.db.ExecContext(ctx, "UPDATE users SET totp_pending_ciphertext=?,updated_at=? WHERE id=?", ciphertext, s.now().UTC().Format(time.RFC3339Nano), user.ID); err != nil {
 		return TOTPEnrollment{}, fmt.Errorf("store pending TOTP enrollment: %w", err)
 	}
-	issuer := "WPX"
-	uri := "otpauth://totp/" + url.PathEscape(issuer+":"+user.Username) + "?secret=" + url.QueryEscape(encoded) + "&issuer=" + url.QueryEscape(issuer) + "&algorithm=SHA1&digits=6&period=30"
-	return TOTPEnrollment{Secret: encoded, URI: uri}, nil
+	return totpEnrollment(user.Username, encoded), nil
+}
+
+func totpEnrollment(username, secret string) TOTPEnrollment {
+	const issuer = "WPX"
+	uri := "otpauth://totp/" + url.PathEscape(issuer+":"+username) + "?secret=" + url.QueryEscape(secret) + "&issuer=" + url.QueryEscape(issuer) + "&algorithm=SHA1&digits=6&period=30"
+	return TOTPEnrollment{Secret: secret, URI: uri}
 }
 
 func (s *Store) ConfirmTOTPEnrollment(ctx context.Context, userID, code string) ([]string, error) {

@@ -57,6 +57,70 @@ func TestTOTPEnrollmentReplayProtectionAndRecoveryCode(t *testing.T) {
 	}
 }
 
+func TestPendingTOTPEnrollmentSurvivesInvalidConfirmationWithoutRotating(t *testing.T) {
+	state, err := Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer state.Close()
+	if err := state.ConfigureSecretKey(make([]byte, 32)); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)
+	state.now = func() time.Time { return now }
+	ctx := context.Background()
+	user, err := state.CreateOwner(ctx, "operator", "a-secure-test-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pending, err := state.PendingTOTPEnrollment(ctx, user)
+	if err != nil || pending != (TOTPEnrollment{}) {
+		t.Fatalf("new user must have no pending enrollment: err=%v", err)
+	}
+	enrollment, err := state.BeginTOTPEnrollment(ctx, user)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := state.ConfirmTOTPEnrollment(ctx, user.ID, "invalid"); err == nil {
+		t.Fatal("invalid confirmation was accepted")
+	}
+	for range 2 {
+		pending, err = state.PendingTOTPEnrollment(ctx, user)
+		if err != nil || pending != enrollment {
+			t.Fatalf("reading pending setup must preserve the original secret and URI: err=%v", err)
+		}
+	}
+	secret, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(enrollment.Secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := state.ConfirmTOTPEnrollment(ctx, user.ID, totpCode(secret, now.Unix()/30)); err != nil {
+		t.Fatalf("original authenticator secret must still confirm: %v", err)
+	}
+	// user still says TOTPEnabled=false. Reads must use the saved factor state,
+	// not that stale session value, and may never return the enabled secret.
+	pending, err = state.PendingTOTPEnrollment(ctx, user)
+	if err != nil || pending != (TOTPEnrollment{}) {
+		t.Fatalf("confirmed enrollment must no longer disclose setup: err=%v", err)
+	}
+	var pendingCiphertext []byte
+	if err := state.db.QueryRowContext(ctx, "SELECT totp_pending_ciphertext FROM users WHERE id=?", user.ID).Scan(&pendingCiphertext); err != nil {
+		t.Fatal(err)
+	}
+	if len(pendingCiphertext) != 0 {
+		t.Fatal("successful confirmation must consume the pending secret")
+	}
+	// Even inconsistent legacy state containing both columns must not expose
+	// an enabled factor through the pending-enrollment API.
+	if _, err := state.db.ExecContext(ctx, "UPDATE users SET totp_pending_ciphertext=totp_secret_ciphertext WHERE id=?", user.ID); err != nil {
+		t.Fatal(err)
+	}
+	pending, err = state.PendingTOTPEnrollment(ctx, user)
+	if err != nil || pending != (TOTPEnrollment{}) {
+		t.Fatalf("enabled factor was exposed as pending setup: err=%v", err)
+	}
+}
+
 func TestLoginChallengeExpires(t *testing.T) {
 	state, err := Open(filepath.Join(t.TempDir(), "state.db"))
 	if err != nil {

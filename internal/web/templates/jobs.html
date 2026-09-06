@@ -1,5 +1,34 @@
 {{define "jobs.html"}}
-<!doctype html><html lang="en"><head>{{template "head"}}<title>{{.Title}} · WPX</title>{{if .ActiveJobs}}<meta http-equiv="refresh" content="5">{{end}}</head><body class="bg-slate-50 text-slate-900"><div class="md:flex">{{template "nav"}}<main class="w-full max-w-7xl p-5 md:p-10"><header class="flex flex-wrap items-start justify-between gap-4"><div><h1 class="text-3xl font-bold tracking-tight">Activity</h1><p class="mt-2 text-slate-500">The latest provisioning, backup, restore, staging, DNS, and maintenance work.</p></div>{{if .ActiveJobs}}<span class="rounded-full bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-800">Work in progress · refreshing</span>{{end}}</header>
-{{if .Error}}<div class="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{.Error}}</div>{{end}}
-<section class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="overflow-x-auto"><table class="w-full min-w-[900px]"><thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-5 py-3">Operation</th><th class="px-5 py-3">Target</th><th class="px-5 py-3">Started by</th><th class="px-5 py-3">State</th><th class="px-5 py-3">Updated</th></tr></thead><tbody class="divide-y divide-slate-100">{{range .Jobs}}<tr class="align-top"><td class="px-5 py-4"><div class="font-semibold text-slate-900">{{jobLabel .Kind}}</div><div class="mt-1 font-mono text-xs text-slate-400">{{.ID}}</div></td><td class="px-5 py-4"><div class="font-mono text-sm text-slate-700">{{.TargetID}}</div><div class="mt-1 text-xs capitalize text-slate-400">{{.TargetType}}</div></td><td class="px-5 py-4 text-sm text-slate-600">{{.Initiator}}</td><td class="px-5 py-4">{{if eq .Status "succeeded"}}<span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Succeeded</span>{{else if eq .Status "failed"}}<span class="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">Failed</span>{{else if eq .Status "running"}}<span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">Running · {{.Progress}}%</span>{{else}}<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">Queued</span>{{end}}{{if .Error}}<p class="mt-2 max-w-lg break-words text-xs leading-5 text-red-700">{{.Error}}</p>{{else if and (ne .Status "succeeded") (ne .Phase "")}}<p class="mt-2 text-xs text-slate-500">{{.Phase}}</p>{{end}}</td><td class="px-5 py-4 text-sm text-slate-600"><time datetime="{{.UpdatedAt}}">{{.UpdatedAt}}</time>{{if .FinishedAt}}<div class="mt-1 text-xs text-slate-400">Finished</div>{{end}}</td></tr>{{else}}<tr><td class="px-5 py-10 text-center text-slate-500" colspan="5">No activity is visible for your sites yet.</td></tr>{{end}}</tbody></table></div></section>
-</main></div></body></html>{{end}}
+{{template "shell-start" .}}
+  <header class="flex flex-wrap items-start justify-between gap-4">
+    <div><h1 class="text-2xl font-semibold tracking-tight">Activity</h1><p class="mt-1.5 text-sm text-zinc-500">Follow site operations and find out what happened when something fails.</p></div>
+    {{if .ActiveJobs}}<span role="status" class="inline-flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700"><span class="size-1.5 rounded-full bg-blue-600" aria-hidden="true"></span>Work in progress · refreshes every 5s</span>{{end}}
+  </header>
+  {{if .Error}}<div role="alert" class="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{.Error}}</div>{{end}}
+  <section class="mt-8 overflow-hidden rounded-lg border border-zinc-200" aria-label="Recent operations">
+    {{if .Jobs}}
+    <div class="overflow-x-auto"><table class="w-full min-w-[760px] text-sm">
+      <thead class="border-b border-zinc-200 bg-zinc-50/70 text-left text-xs text-zinc-500"><tr><th scope="col" class="px-5 py-3 font-medium">Operation</th><th scope="col" class="px-5 py-3 font-medium">Target</th><th scope="col" class="px-5 py-3 font-medium">Status</th><th scope="col" class="px-5 py-3 font-medium">Last update</th></tr></thead>
+      <tbody class="divide-y divide-zinc-100">
+        {{range .Jobs}}
+        <tr class="align-top hover:bg-zinc-50/40">
+          <td class="px-5 py-4"><p class="font-medium">{{jobLabel .Kind}}</p><p class="mt-1 text-xs text-zinc-500">Started by {{.Initiator}}</p><details class="mt-2"><summary class="cursor-pointer text-xs text-zinc-400 hover:text-zinc-700">Operation ID</summary><code class="mt-1 block break-all text-[11px] text-zinc-500">{{.ID}}</code></details></td>
+          <td class="px-5 py-4"><p class="break-all text-sm text-zinc-700">{{.TargetID}}</p><p class="mt-1 text-xs capitalize text-zinc-500">{{.TargetType}}</p></td>
+          <td class="px-5 py-4">
+            {{if eq .Status "succeeded"}}<span class="inline-flex rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Completed</span>
+            {{else if eq .Status "failed"}}<span class="inline-flex rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Failed</span>
+            {{else if eq .Status "running"}}<span class="inline-flex rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">Running · {{.Progress}}%</span>
+            {{else}}<span class="inline-flex rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600">Queued</span>{{end}}
+            {{if .Error}}<p class="mt-2 max-w-md break-words text-xs leading-5 text-red-700">{{.Error}}</p>{{else if and (ne .Status "succeeded") (ne .Phase "")}}<p class="mt-2 max-w-xs break-words text-xs leading-5 text-zinc-500">{{.Phase}}</p>{{end}}
+          </td>
+          <td class="px-5 py-4 text-xs leading-5 text-zinc-500"><time datetime="{{.UpdatedAt}}">{{.UpdatedAt}}</time>{{if .FinishedAt}}<p class="mt-1 text-zinc-400">Finished</p>{{end}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table></div>
+    {{else}}
+    <div class="px-6 py-14 text-center"><h2 class="text-sm font-semibold">No activity yet</h2><p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-zinc-500">Site creation, backups, updates, and other operations will appear here as you use WPX.</p><a href="/sites" class="mt-5 inline-flex rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium hover:bg-zinc-50">Go to sites</a></div>
+    {{end}}
+  </section>
+{{template "shell-end" .}}
+{{end}}

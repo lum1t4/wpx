@@ -1,0 +1,252 @@
+{{define "site-backups"}}
+{{if .CanManageBackups}}
+{{$hasActiveStorage := false}}
+{{$hasUnscheduledStorage := false}}
+{{range .BackupTargets}}
+  {{if eq .Status "active"}}
+    {{$hasActiveStorage = true}}
+    {{$targetID := .ID}}
+    {{$scheduled := false}}
+    {{range $.BackupSchedules}}{{if eq .TargetID $targetID}}{{$scheduled = true}}{{end}}{{end}}
+    {{if not $scheduled}}{{$hasUnscheduledStorage = true}}{{end}}
+  {{end}}
+{{end}}
+<div class="space-y-6">
+  <section aria-labelledby="backups-heading" class="rounded-lg border border-zinc-200 bg-white p-5 sm:p-6">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h2 id="backups-heading" class="text-lg font-semibold tracking-tight text-zinc-950">Backups</h2>
+        <p class="mt-1 max-w-2xl text-sm leading-6 text-zinc-500">Encrypted, incremental copies of your site files{{if eq .Site.Kind "wordpress"}} and database{{end}}. Create a backup now or let a schedule keep your restore points up to date.</p>
+      </div>
+      {{if .CanManageServer}}
+      <a class="inline-flex shrink-0 items-center rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950" href="/backups/targets">Manage storage</a>
+      {{end}}
+    </div>
+    {{if ne .Site.Status "active"}}
+    <p class="mt-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">This site must be active before you can create backups or change its backup schedule. Existing restore points are listed below.</p>
+    {{else if $hasActiveStorage}}
+    <form class="mt-5 flex flex-wrap items-end gap-3" method="post" action="/sites/{{.Site.ID}}/backups">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <label class="block w-full sm:max-w-sm">
+        <span class="mb-2 block text-sm font-medium text-zinc-900">Backup storage</span>
+        <select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" name="target_id" required>
+          <option value="">Choose storage</option>
+          {{range .BackupTargets}}{{if eq .Status "active"}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}
+        </select>
+      </label>
+      <button class="inline-flex items-center justify-center rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950">Back up now</button>
+    </form>
+    <p class="mt-3 text-xs leading-5 text-zinc-500">Backups run in the background. Follow their progress in <a class="font-medium text-zinc-900 underline underline-offset-4" href="/jobs">Activity</a>.</p>
+    {{else}}
+    <div class="mt-5 rounded-md border border-dashed border-zinc-300 px-4 py-5">
+      <p class="text-sm font-medium text-zinc-900">No backup storage is ready</p>
+      <p class="mt-1 text-sm leading-6 text-zinc-500">{{if .CanManageServer}}Connect S3-compatible storage or Google Drive, then return here to create your first backup.{{else}}Ask a server administrator to connect backup storage for this site.{{end}}</p>
+    </div>
+    {{end}}
+  </section>
+
+  <section aria-labelledby="restore-points-heading" class="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+    <div class="border-b border-zinc-200 p-5 sm:p-6">
+      <div class="flex items-center gap-3">
+        <h2 id="restore-points-heading" class="text-base font-semibold text-zinc-950">Restore points</h2>
+        <span class="rounded-md bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">{{len .BackupSnapshots}}</span>
+      </div>
+      <p class="mt-1 text-sm leading-6 text-zinc-500">Choose a backup to restore this site{{if .CanDeploySite}} or create a separate copy{{end}}.</p>
+    </div>
+    {{if .BackupSnapshots}}
+    <div class="divide-y divide-zinc-200">
+      {{range .BackupSnapshots}}
+      {{$snapshot := .}}
+      {{$storageName := .TargetID}}
+      {{range $.BackupTargets}}{{if eq .ID $snapshot.TargetID}}{{$storageName = .Name}}{{end}}{{end}}
+      <details class="group">
+        <summary class="cursor-pointer px-5 py-4 text-sm focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-zinc-950 sm:px-6">
+          <span class="ml-1 font-medium text-zinc-900">{{.CreatedAt}}</span>
+          <span class="ml-3 text-zinc-500">{{ $storageName }}</span>
+          <span class="mt-1 block pl-5 font-mono text-xs text-zinc-400">{{.ResticSnapshotID}}</span>
+        </summary>
+        <div class="grid gap-6 border-t border-zinc-100 bg-zinc-50/60 p-5 sm:p-6 {{if $.CanDeploySite}}lg:grid-cols-2{{end}}">
+          <div>
+            <h3 class="text-sm font-semibold text-zinc-950">Restore this site</h3>
+            <p class="mt-2 text-sm leading-6 text-zinc-600">Replace the current files{{if eq $.Site.Kind "wordpress"}} and database{{end}} with this backup. Changes made after this restore point will be replaced. WPX creates a recovery snapshot before restoring.</p>
+            <form class="mt-4 space-y-3" method="post" action="/sites/{{$.Site.ID}}/backups/{{.ID}}/restore">
+              <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+              <label class="block">
+                <span class="mb-2 block text-sm font-medium text-zinc-900">Type <span class="font-mono">{{$.Site.Domain}}</span> to confirm</span>
+                <input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-zinc-400 focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" name="confirmation" autocomplete="off" spellcheck="false" required>
+              </label>
+              <button class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">Restore this site</button>
+            </form>
+          </div>
+          {{if $.CanDeploySite}}
+          <div>
+            <h3 class="text-sm font-semibold text-zinc-950">Restore as a new site</h3>
+            <p class="mt-2 text-sm leading-6 text-zinc-600">Create a separate copy from this backup. Your current site remains unchanged.</p>
+            <form class="mt-4 grid gap-3 sm:grid-cols-2" method="post" action="/sites/{{$.Site.ID}}/backups/{{.ID}}/clone">
+              <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+              <label class="block">
+                <span class="mb-2 block text-sm font-medium text-zinc-900">New site ID</span>
+                <input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-zinc-400 focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" name="target_id" placeholder="restored-site" autocomplete="off" spellcheck="false" required>
+              </label>
+              <label class="block">
+                <span class="mb-2 block text-sm font-medium text-zinc-900">New domain</span>
+                <input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-zinc-400 focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" name="target_domain" placeholder="restored.example.com" autocomplete="off" spellcheck="false" required>
+              </label>
+              <label class="block sm:col-span-2">
+                <span class="mb-2 block text-sm font-medium text-zinc-900">Environment</span>
+                <select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:border-zinc-400 focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" name="destination">
+                  <option value="production">Independent site</option>
+                  {{if eq $.Site.Kind "wordpress"}}<option value="staging">Protected staging</option>{{end}}
+                </select>
+              </label>
+              <button class="justify-self-start rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 sm:col-span-2">Create from backup</button>
+            </form>
+          </div>
+          {{end}}
+        </div>
+      </details>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="px-5 py-10 text-center sm:px-6">
+      <p class="text-sm font-medium text-zinc-900">No restore points yet</p>
+      <p class="mt-2 text-sm leading-6 text-zinc-500">Your completed backups will appear here.</p>
+    </div>
+    {{end}}
+  </section>
+
+  <section aria-labelledby="backup-schedules-heading" class="rounded-lg border border-zinc-200 bg-white p-5 sm:p-6">
+    <h2 id="backup-schedules-heading" class="text-base font-semibold text-zinc-950">Automatic backups</h2>
+    <p class="mt-1 text-sm leading-6 text-zinc-500">Choose how often to back up and how many daily, weekly, and monthly restore points to keep.</p>
+    {{if .BackupSchedules}}
+    <div class="mt-5 divide-y divide-zinc-200 rounded-md border border-zinc-200">
+      {{range .BackupSchedules}}
+      {{$schedule := .}}
+      {{$storageName := .TargetID}}
+      {{range $.BackupTargets}}{{if eq .ID $schedule.TargetID}}{{$storageName = .Name}}{{end}}{{end}}
+      <div class="p-4">
+        <div class="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h3 class="text-sm font-medium text-zinc-900">{{$storageName}}</h3>
+            <p class="mt-1 text-sm text-zinc-600">{{if eq .IntervalHours 24}}Daily{{else if eq .IntervalHours 168}}Weekly{{else}}Every {{.IntervalHours}} hours{{end}} · {{.Retention.KeepDaily}} daily, {{.Retention.KeepWeekly}} weekly, {{.Retention.KeepMonthly}} monthly retained</p>
+          </div>
+          <span class="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-600">{{if .Enabled}}Scheduled{{else}}Paused{{end}}</span>
+        </div>
+        <p class="mt-2 text-xs leading-5 text-zinc-500">Next backup: {{.NextRun}}</p>
+        {{if eq $.Site.Status "active"}}
+        <details class="mt-3">
+          <summary class="cursor-pointer text-sm font-medium text-zinc-700">Edit schedule</summary>
+          <form class="mt-4 grid gap-4 sm:grid-cols-2" method="post" action="/sites/{{$.Site.ID}}/backups/schedule">
+            <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+            <input type="hidden" name="target_id" value="{{.TargetID}}">
+            <input type="hidden" name="restore_test_days" value="{{.RestoreTestIntervalDays}}">
+            <label class="block">
+              <span class="mb-2 block text-sm font-medium text-zinc-900">Frequency</span>
+              <select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" name="interval_hours">
+                <option value="24" {{if eq .IntervalHours 24}}selected{{end}}>Daily</option>
+                <option value="6" {{if eq .IntervalHours 6}}selected{{end}}>Every 6 hours</option>
+                <option value="168" {{if eq .IntervalHours 168}}selected{{end}}>Weekly</option>
+              </select>
+            </label>
+            <fieldset class="grid grid-cols-3 gap-3 sm:col-span-2">
+              <legend class="mb-2 text-sm font-medium text-zinc-900">Restore points to keep</legend>
+              <label><span class="mb-2 block text-xs text-zinc-600">Daily</span><input class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" type="number" name="keep_daily" value="{{.Retention.KeepDaily}}" min="0" max="365" required></label>
+              <label><span class="mb-2 block text-xs text-zinc-600">Weekly</span><input class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" type="number" name="keep_weekly" value="{{.Retention.KeepWeekly}}" min="0" max="260" required></label>
+              <label><span class="mb-2 block text-xs text-zinc-600">Monthly</span><input class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" type="number" name="keep_monthly" value="{{.Retention.KeepMonthly}}" min="0" max="120" required></label>
+            </fieldset>
+            <button class="justify-self-start rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 sm:col-span-2">Save schedule</button>
+          </form>
+        </details>
+        {{end}}
+      </div>
+      {{end}}
+    </div>
+    {{else}}
+    <p class="mt-4 rounded-md bg-zinc-50 px-4 py-3 text-sm text-zinc-600">No automatic backups are scheduled for this site.</p>
+    {{end}}
+    {{if and (eq .Site.Status "active") $hasUnscheduledStorage}}
+    <details class="mt-5">
+      <summary class="cursor-pointer text-sm font-medium text-zinc-900">Add a backup schedule</summary>
+      <form class="mt-4 grid gap-4 sm:grid-cols-2" method="post" action="/sites/{{.Site.ID}}/backups/schedule">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+        <label class="block">
+          <span class="mb-2 block text-sm font-medium text-zinc-900">Backup storage</span>
+          <select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" name="target_id" required>
+            <option value="">Choose storage</option>
+            {{range .BackupTargets}}
+              {{if eq .Status "active"}}
+                {{$targetID := .ID}}
+                {{$scheduled := false}}
+                {{range $.BackupSchedules}}{{if eq .TargetID $targetID}}{{$scheduled = true}}{{end}}{{end}}
+                {{if not $scheduled}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+              {{end}}
+            {{end}}
+          </select>
+        </label>
+        <label class="block">
+          <span class="mb-2 block text-sm font-medium text-zinc-900">Frequency</span>
+          <select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" name="interval_hours">
+            <option value="24">Daily</option>
+            <option value="6">Every 6 hours</option>
+            <option value="168">Weekly</option>
+          </select>
+        </label>
+        <fieldset class="grid grid-cols-3 gap-3 sm:col-span-2">
+          <legend class="mb-2 text-sm font-medium text-zinc-900">Restore points to keep</legend>
+          <label><span class="mb-2 block text-xs text-zinc-600">Daily</span><input class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" type="number" name="keep_daily" value="7" min="0" max="365" required></label>
+          <label><span class="mb-2 block text-xs text-zinc-600">Weekly</span><input class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" type="number" name="keep_weekly" value="4" min="0" max="260" required></label>
+          <label><span class="mb-2 block text-xs text-zinc-600">Monthly</span><input class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" type="number" name="keep_monthly" value="6" min="0" max="120" required></label>
+        </fieldset>
+        <button class="justify-self-start rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 sm:col-span-2">Create schedule</button>
+      </form>
+    </details>
+    {{end}}
+  </section>
+
+  {{if .BackupSnapshots}}
+  <details class="rounded-lg border border-zinc-200 bg-white p-5 sm:p-6">
+    <summary class="cursor-pointer text-base font-semibold text-zinc-950">Verify a backup</summary>
+    <p class="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">Test whether a backup can be restored without changing your live site. WPX downloads and validates its files{{if eq .Site.Kind "wordpress"}}, then checks the database in a temporary database{{end}}. Results appear in <a class="font-medium text-zinc-900 underline underline-offset-4" href="/jobs">Activity</a>.</p>
+    <form class="mt-5 flex flex-wrap items-end gap-3" method="post" action="/sites/{{.Site.ID}}/backups/restore-test">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <label class="block w-full sm:max-w-md">
+        <span class="mb-2 block text-sm font-medium text-zinc-900">Restore point to test</span>
+        <select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" name="snapshot_id" required>
+          <option value="">Choose a restore point</option>
+          {{range .BackupSnapshots}}<option value="{{.ID}}">{{.CreatedAt}} · {{.ResticSnapshotID}}</option>{{end}}
+        </select>
+      </label>
+      <button class="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950">Test restore now</button>
+    </form>
+    {{if .BackupSchedules}}
+    <div class="mt-6 border-t border-zinc-200 pt-5">
+      <h3 class="text-sm font-semibold text-zinc-900">Scheduled verification</h3>
+      <p class="mt-1 text-sm leading-6 text-zinc-500">Regularly test a backup from each scheduled storage location.</p>
+      <div class="mt-4 divide-y divide-zinc-100">
+        {{range .BackupSchedules}}
+        {{$schedule := .}}
+        {{$storageName := .TargetID}}
+        {{range $.BackupTargets}}{{if eq .ID $schedule.TargetID}}{{$storageName = .Name}}{{end}}{{end}}
+        <form class="flex flex-wrap items-end gap-3 py-4 first:pt-0" method="post" action="/sites/{{$.Site.ID}}/backups/restore-test-schedule">
+          <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+          <input type="hidden" name="target_id" value="{{.TargetID}}">
+          <label class="block w-full sm:max-w-sm">
+            <span class="mb-2 block text-sm font-medium text-zinc-900">{{$storageName}}</span>
+            <select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950" name="interval_days">
+              <option value="0" {{if eq .RestoreTestIntervalDays 0}}selected{{end}}>Disabled</option>
+              <option value="7" {{if eq .RestoreTestIntervalDays 7}}selected{{end}}>Weekly</option>
+              <option value="30" {{if eq .RestoreTestIntervalDays 30}}selected{{end}}>Monthly</option>
+            </select>
+          </label>
+          <button class="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950">Save verification schedule</button>
+          <p class="w-full text-xs leading-5 text-zinc-500">{{if .LastRestoreTestStatus}}Last test: {{.LastRestoreTestStatus}}{{if .LastRestoreTestAt}} · {{.LastRestoreTestAt}}{{end}}{{else}}No restore tests have run yet.{{end}}{{if .NextRestoreTest}} · Next test: {{.NextRestoreTest}}{{end}}</p>
+        </form>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+  </details>
+  {{end}}
+</div>
+{{end}}
+{{end}}

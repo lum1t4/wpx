@@ -11,12 +11,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/lum1t4/wpx/internal/config"
 	"github.com/lum1t4/wpx/internal/platform"
@@ -89,6 +91,13 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		}
 		return Result{}, nil
 	}
+	// A marker can survive after the panel has started. Load its configuration
+	// before making host changes so a retry cannot reset access settings or hide
+	// a damaged configuration behind fresh defaults.
+	cfg, token, existingConfig, err := installationConfig(opts.ConfigPath, filepath.Join(paths.DataRoot, "state.db"), opts.DisableUpdateChecks)
+	if err != nil {
+		return Result{}, err
+	}
 	if err := beginInstall(paths); err != nil {
 		return Result{}, err
 	}
@@ -138,7 +147,7 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	if err := installRclone(ctx); err != nil {
 		return Result{}, err
 	}
-	for _, dir := range []string{"/var/lib/wpx", "/var/lib/wpx/tls", "/var/log/wpx"} {
+	for _, dir := range []string{cfg.DataRoot, filepath.Dir(cfg.TLSCertPath), filepath.Dir(cfg.TLSKeyPath), "/var/log/wpx"} {
 		if err := os.MkdirAll(dir, 0750); err != nil {
 			return Result{}, err
 		}
@@ -146,38 +155,28 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 			return Result{}, err
 		}
 	}
-	if err := os.MkdirAll("/var/www/wpx", 0750); err != nil {
+	if err := os.MkdirAll(cfg.SiteRoot, 0750); err != nil {
 		return Result{}, err
 	}
 	// Every site has a private group and Nginx joins only that group. The shared
 	// parent therefore grants traversal but not directory listing; otherwise
 	// neither a site process nor Nginx can reach the protected per-site tree.
-	if err := os.Chmod("/var/www/wpx", 0711); err != nil {
+	if err := os.Chmod(cfg.SiteRoot, 0711); err != nil {
 		return Result{}, err
 	}
-	if err := generateSelfSignedCertificate("/var/lib/wpx/tls/panel.crt", "/var/lib/wpx/tls/panel.key"); err != nil {
+	if err := ensurePanelCertificate(cfg.TLSCertPath, cfg.TLSKeyPath, !existingConfig); err != nil {
 		return Result{}, err
 	}
-	if err := os.Chown("/var/lib/wpx/tls/panel.crt", uid, gid); err != nil {
+	if err := os.Chown(cfg.TLSCertPath, uid, gid); err != nil {
 		return Result{}, err
 	}
-	if err := os.Chown("/var/lib/wpx/tls/panel.key", uid, gid); err != nil {
+	if err := os.Chown(cfg.TLSKeyPath, uid, gid); err != nil {
 		return Result{}, err
 	}
-	if err := generateSecretKey("/var/lib/wpx/secret.key", uid, gid); err != nil {
+	if err := ensureSecretKey(cfg.SecretKeyPath, uid, gid, !existingConfig); err != nil {
 		return Result{}, err
 	}
-	token, tokenHash, err := bootstrapToken()
-	if err != nil {
-		return Result{}, err
-	}
-	cfg := config.Default()
-	cfg.ListenAddress = "0.0.0.0:9443"
 	cfg.WebUID = uint32(uid)
-	cfg.BootstrapTokenHash = tokenHash
-	if opts.DisableUpdateChecks {
-		cfg.UpdateChecks = false
-	}
 	if err := config.Save(opts.ConfigPath, cfg); err != nil {
 		return Result{}, err
 	}
@@ -202,13 +201,96 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	// Package post-install scripts usually start these services, but WPX makes
 	// the desired boot state explicit. WordPress performance defaults must not
 	// depend on whether a particular cloud image suppresses service startup.
-	if err := runner.run(ctx, "/usr/bin/systemctl", "enable", "--now", "nginx.service", "mariadb.service", "redis-server.service", "certbot.timer", "wpx-broker.service", "wpx.service"); err != nil {
+	if err := runner.run(ctx, "/usr/bin/systemctl", "enable", "--now", "nginx.service", "mariadb.service", "redis-server.service", "certbot.timer"); err != nil {
 		return Result{}, err
 	}
-	if err := os.Remove(paths.MarkerPath); err != nil {
-		return Result{}, fmt.Errorf("finish resumable installation: %w", err)
+	if err := runner.run(ctx, "/usr/bin/systemctl", "enable", "wpx-broker.service", "wpx.service"); err != nil {
+		return Result{}, err
 	}
-	return Result{PanelURL: "https://SERVER_IP:9443/setup", BootstrapToken: token}, nil
+	// Type=simple reports success before the process has loaded its files. A
+	// retry also needs a restart: enable --now leaves an already running process
+	// using the old binary and bootstrap token.
+	if err := finishInstallation(ctx, cfg, paths.MarkerPath, runner.run, WaitForPanel); err != nil {
+		return Result{}, err
+	}
+	if existingConfig {
+		fmt.Fprintln(opts.Output, "Existing access settings are preserved. If an owner already exists, sign in normally; the bootstrap token cannot reopen setup.")
+	}
+	return Result{PanelURL: installationPanelAddress(cfg, existingConfig), BootstrapToken: token}, nil
+}
+
+func installationConfig(path, statePath string, disableUpdateChecks bool) (config.Config, string, bool, error) {
+	cfg, err := config.Load(path)
+	existing := err == nil
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return config.Config{}, "", false, err
+		}
+		// WPX saves configuration before its first process can create SQLite.
+		// A database (or its sidecars) without config is therefore lost recovery
+		// material, not an interrupted first-run bootstrap. New defaults/keys
+		// could otherwise make persisted encrypted credentials unrecoverable.
+		for _, suffix := range []string{"", "-wal", "-shm"} {
+			if _, err := os.Lstat(statePath + suffix); err == nil {
+				return config.Config{}, "", false, errors.New("configuration is missing but panel state exists; restore the original configuration and secret key before retrying")
+			} else if !os.IsNotExist(err) {
+				return config.Config{}, "", false, fmt.Errorf("inspect existing panel state: %w", err)
+			}
+		}
+		cfg = config.Default()
+		cfg.ListenAddress = "0.0.0.0:9443"
+	}
+	// Only its hash is retained, so an interrupted run cannot recover the old
+	// plaintext setup token. Rotate this one credential; the setup handler stops
+	// accepting bootstrap tokens as soon as an owner exists.
+	token, hash, err := bootstrapToken()
+	if err != nil {
+		return config.Config{}, "", false, err
+	}
+	cfg.BootstrapTokenHash = hash
+	if disableUpdateChecks {
+		cfg.UpdateChecks = false
+	}
+	return cfg, token, existing, nil
+}
+
+func installationPanelAddress(cfg config.Config, existing bool) string {
+	host, port, err := net.SplitHostPort(cfg.ListenAddress)
+	if err != nil {
+		return "existing configured access (settings preserved)"
+	}
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		return "https://SERVER_IP:" + port + "/setup"
+	}
+	address := "https://" + net.JoinHostPort(host, port) + "/setup"
+	if ip := net.ParseIP(host); existing && (host == "localhost" || ip != nil && ip.IsLoopback()) {
+		// The listener cannot tell us the domain or Tailscale hostname. Do not
+		// invent a public URL, or imply that port 9443 was opened by the retry.
+		return "your existing domain/Tailscale URL, or " + address + " through an SSH tunnel (access settings preserved)"
+	}
+	return address
+}
+
+func finishInstallation(ctx context.Context, cfg config.Config, markerPath string, run func(context.Context, string, ...string) error, health func(context.Context, config.Config) error) error {
+	if err := run(ctx, "/usr/bin/systemctl", "restart", "wpx-broker.service", "wpx.service"); err != nil {
+		return err
+	}
+	healthCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	if err := health(healthCtx, cfg); err != nil {
+		return fmt.Errorf("panel did not become ready; installation can be resumed: %w", err)
+	}
+	// is-active with several units succeeds when any one is active. Probe
+	// separately so a running web process cannot mask a failed dependency.
+	for _, service := range []string{"wpx-broker.service", "wpx.service", "nginx.service", "mariadb.service", "redis-server.service"} {
+		if err := run(ctx, "/usr/bin/systemctl", "is-active", "--quiet", service); err != nil {
+			return fmt.Errorf("required service %s is unavailable; installation can be resumed: %w", service, err)
+		}
+	}
+	if err := os.Remove(markerPath); err != nil {
+		return fmt.Errorf("finish resumable installation: %w", err)
+	}
+	return nil
 }
 
 func installNginxFastCGICache() error {
@@ -288,7 +370,25 @@ func ReconcileNginxCachePermissions() error {
 	return nil
 }
 
-func generateSecretKey(path string, uid, gid int) error {
+func ensureSecretKey(path string, uid, gid int, allowCreate bool) error {
+	info, err := os.Lstat(path)
+	if err == nil {
+		// This key encrypts persisted credentials. Replacing it on a retry would
+		// leave apparently healthy state whose secrets can never be decrypted.
+		if !info.Mode().IsRegular() || info.Size() != 32 {
+			return errors.New("existing application secret key is invalid; restore the original 32-byte key")
+		}
+		if err := os.Chown(path, uid, gid); err != nil {
+			return fmt.Errorf("own application secret key: %w", err)
+		}
+		return os.Chmod(path, 0600)
+	}
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("inspect application secret key: %w", err)
+	}
+	if !allowCreate {
+		return errors.New("application secret key is missing from an existing installation; restore it before retrying")
+	}
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		return fmt.Errorf("generate application secret key: %w", err)

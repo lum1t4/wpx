@@ -31,12 +31,23 @@ path-validation tests are mandatory for every broker operation. System behavior
 uses containers where possible and disposable Ubuntu 24.04 VMs where kernel,
 systemd, firewall, permissions, or package-manager behavior matters.
 
-## Compatibility
+## Compatibility and recovery
 
-The public HTTP API and broker protocol are versioned. State migrations are
-forward-only during normal operation, but every release documents and tests the
-rollback strategy. Generated configuration contains a WPX ownership marker and
-is never allowed to overwrite an unmanaged file silently.
+The broker protocol has an explicit version. The browser routes are internal
+application routes, not a promised stable public API. State migrations run in
+transactions; a release that changes persisted state must explain compatibility
+with its predecessor and verify the upgrade recovery path.
+
+Generated configuration carries a WPX ownership marker. Refuse unmanaged files
+instead of guessing that their contents are safe to replace. When an operation
+spans SQLite, files, services, or a remote provider, document the commit boundary
+and what can remain after interruption. Do not call it atomic or idempotent
+without explaining the actual mechanism and limits.
+
+Useful comments answer concrete recovery questions. For example: “Keep the old
+tree until the imported database passes checks; if the second rename fails, the
+old tree is still available at this path.” Avoid comments such as “rename the
+directory” that repeat the code without explaining why the order matters.
 
 ## Interface styling
 
@@ -52,6 +63,9 @@ interface is rendered.
   tokens, and rare global rules that cannot be expressed cleanly in markup.
 - Extract repeated server-side template fragments when reuse improves behavior
   or accessibility, but keep Tailwind utilities visible on those fragments.
+- Use neutral surfaces, consistent borders and spacing, and clear focus states.
+  Do not add decorative gradients. A site's tools belong in its own sections;
+  shared server settings belong in server navigation.
 
 Production serves the compiled, embedded stylesheet. Node.js and the Tailwind
 CLI are build dependencies only and are never installed on a managed server.

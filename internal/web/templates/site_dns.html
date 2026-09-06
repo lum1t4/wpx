@@ -1,5 +1,92 @@
 {{define "site_dns.html"}}
-<!doctype html><html lang="en"><head>{{template "head"}}<title>{{.Title}} · WPX</title></head><body class="bg-slate-50 text-slate-900"><div class="md:flex">{{template "nav"}}<main class="w-full max-w-6xl p-5 md:p-10"><a class="text-sm font-semibold text-wpx-700 hover:underline" href="/sites/{{.Site.ID}}">← {{.Site.Domain}}</a><header class="mt-4"><h1 class="text-3xl font-bold tracking-tight">DNS records</h1><p class="mt-2 text-slate-500">Only records created here are owned and changed by WPX.</p></header>
-<form class="mt-8 grid gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-2" method="post" action="/sites/{{.Site.ID}}/dns"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><label><span class="mb-1.5 block text-sm font-semibold">Provider</span><select class="w-full rounded-lg border border-slate-300 px-3 py-2.5" name="provider_id" required><option value="">Choose provider</option>{{range .DNSProviders}}{{if eq .Status "active"}}<option value="{{.ID}}">{{.Name}} · {{.Kind}}</option>{{end}}{{end}}</select></label><label><span class="mb-1.5 block text-sm font-semibold">Name</span><input class="w-full rounded-lg border border-slate-300 px-3 py-2.5 font-mono" name="name" value="{{.Site.Domain}}" required></label><label><span class="mb-1.5 block text-sm font-semibold">Type</span><select class="w-full rounded-lg border border-slate-300 px-3 py-2.5" name="type"><option>A</option><option>AAAA</option><option>CNAME</option><option>TXT</option></select></label><label><span class="mb-1.5 block text-sm font-semibold">Value</span><input class="w-full rounded-lg border border-slate-300 px-3 py-2.5 font-mono" name="value" required></label><label><span class="mb-1.5 block text-sm font-semibold">TTL</span><input class="w-full rounded-lg border border-slate-300 px-3 py-2.5" type="number" name="ttl" min="60" max="86400" value="300" required></label><label class="flex items-center gap-3 self-end rounded-lg border border-orange-200 bg-orange-50 px-4 py-3"><input class="size-4 accent-orange-600" type="checkbox" name="proxied" value="yes"><span class="text-sm font-semibold text-orange-900">Cloudflare proxy</span></label><button class="justify-self-start rounded-lg bg-wpx-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-wpx-700 md:col-span-2">Create managed record</button></form>
-<div class="mt-6 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm"><table class="w-full min-w-[900px]"><thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-5 py-3">Record</th><th class="px-5 py-3">Value</th><th class="px-5 py-3">TTL</th><th class="px-5 py-3">Proxy</th><th class="px-5 py-3">Status</th><th class="px-5 py-3">Actions</th></tr></thead><tbody class="divide-y divide-slate-100">{{range .DNSRecords}}<tr><td class="px-5 py-4"><form id="record-{{.ID}}" method="post" action="/sites/{{$.Site.ID}}/dns/{{.ID}}"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"></form><div class="grid gap-2"><input class="w-52 rounded-lg border border-slate-300 px-2.5 py-2 font-mono text-sm" form="record-{{.ID}}" name="name" value="{{.Name}}" required><select class="w-24 rounded-lg border border-slate-300 px-2.5 py-2 text-sm font-semibold" form="record-{{.ID}}" name="type"><option{{if eq .Type "A"}} selected{{end}}>A</option><option{{if eq .Type "AAAA"}} selected{{end}}>AAAA</option><option{{if eq .Type "CNAME"}} selected{{end}}>CNAME</option><option{{if eq .Type "TXT"}} selected{{end}}>TXT</option></select></div></td><td class="px-5 py-4"><input class="w-64 rounded-lg border border-slate-300 px-2.5 py-2 font-mono text-sm" form="record-{{.ID}}" name="value" value="{{.Value}}" required></td><td class="px-5 py-4"><input class="w-24 rounded-lg border border-slate-300 px-2.5 py-2 text-sm" form="record-{{.ID}}" type="number" name="ttl" min="60" max="86400" value="{{.TTL}}" required></td><td class="px-5 py-4"><input class="size-4 accent-orange-600" form="record-{{.ID}}" type="checkbox" name="proxied" value="yes"{{if .Proxied}} checked{{end}}></td><td class="px-5 py-4 text-sm text-slate-600">{{.Status}}</td><td class="px-5 py-4"><div class="flex gap-2"><button class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50" form="record-{{.ID}}">Save</button><form method="post" action="/sites/{{$.Site.ID}}/dns/{{.ID}}/delete"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><button class="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Delete</button></form></div></td></tr>{{else}}<tr><td class="px-5 py-8 text-center text-slate-500" colspan="6">No WPX-managed DNS records for this site.</td></tr>{{end}}</tbody></table></div></main></div></body></html>
+{{template "shell-start" .}}
+<a class="text-sm text-zinc-500 hover:text-zinc-950" href="/sites/{{.Site.ID}}">← {{.Site.Domain}}</a>
+<header class="mt-4">
+  <h1 class="text-2xl font-semibold tracking-tight text-zinc-950">DNS records</h1>
+  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Manage DNS records for {{.Site.Domain}}. This list shows records created through WPX; other records remain with your DNS provider.</p>
+</header>
+{{if .Error}}<p role="alert" class="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{.Error}}</p>{{end}}
+{{if .Message}}<p role="status" class="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{{.Message}}</p>{{end}}
+
+<section aria-labelledby="records-heading" class="mt-8 overflow-hidden rounded-lg border border-zinc-200 bg-white">
+  <div class="border-b border-zinc-200 px-5 py-4">
+    <h2 id="records-heading" class="text-base font-semibold">Managed records</h2>
+    <p class="mt-1 text-sm text-zinc-500">Save changes on each record. DNS updates can take time to reach visitors.</p>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[960px] text-left text-sm">
+      <thead class="border-b border-zinc-200 bg-zinc-50 text-zinc-500">
+        <tr>
+          <th scope="col" class="px-5 py-3 font-medium">Record</th>
+          <th scope="col" class="px-5 py-3 font-medium">Value</th>
+          <th scope="col" class="px-5 py-3 font-medium">TTL</th>
+          <th scope="col" class="px-5 py-3 font-medium">Proxy</th>
+          <th scope="col" class="px-5 py-3 font-medium">Status</th>
+          <th scope="col" class="px-5 py-3 font-medium"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-zinc-100">
+        {{range .DNSRecords}}
+        <tr>
+          <td class="px-5 py-4">
+            <form id="record-{{.ID}}" method="post" action="/sites/{{$.Site.ID}}/dns/{{.ID}}">
+              <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+            </form>
+            <div class="grid gap-2">
+              <input aria-label="Record name" class="w-52 rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-xs" form="record-{{.ID}}" name="name" value="{{.Name}}" required>
+              <select aria-label="Record type for {{.Name}}" class="w-24 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs" form="record-{{.ID}}" name="type">
+                <option{{if eq .Type "A"}} selected{{end}}>A</option>
+                <option{{if eq .Type "AAAA"}} selected{{end}}>AAAA</option>
+                <option{{if eq .Type "CNAME"}} selected{{end}}>CNAME</option>
+                <option{{if eq .Type "TXT"}} selected{{end}}>TXT</option>
+              </select>
+            </div>
+          </td>
+          <td class="px-5 py-4"><input aria-label="Value for {{.Name}}" class="w-64 rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-xs" form="record-{{.ID}}" name="value" value="{{.Value}}" required></td>
+          <td class="px-5 py-4"><input aria-label="TTL in seconds for {{.Name}}" class="w-24 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs" form="record-{{.ID}}" type="number" name="ttl" min="60" max="86400" value="{{.TTL}}" required></td>
+          <td class="px-5 py-4"><input aria-label="Cloudflare proxy for {{.Name}}" class="size-4 accent-zinc-900" form="record-{{.ID}}" type="checkbox" name="proxied" value="yes"{{if .Proxied}} checked{{end}}></td>
+          <td class="px-5 py-4"><span class="rounded-md border border-zinc-200 px-2 py-1 text-xs capitalize">{{.Status}}</span></td>
+          <td class="px-5 py-4">
+            <div class="flex gap-2">
+              <button class="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50" form="record-{{.ID}}">Save</button>
+              <form method="post" action="/sites/{{$.Site.ID}}/dns/{{.ID}}/delete">
+                <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+                <button aria-label="Delete DNS record {{.Name}}" class="rounded-md px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-50">Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="6" class="px-5 py-10 text-center"><p class="font-medium">No managed records yet</p><p class="mt-1 text-zinc-500">Create a record below using one of your connected DNS providers.</p></td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<details class="mt-6 rounded-lg border border-zinc-200 bg-white"{{if not .DNSRecords}} open{{end}}>
+  <summary class="cursor-pointer px-5 py-4 text-sm font-semibold">Add DNS record</summary>
+  <div class="border-t border-zinc-200 p-5">
+    {{if not .DNSProviders}}
+    <p class="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">No DNS providers are connected. Ask your server administrator to add Cloudflare or Route 53 in DNS providers.</p>
+    {{end}}
+    <form class="grid gap-5 md:grid-cols-2" method="post" action="/sites/{{.Site.ID}}/dns">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <label>
+        <span class="mb-2 block text-sm font-medium">DNS provider</span>
+        <select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="provider_id" required>
+          <option value="">Choose provider</option>
+          {{range .DNSProviders}}{{if eq .Status "active"}}<option value="{{.ID}}">{{.Name}} · {{if eq .Kind "cloudflare"}}Cloudflare{{else if eq .Kind "route53"}}Route 53{{else}}{{.Kind}}{{end}}</option>{{end}}{{end}}
+        </select>
+      </label>
+      <label><span class="mb-2 block text-sm font-medium">Record name</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" name="name" value="{{.Site.Domain}}" required></label>
+      <label><span class="mb-2 block text-sm font-medium">Record type</span><select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="type"><option>A</option><option>AAAA</option><option>CNAME</option><option>TXT</option></select></label>
+      <label><span class="mb-2 block text-sm font-medium">Value</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" name="value" required><span class="mt-2 block text-xs text-zinc-500">An IP address, hostname, or text value for the selected type.</span></label>
+      <label><span class="mb-2 block text-sm font-medium">TTL in seconds</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" type="number" name="ttl" min="60" max="86400" value="300" required><span class="mt-2 block text-xs text-zinc-500">How long resolvers may cache this record.</span></label>
+      <label class="flex items-start gap-3 self-center"><input class="mt-1 size-4 accent-zinc-900" type="checkbox" name="proxied" value="yes"><span><span class="block text-sm font-medium">Cloudflare proxy</span><span class="mt-1 block text-xs leading-5 text-zinc-500">Route web traffic through Cloudflare. Applies to Cloudflare A, AAAA, and CNAME records.</span></span></label>
+      <div class="md:col-span-2"><button class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Create record</button></div>
+    </form>
+  </div>
+</details>
+{{template "shell-end" .}}
 {{end}}

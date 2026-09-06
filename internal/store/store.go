@@ -709,9 +709,21 @@ func (s *Store) FinishJob(ctx context.Context, job Job, resultJSON string, opera
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `UPDATE jobs SET status=?,phase=?,progress=?,error=?,result_json=?,updated_at=?,finished_at=? WHERE id=? AND status='running'`,
-		status, phase, progress, errorText, resultJSON, now, now, job.ID); err != nil {
+	completion, err := tx.ExecContext(ctx, `UPDATE jobs SET status=?,phase=?,progress=?,error=?,result_json=?,updated_at=?,finished_at=? WHERE id=? AND status='running'`,
+		status, phase, progress, errorText, resultJSON, now, now, job.ID)
+	if err != nil {
 		return err
+	}
+	changed, err := completion.RowsAffected()
+	if err != nil || changed == 0 {
+		// A completed job must not apply its result again after a later job has
+		// changed the site. The transaction rolls back without another audit.
+		return err
+	}
+	if job.Kind == "site.php_version" {
+		if err := finishPHPVersionChange(ctx, tx, job, now, operationErr); err != nil {
+			return err
+		}
 	}
 	if job.Kind == "site.provision" || job.Kind == "wordpress.staging_create" || job.Kind == "site.restore_clone" {
 		siteStatus := "active"

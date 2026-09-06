@@ -13,10 +13,17 @@ import (
 	"github.com/lum1t4/wpx/internal/config"
 )
 
-type recordingRunner struct{ calls []string }
+type recordingRunner struct {
+	calls []string
+	fail  func(string) error
+}
 
 func (r *recordingRunner) Run(_ context.Context, executable string, args ...string) error {
-	r.calls = append(r.calls, executable+" "+strings.Join(args, " "))
+	call := executable + " " + strings.Join(args, " ")
+	r.calls = append(r.calls, call)
+	if r.fail != nil {
+		return r.fail(call)
+	}
 	return nil
 }
 
@@ -73,7 +80,7 @@ func TestUpgradeSnapshotsReplacesAndHealthChecks(t *testing.T) {
 	}
 	runner := &recordingRunner{}
 	result, err := Run(context.Background(), Options{
-		Source: source, InstalledPath: installed, ConfigPath: configPath, BackupRoot: filepath.Join(root, "backups"), Runner: runner,
+		Source: source, InstalledPath: installed, ConfigPath: configPath, BackupRoot: filepath.Join(root, "backups"), UnitRoot: filepath.Join(root, "units"), Runner: runner,
 		EffectiveUID:         func() int { return 0 },
 		Now:                  func() time.Time { return time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC) },
 		HealthCheck:          func(context.Context, config.Config) error { return nil },
@@ -107,7 +114,13 @@ func TestUpgradeSnapshotsReplacesAndHealthChecks(t *testing.T) {
 	}
 }
 
-func TestUpgradeRollsBackBinaryAndStateAfterFailedHealthCheck(t *testing.T) {
+func TestUpgradeRollsBackBinaryStateAndUnitsAfterFailedHealthCheck(t *testing.T) {
+	for _, failure := range []string{"health", "broker-readiness", "panel-readiness", "rollback-stop", "rollback-start"} {
+		t.Run(failure, func(t *testing.T) { testUpgradeRollback(t, failure) })
+	}
+}
+
+func testUpgradeRollback(t *testing.T, failure string) {
 	root := t.TempDir()
 	installed := filepath.Join(root, "bin", "wpx")
 	source := filepath.Join(root, "download", "wpx")
@@ -148,10 +161,40 @@ func TestUpgradeRollsBackBinaryAndStateAfterFailedHealthCheck(t *testing.T) {
 	if err := config.Save(configPath, cfg); err != nil {
 		t.Fatal(err)
 	}
+	unitRoot := filepath.Join(root, "units")
+	if err := os.MkdirAll(unitRoot, 0755); err != nil {
+		t.Fatal(err)
+	}
+	unitPath := filepath.Join(unitRoot, "wpx.service")
+	if err := os.WriteFile(unitPath, []byte("old unit"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	runner := &recordingRunner{}
+	stopCalls, startCalls := 0, 0
+	runner.fail = func(call string) error {
+		if strings.Contains(call, "systemctl is-active") && len(strings.Fields(call)) != 4 {
+			t.Fatalf("readiness must check one unit at a time: %s", call)
+		}
+		if failure == "broker-readiness" && call == "/usr/bin/systemctl is-active --quiet wpx-broker.service" || failure == "panel-readiness" && call == "/usr/bin/systemctl is-active --quiet wpx.service" {
+			return errors.New("service unavailable")
+		}
+		if strings.Contains(call, "systemctl stop ") {
+			stopCalls++
+			if failure == "rollback-stop" && stopCalls == 2 {
+				return errors.New("stop failed")
+			}
+		}
+		if strings.Contains(call, "systemctl start ") {
+			startCalls++
+			if failure == "rollback-start" && startCalls == 2 {
+				return errors.New("start failed")
+			}
+		}
+		return nil
+	}
 	_, err = Run(context.Background(), Options{
-		Source: source, InstalledPath: installed, ConfigPath: configPath, BackupRoot: filepath.Join(root, "backups"), Runner: runner,
+		Source: source, InstalledPath: installed, ConfigPath: configPath, BackupRoot: filepath.Join(root, "backups"), UnitRoot: unitRoot, Runner: runner,
 		EffectiveUID: func() int { return 0 },
 		HealthCheck: func(context.Context, config.Config) error {
 			database, openErr := sql.Open("sqlite", statePath)
@@ -160,17 +203,48 @@ func TestUpgradeRollsBackBinaryAndStateAfterFailedHealthCheck(t *testing.T) {
 			}
 			defer database.Close()
 			_, _ = database.Exec(`UPDATE proof SET value = 'after'`)
+			if strings.HasSuffix(failure, "-readiness") {
+				return nil
+			}
 			return errors.New("unhealthy")
 		},
-		ReconcileUnits:       func(string) error { return nil },
+		ReconcileUnits: func(string) error {
+			if err := os.WriteFile(unitPath, []byte("new unit"), 0644); err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(unitRoot, "wpx-broker.service"), []byte("newly created unit"), 0644)
+		},
 		ReconcilePermissions: func(cfg config.Config) error { return os.Chmod(cfg.SiteRoot, 0711) },
 	})
-	if err == nil || !strings.Contains(err.Error(), "previous binary and state restored") {
-		t.Fatalf("expected successful rollback, got %v", err)
+	if err == nil {
+		t.Fatal("failed health check must not report a successful upgrade")
+	}
+	expectedBinary, expectedState, expectedUnit := "old binary", "before", "old unit"
+	switch failure {
+	case "health", "broker-readiness", "panel-readiness":
+		if !strings.Contains(err.Error(), "previous binary and state restored") {
+			t.Fatalf("expected successful rollback, got %v", err)
+		}
+	case "rollback-stop":
+		if !strings.Contains(err.Error(), "rollback could not stop WPX") {
+			t.Fatalf("expected explicit rollback stop failure, got %v", err)
+		}
+		expectedBinary, expectedState, expectedUnit = "new binary", "after", "new unit"
+	case "rollback-start":
+		if !strings.Contains(err.Error(), "restored but restart failed") {
+			t.Fatalf("expected explicit rollback restart failure, got %v", err)
+		}
 	}
 	content, readErr := os.ReadFile(installed)
-	if readErr != nil || string(content) != "old binary" {
+	if readErr != nil || string(content) != expectedBinary {
 		t.Fatalf("installed=%q err=%v", content, readErr)
+	}
+	unit, readErr := os.ReadFile(unitPath)
+	if readErr != nil || string(unit) != expectedUnit {
+		t.Fatalf("unit=%q err=%v", unit, readErr)
+	}
+	if _, err := os.Stat(filepath.Join(unitRoot, "wpx-broker.service")); failure != "rollback-stop" && !os.IsNotExist(err) {
+		t.Fatalf("unit created during failed upgrade was not removed: %v", err)
 	}
 	database, err = sql.Open("sqlite", statePath)
 	if err != nil {
@@ -181,7 +255,71 @@ func TestUpgradeRollsBackBinaryAndStateAfterFailedHealthCheck(t *testing.T) {
 	if err := database.QueryRow(`SELECT value FROM proof`).Scan(&value); err != nil {
 		t.Fatal(err)
 	}
-	if value != "before" {
+	if value != expectedState {
 		t.Fatalf("state was not restored: %q", value)
+	}
+}
+
+func TestRestoredDatabaseCannotReplayFailedUpgradeWAL(t *testing.T) {
+	root := t.TempDir()
+	snapshot, state := filepath.Join(root, "snapshot.db"), filepath.Join(root, "state.db")
+	if err := os.WriteFile(snapshot, []byte("checkpointed database"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		if err := os.WriteFile(state+suffix, []byte("failed upgrade state"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := restoreState(snapshot, state); err != nil {
+		t.Fatal(err)
+	}
+	for _, suffix := range []string{"-wal", "-shm"} {
+		if _, err := os.Stat(state + suffix); !os.IsNotExist(err) {
+			t.Fatalf("stale %s survived rollback: %v", suffix, err)
+		}
+	}
+	content, err := os.ReadFile(state)
+	if err != nil || string(content) != "checkpointed database" {
+		t.Fatalf("state=%q err=%v", content, err)
+	}
+}
+
+func TestCheckpointRequiresExistingStateAndExclusiveWAL(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.db")
+	if err := checkpointSQLite(path); err == nil {
+		t.Fatal("missing state must not become an empty snapshot")
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("checkpoint created missing state: %v", err)
+	}
+	database, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	if _, err := database.Exec(`PRAGMA journal_mode=WAL; CREATE TABLE proof(value TEXT); INSERT INTO proof VALUES('before')`); err != nil {
+		t.Fatal(err)
+	}
+	reader, err := database.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Rollback()
+	var value string
+	if err := reader.QueryRow(`SELECT value FROM proof`).Scan(&value); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`UPDATE proof SET value = 'after'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkpointSQLite(path); err == nil {
+		t.Fatal("checkpoint must refuse an active reader retaining the previous WAL")
+	}
+	if err := reader.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkpointSQLite(path); err != nil {
+		t.Fatalf("state should checkpoint once readers stop: %v", err)
 	}
 }

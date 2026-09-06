@@ -1,0 +1,44 @@
+{{define "site-security"}}
+{{$hasDNSProvider := false}}{{range .DNSProviders}}{{if eq .Status "active"}}{{$hasDNSProvider = true}}{{end}}{{end}}
+<p class="mb-6 max-w-2xl text-sm leading-6 text-zinc-500">Manage the SSL certificate that protects connections to {{.Site.Domain}}.</p>
+<section class="rounded-lg border border-zinc-200 bg-white" aria-labelledby="certificate-heading">
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-5 py-4">
+    <h2 id="certificate-heading" class="text-base font-semibold text-zinc-950">SSL certificate</h2>
+    <span class="rounded-md border px-2 py-1 text-xs font-medium {{if eq .Site.TLSStatus "active"}}border-emerald-200 bg-emerald-50 text-emerald-800{{else}}border-zinc-200 bg-zinc-50 text-zinc-700{{end}}">{{if eq .Site.TLSStatus "active"}}Active{{else if .Site.TLSStatus}}{{.Site.TLSStatus}}{{else}}Not configured{{end}}</span>
+  </div>
+  <div class="p-5">
+    {{if eq .Site.TLSStatus "active"}}
+    <p class="text-sm leading-6 text-zinc-600">A trusted certificate is active. WPX handles renewal automatically.</p>
+    {{else}}
+    <p class="text-sm leading-6 text-zinc-600">Choose how to verify that you control this domain. Most sites can use HTTP validation.</p>
+    {{end}}
+    {{if .CanManageTLS}}
+    <div class="mt-6 grid gap-6 lg:grid-cols-2">
+      <div class="rounded-lg border border-zinc-200 p-5">
+        <h3 class="text-sm font-semibold text-zinc-950">HTTP validation</h3>
+        <p class="mt-2 text-sm leading-6 text-zinc-500">Point the domain's DNS records to this server and make sure port 80 is reachable. No DNS provider connection is needed.</p>
+        <form class="mt-5" method="post" action="/sites/{{.Site.ID}}/certificate">
+          <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+          <button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800">Issue SSL certificate</button>
+        </form>
+      </div>
+      <div class="rounded-lg border border-zinc-200 p-5">
+        <h3 class="text-sm font-semibold text-zinc-950">DNS validation</h3>
+        <p class="mt-2 text-sm leading-6 text-zinc-500">Verify through Cloudflare or Route 53. Use this for a wildcard certificate or when HTTP validation is unavailable.</p>
+        {{if $hasDNSProvider}}
+        <form class="mt-5 grid gap-4" method="post" action="/sites/{{.Site.ID}}/certificate">
+          <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+          <label class="block"><span class="mb-2 block text-sm font-medium text-zinc-700">DNS provider</span><select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="provider_id" required><option value="">Select a provider</option>{{range .DNSProviders}}{{if eq .Status "active"}}<option value="{{.ID}}">{{.Name}} · {{.Kind}}</option>{{end}}{{end}}</select></label>
+          <label class="flex items-start gap-3"><input class="mt-1 size-4 accent-zinc-950" type="checkbox" name="wildcard" value="yes"><span class="text-sm leading-6 text-zinc-600">Also cover <span class="font-medium text-zinc-950">*.{{.Site.Domain}}</span></span></label>
+          <button class="justify-self-start rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-950 shadow-sm transition hover:bg-zinc-50">Issue with DNS validation</button>
+        </form>
+        {{else}}
+        <div class="mt-5 rounded-md bg-zinc-50 p-3 text-sm leading-6 text-zinc-600">No active DNS providers available. {{if .CanManageServer}}<a class="font-medium text-zinc-950 underline underline-offset-4" href="/dns/providers">Manage DNS providers</a>{{else}}Ask a server administrator to connect one.{{end}}</div>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+  </div>
+</section>
+{{if .CanManageDNS}}<p class="mt-5 text-sm text-zinc-500">Need to point this domain to the server? <a class="font-medium text-zinc-950 underline underline-offset-4" href="/sites/{{.Site.ID}}/dns">Manage DNS records</a></p>{{end}}
+{{end}}

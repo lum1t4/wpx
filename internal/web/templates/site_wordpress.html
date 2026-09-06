@@ -1,0 +1,139 @@
+{{define "site-wordpress"}}
+{{$hasRecoveryStorage := false}}{{range .BackupTargets}}{{if eq .Status "active"}}{{$hasRecoveryStorage = true}}{{end}}{{end}}
+<p class="mb-6 max-w-2xl text-sm leading-6 text-zinc-500">Manage this WordPress installation, keep its software current, and control caching.</p>
+
+{{if ne .Site.Status "active"}}
+<div class="rounded-lg border border-zinc-200 bg-zinc-50 p-5 text-sm leading-6 text-zinc-600">WordPress tools are available when the site is active. Its current status is <span class="font-medium text-zinc-950">{{.Site.Status}}</span>. {{if .CanManageSites}}<a class="font-medium text-zinc-950 underline underline-offset-4" href="/sites/{{.Site.ID}}/settings">Open site settings</a>{{end}}</div>
+{{else}}
+<section class="rounded-lg border border-zinc-200 bg-white p-5" aria-labelledby="wordpress-installation-heading">
+  <div class="flex flex-wrap items-start justify-between gap-5">
+    <div>
+      <h2 id="wordpress-installation-heading" class="text-base font-semibold text-zinc-950">WordPress{{if .CoreVersion}} {{.CoreVersion}}{{end}}</h2>
+      <p class="mt-2 text-sm leading-6 text-zinc-500">{{if .Site.WordPressMultisite}}Multisite network ({{.Site.WordPressMultisite}}) · {{end}}PHP {{.Site.PHPVersion}}{{if .CoreUpdateVersion}} <span class="ml-2 font-medium text-amber-700">Version {{.CoreUpdateVersion}} available</span>{{end}}</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      {{if .CanWordPressLogin}}<form method="post" action="/sites/{{.Site.ID}}/wordpress/login"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800">Open WordPress admin <span class="ml-1" aria-hidden="true">↗</span></button></form>{{end}}
+      <a class="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-950 shadow-sm transition hover:bg-zinc-50" href="/sites/{{.Site.ID}}/wordpress/health">Run health checks</a>
+    </div>
+  </div>
+  {{if .CanWordPressLogin}}<p class="mt-4 text-xs leading-5 text-zinc-500">Admin sign-in uses an existing administrator account and a one-time link. No WordPress password is needed.</p>{{end}}
+  {{if and .CanManageWordPress .CoreUpdateVersion}}
+  <details class="mt-5 rounded-md border border-zinc-200">
+    <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-950">Update WordPress to {{.CoreUpdateVersion}}</summary>
+    <div class="border-t border-zinc-200 p-4">
+      <p class="max-w-2xl text-sm leading-6 text-zinc-500">Choose where to save a recovery backup. WPX backs up this site, applies the update, and runs health checks.</p>
+      {{if $hasRecoveryStorage}}
+      <form class="mt-4 flex max-w-xl flex-wrap items-end gap-3" method="post" action="/sites/{{.Site.ID}}/wordpress/update">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+        <input type="hidden" name="component" value="core">
+        <label class="min-w-0 flex-1"><span class="mb-2 block text-sm font-medium text-zinc-700">Recovery storage</span><select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="target_id" required><option value="">Select storage</option>{{range .BackupTargets}}{{if eq .Status "active"}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select></label>
+        <button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800">Back up and update</button>
+      </form>
+      {{else}}
+      <p class="mt-3 text-sm leading-6 text-zinc-600">Connect backup storage before updating. {{if .CanManageServer}}<a class="font-medium text-zinc-950 underline underline-offset-4" href="/backups/targets">Set up backup storage</a>{{else}}Ask a server administrator to connect storage.{{end}}</p>
+      {{end}}
+    </div>
+  </details>
+  {{end}}
+</section>
+
+<section id="plugins" class="mt-6 overflow-hidden rounded-lg border border-zinc-200 bg-white" aria-labelledby="plugins-heading">
+  <div class="border-b border-zinc-200 px-5 py-4"><h2 id="plugins-heading" class="text-base font-semibold text-zinc-950">Plugins{{if .Plugins}} <span class="ml-1 text-sm font-normal text-zinc-500">{{len .Plugins}}</span>{{end}}</h2><p class="mt-1 text-sm leading-6 text-zinc-500">Activate or deactivate installed plugins. Updates create a recovery backup first.</p></div>
+  {{if .Plugins}}
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[600px] text-left text-sm">
+      <thead class="border-b border-zinc-200 bg-zinc-50 text-xs font-medium text-zinc-500"><tr><th scope="col" class="px-5 py-3 font-medium">Plugin</th><th scope="col" class="px-5 py-3 font-medium">Version</th><th scope="col" class="px-5 py-3 font-medium">Status</th><th scope="col" class="px-5 py-3 text-right font-medium">Actions</th></tr></thead>
+      <tbody class="divide-y divide-zinc-200">
+        {{range .Plugins}}
+        <tr class="align-top">
+          <th scope="row" class="px-5 py-4 font-medium text-zinc-950">{{.Name}}</th>
+          <td class="px-5 py-4 text-zinc-600">{{.Version}}{{if eq .Update "available"}}<p class="mt-1 text-xs text-amber-700">{{.UpdateVersion}} available</p>{{end}}</td>
+          <td class="px-5 py-4"><span class="inline-flex rounded-md border px-2 py-0.5 text-xs font-medium {{if or (eq .Status "active") (eq .Status "active-network")}}border-emerald-200 bg-emerald-50 text-emerald-800{{else}}border-zinc-200 bg-zinc-50 text-zinc-600{{end}}">{{.Status}}</span></td>
+          <td class="px-5 py-4">
+            <div class="flex flex-wrap justify-end gap-2">
+              {{if and $.CanManageWordPress (eq .Update "available")}}
+              <details class="max-w-xs text-left">
+                <summary class="cursor-pointer rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50">Update</summary>
+                <div class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                  {{if $hasRecoveryStorage}}
+                  <form class="grid gap-3" method="post" action="/sites/{{$.Site.ID}}/wordpress/update">
+                    <input type="hidden" name="csrf_token" value="{{$.CSRF}}"><input type="hidden" name="component" value="plugin"><input type="hidden" name="name" value="{{.Name}}">
+                    <label class="block"><span class="mb-1.5 block text-xs font-medium text-zinc-700">Recovery storage for {{.Name}}</span><select class="w-full rounded-md border border-zinc-200 bg-white px-2 py-2 text-xs" name="target_id" required><option value="">Select storage</option>{{range $.BackupTargets}}{{if eq .Status "active"}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select></label>
+                    <button class="rounded-md bg-zinc-950 px-3 py-2 text-xs font-medium text-white hover:bg-zinc-800">Back up and update</button>
+                  </form>
+                  {{else}}<p class="text-xs leading-5 text-zinc-600">Backup storage is required. {{if $.CanManageServer}}<a class="font-medium text-zinc-950 underline underline-offset-4" href="/backups/targets">Connect storage</a>{{else}}Ask a server administrator to connect storage.{{end}}</p>{{end}}
+                </div>
+              </details>
+              {{end}}
+              {{if and $.CanManageWordPress (or (eq .Status "active") (eq .Status "inactive"))}}
+              <form method="post" action="/sites/{{$.Site.ID}}/wordpress/plugins/{{.Name}}">
+                <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+                {{if eq .Status "active"}}<input type="hidden" name="action" value="deactivate"><button class="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50" aria-label="Deactivate {{.Name}}">Deactivate</button>{{else}}<input type="hidden" name="action" value="activate"><button class="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50" aria-label="Activate {{.Name}}">Activate</button>{{end}}
+              </form>
+              {{end}}
+            </div>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <p class="px-5 py-8 text-center text-sm text-zinc-500">{{if .Error}}Plugin inventory could not be loaded.{{else}}No installed plugins were reported by WordPress.{{end}}</p>
+  {{end}}
+</section>
+
+<section id="themes" class="mt-6 overflow-hidden rounded-lg border border-zinc-200 bg-white" aria-labelledby="themes-heading">
+  <div class="border-b border-zinc-200 px-5 py-4"><h2 id="themes-heading" class="text-base font-semibold text-zinc-950">Themes{{if .Themes}} <span class="ml-1 text-sm font-normal text-zinc-500">{{len .Themes}}</span>{{end}}</h2><p class="mt-1 text-sm leading-6 text-zinc-500">Keep installed themes current. Choose your active theme inside WordPress.</p></div>
+  {{if .Themes}}
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[540px] text-left text-sm">
+      <thead class="border-b border-zinc-200 bg-zinc-50 text-xs font-medium text-zinc-500"><tr><th scope="col" class="px-5 py-3 font-medium">Theme</th><th scope="col" class="px-5 py-3 font-medium">Version</th><th scope="col" class="px-5 py-3 font-medium">Status</th><th scope="col" class="px-5 py-3 text-right font-medium">Actions</th></tr></thead>
+      <tbody class="divide-y divide-zinc-200">
+        {{range .Themes}}
+        <tr class="align-top">
+          <th scope="row" class="px-5 py-4 font-medium text-zinc-950">{{.Name}}</th>
+          <td class="px-5 py-4 text-zinc-600">{{.Version}}{{if eq .Update "available"}}<p class="mt-1 text-xs text-amber-700">{{.UpdateVersion}} available</p>{{end}}</td>
+          <td class="px-5 py-4"><span class="inline-flex rounded-md border px-2 py-0.5 text-xs font-medium {{if eq .Status "active"}}border-emerald-200 bg-emerald-50 text-emerald-800{{else}}border-zinc-200 bg-zinc-50 text-zinc-600{{end}}">{{.Status}}</span></td>
+          <td class="px-5 py-4">
+            {{if and $.CanManageWordPress (eq .Update "available")}}
+            <details class="ml-auto max-w-xs text-left">
+              <summary class="ml-auto w-fit cursor-pointer rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50">Update</summary>
+              <div class="mt-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                {{if $hasRecoveryStorage}}
+                <form class="grid gap-3" method="post" action="/sites/{{$.Site.ID}}/wordpress/update">
+                  <input type="hidden" name="csrf_token" value="{{$.CSRF}}"><input type="hidden" name="component" value="theme"><input type="hidden" name="name" value="{{.Name}}">
+                  <label class="block"><span class="mb-1.5 block text-xs font-medium text-zinc-700">Recovery storage for {{.Name}}</span><select class="w-full rounded-md border border-zinc-200 bg-white px-2 py-2 text-xs" name="target_id" required><option value="">Select storage</option>{{range $.BackupTargets}}{{if eq .Status "active"}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select></label>
+                  <button class="rounded-md bg-zinc-950 px-3 py-2 text-xs font-medium text-white hover:bg-zinc-800">Back up and update</button>
+                </form>
+                {{else}}<p class="text-xs leading-5 text-zinc-600">Backup storage is required. {{if $.CanManageServer}}<a class="font-medium text-zinc-950 underline underline-offset-4" href="/backups/targets">Connect storage</a>{{else}}Ask a server administrator to connect storage.{{end}}</p>{{end}}
+              </div>
+            </details>
+            {{else}}<span class="block text-right text-zinc-400" aria-label="No available update">—</span>{{end}}
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <p class="px-5 py-8 text-center text-sm text-zinc-500">{{if .Error}}Theme inventory could not be loaded.{{else}}No installed themes were reported by WordPress.{{end}}</p>
+  {{end}}
+</section>
+
+{{if .CanManageWordPress}}
+<section id="performance" class="mt-6 rounded-lg border border-zinc-200 bg-white" aria-labelledby="performance-heading">
+  <div class="border-b border-zinc-200 px-5 py-4"><h2 id="performance-heading" class="text-base font-semibold text-zinc-950">Caching</h2><p class="mt-1 text-sm leading-6 text-zinc-500">Control the local caches used by this WordPress site.</p></div>
+  <form class="p-5" method="post" action="/sites/{{.Site.ID}}/wordpress/performance">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <fieldset class="grid max-w-2xl gap-5">
+      <legend class="sr-only">WordPress caching options</legend>
+      <label class="flex items-start gap-3"><input class="mt-1 size-4 accent-zinc-950" type="checkbox" name="redis" {{if .Site.RedisEnabled}}checked{{end}}><span><span class="block text-sm font-medium text-zinc-950">Redis object cache</span><span class="mt-1 block text-sm leading-6 text-zinc-500">Store frequently used WordPress data in memory to reduce database work.</span></span></label>
+      <label class="flex items-start gap-3"><input class="mt-1 size-4 accent-zinc-950" type="checkbox" name="fastcgi_cache" {{if .Site.FastCGICacheEnabled}}checked{{end}}><span><span class="block text-sm font-medium text-zinc-950">FastCGI page cache</span><span class="mt-1 block text-sm leading-6 text-zinc-500">Cache pages for anonymous visitors. Logins, carts, APIs, POST requests, and query strings bypass the cache.</span></span></label>
+    </fieldset>
+    <button class="mt-6 rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800">Save caching settings</button>
+  </form>
+</section>
+{{end}}
+{{end}}
+{{end}}

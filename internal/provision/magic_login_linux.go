@@ -60,7 +60,13 @@ func (h *Host) MagicLogin(ctx context.Context, site model.Site) (string, time.Ti
 	if err := writeFileAt(dirFD, name, []byte(script), identity); err != nil {
 		return "", time.Time{}, fmt.Errorf("write one-time WordPress login: %w", err)
 	}
-	return "http://" + site.Domain + "/" + name, expires, nil
+	scheme := "http"
+	if site.TLSStatus == "active" {
+		// The filename is a bearer credential. Start on HTTPS when provisioned
+		// so an HTTP redirect cannot expose it on the first request.
+		scheme = "https"
+	}
+	return scheme + "://" + site.Domain + "/" + name, expires, nil
 }
 
 func writeFileAt(dirFD int, name string, content []byte, identity Identity) error {

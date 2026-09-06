@@ -4,18 +4,13 @@ package upgrade
 
 import (
 	"context"
-	"crypto/tls"
 	"database/sql"
 	"errors"
 	"fmt"
 	"io"
-	"net"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -42,6 +37,7 @@ type Options struct {
 	InstalledPath        string
 	ConfigPath           string
 	BackupRoot           string
+	UnitRoot             string
 	EffectiveUID         func() int
 	Runner               Runner
 	HealthCheck          func(context.Context, config.Config) error
@@ -77,11 +73,14 @@ func Run(ctx context.Context, options Options) (Result, error) {
 	if options.BackupRoot == "" {
 		options.BackupRoot = "/var/lib/wpx/upgrades"
 	}
+	if options.UnitRoot == "" {
+		options.UnitRoot = "/etc/systemd/system"
+	}
 	if options.Runner == nil {
 		options.Runner = ExecRunner{}
 	}
 	if options.HealthCheck == nil {
-		options.HealthCheck = panelHealth
+		options.HealthCheck = install.WaitForPanel
 	}
 	if options.ReconcileUnits == nil {
 		options.ReconcileUnits = install.WriteUnits
@@ -105,7 +104,7 @@ func Run(ctx context.Context, options Options) (Result, error) {
 	if err != nil || source == installed {
 		return Result{}, errors.New("upgrade must run from a newly downloaded binary")
 	}
-	for name, path := range map[string]string{"source": source, "installed binary": installed, "configuration": options.ConfigPath, "backup root": options.BackupRoot} {
+	for name, path := range map[string]string{"source": source, "installed binary": installed, "configuration": options.ConfigPath, "backup root": options.BackupRoot, "systemd units": options.UnitRoot} {
 		if !filepath.IsAbs(path) || filepath.Clean(path) != path || path == "/" {
 			return Result{}, fmt.Errorf("%s path is unsafe", name)
 		}
@@ -124,42 +123,57 @@ func Run(ctx context.Context, options Options) (Result, error) {
 	if err := os.MkdirAll(backupDirectory, 0700); err != nil {
 		return Result{}, fmt.Errorf("create upgrade recovery directory: %w", err)
 	}
+	unitSnapshots, err := snapshotUnits(options.UnitRoot, backupDirectory)
+	if err != nil {
+		return Result{}, err
+	}
 	stopServices := []string{"wpx.service", "wpx-broker.service"}
 	startServices := []string{"wpx-broker.service", "wpx.service"}
-	if err := options.Runner.Run(ctx, "/usr/bin/systemctl", append([]string{"stop"}, stopServices...)...); err != nil {
-		return Result{}, fmt.Errorf("stop WPX for upgrade: %w", err)
+	restartOld := func(cause error) error {
+		recoveryCtx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+		defer cancel()
+		if err := options.Runner.Run(recoveryCtx, "/usr/bin/systemctl", append([]string{"start"}, startServices...)...); err != nil {
+			return fmt.Errorf("%w; restart previous WPX failed: %v", cause, err)
+		}
+		return cause
 	}
-	restartOld := func() {
-		_ = options.Runner.Run(context.Background(), "/usr/bin/systemctl", append([]string{"start"}, startServices...)...)
+	if err := options.Runner.Run(ctx, "/usr/bin/systemctl", append([]string{"stop"}, stopServices...)...); err != nil {
+		return Result{}, restartOld(fmt.Errorf("stop WPX for upgrade: %w", err))
 	}
 	if err := checkpointSQLite(cfg.StatePath); err != nil {
-		restartOld()
-		return Result{}, err
+		return Result{}, restartOld(err)
 	}
 	binaryBackup, stateBackup := filepath.Join(backupDirectory, "wpx"), filepath.Join(backupDirectory, "state.db")
 	if err := copyFile(installed, binaryBackup, 0755); err != nil {
-		restartOld()
-		return Result{}, fmt.Errorf("back up current binary: %w", err)
+		return Result{}, restartOld(fmt.Errorf("back up current binary: %w", err))
 	}
 	if err := copyFile(cfg.StatePath, stateBackup, 0600); err != nil {
-		restartOld()
-		return Result{}, fmt.Errorf("back up panel state: %w", err)
+		return Result{}, restartOld(fmt.Errorf("back up panel state: %w", err))
 	}
 	rollback := func(cause error) error {
-		_ = options.Runner.Run(context.Background(), "/usr/bin/systemctl", append([]string{"stop"}, stopServices...)...)
-		binaryErr := replaceFile(binaryBackup, installed, 0755)
-		stateErr := replaceFile(stateBackup, cfg.StatePath, 0600)
-		restartOld()
-		if binaryErr != nil || stateErr != nil {
-			return fmt.Errorf("%v; rollback failed (binary: %v, state: %v); recovery files remain in %s", cause, binaryErr, stateErr, backupDirectory)
+		recoveryCtx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+		defer cancel()
+		// A failed stop may leave either process writing SQLite. Never replace
+		// its database or discard its WAL until systemd confirms both stopped.
+		if err := options.Runner.Run(recoveryCtx, "/usr/bin/systemctl", append([]string{"stop"}, stopServices...)...); err != nil {
+			return fmt.Errorf("%w; rollback could not stop WPX: %v; recovery files remain in %s", cause, err, backupDirectory)
 		}
-		return fmt.Errorf("%v; previous binary and state restored", cause)
+		binaryErr := replaceFile(binaryBackup, installed, 0755)
+		stateErr := restoreState(stateBackup, cfg.StatePath)
+		unitErr := restoreUnits(unitSnapshots)
+		if unitErr == nil {
+			unitErr = options.Runner.Run(recoveryCtx, "/usr/bin/systemctl", "daemon-reload")
+		}
+		if binaryErr != nil || stateErr != nil || unitErr != nil {
+			return fmt.Errorf("%w; rollback failed (binary: %v, state: %v, units: %v); recovery files remain in %s", cause, binaryErr, stateErr, unitErr, backupDirectory)
+		}
+		if err := options.Runner.Run(recoveryCtx, "/usr/bin/systemctl", append([]string{"start"}, startServices...)...); err != nil {
+			return fmt.Errorf("%w; previous binary, state and units restored but restart failed: %v; recovery files remain in %s", cause, err, backupDirectory)
+		}
+		return fmt.Errorf("%w; previous binary and state restored with previous systemd units", cause)
 	}
 	if err := replaceFile(source, installed, 0755); err != nil {
-		_ = replaceFile(binaryBackup, installed, 0755)
-		_ = replaceFile(stateBackup, cfg.StatePath, 0600)
-		restartOld()
-		return Result{}, fmt.Errorf("install new WPX binary: %w", err)
+		return Result{}, rollback(fmt.Errorf("install new WPX binary: %w", err))
 	}
 	if err := options.ReconcileUnits(options.ConfigPath); err != nil {
 		return Result{}, rollback(fmt.Errorf("reconcile systemd units: %w", err))
@@ -175,19 +189,85 @@ func Run(ctx context.Context, options Options) (Result, error) {
 	if err := options.HealthCheck(healthContext, cfg); err != nil {
 		return Result{}, rollback(fmt.Errorf("upgraded panel health check: %w", err))
 	}
+	for _, service := range startServices {
+		if err := options.Runner.Run(ctx, "/usr/bin/systemctl", "is-active", "--quiet", service); err != nil {
+			return Result{}, rollback(fmt.Errorf("upgraded service %s readiness: %w", service, err))
+		}
+	}
 	return Result{BackupDirectory: backupDirectory}, nil
 }
 
 func checkpointSQLite(path string) error {
+	if info, err := os.Stat(path); err != nil || !info.Mode().IsRegular() {
+		return errors.New("panel state database is unavailable; refusing to create an empty upgrade snapshot")
+	}
 	database, err := sql.Open("sqlite", path)
 	if err != nil {
 		return err
 	}
 	defer database.Close()
-	if _, err := database.Exec(`PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
+	var busy, pages, checkpointed int
+	if err := database.QueryRow(`PRAGMA wal_checkpoint(TRUNCATE)`).Scan(&busy, &pages, &checkpointed); err != nil {
 		return fmt.Errorf("checkpoint panel state: %w", err)
 	}
+	if busy != 0 {
+		return errors.New("cannot snapshot panel state while another SQLite connection holds its WAL")
+	}
 	return nil
+}
+
+// The snapshot is a checkpointed database. A failed new process can leave WAL
+// frames from its newer schema, which must never be replayed into the snapshot.
+// The caller must stop both WPX services before invoking this function.
+func restoreState(source, destination string) error {
+	for _, suffix := range []string{"-wal", "-shm"} {
+		if err := os.Remove(destination + suffix); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove failed-upgrade SQLite sidecar: %w", err)
+		}
+	}
+	return replaceFile(source, destination, 0600)
+}
+
+type unitSnapshot struct {
+	path, backup string
+	mode         os.FileMode
+	existed      bool
+}
+
+func snapshotUnits(root, backupRoot string) ([]unitSnapshot, error) {
+	var snapshots []unitSnapshot
+	for _, name := range []string{"wpx-broker.service", "wpx.service"} {
+		snapshot := unitSnapshot{path: filepath.Join(root, name), backup: filepath.Join(backupRoot, name)}
+		info, err := os.Lstat(snapshot.path)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, fmt.Errorf("inspect systemd unit for recovery: %w", err)
+		}
+		if err == nil {
+			if !info.Mode().IsRegular() {
+				return nil, fmt.Errorf("systemd unit %s must be a regular file", snapshot.path)
+			}
+			snapshot.existed, snapshot.mode = true, info.Mode().Perm()
+			if err := copyFile(snapshot.path, snapshot.backup, snapshot.mode); err != nil {
+				return nil, fmt.Errorf("back up systemd unit: %w", err)
+			}
+		}
+		snapshots = append(snapshots, snapshot)
+	}
+	return snapshots, nil
+}
+
+func restoreUnits(snapshots []unitSnapshot) error {
+	var errs []error
+	for _, snapshot := range snapshots {
+		if snapshot.existed {
+			if err := replaceFile(snapshot.backup, snapshot.path, snapshot.mode); err != nil {
+				errs = append(errs, err)
+			}
+		} else if err := os.Remove(snapshot.path); err != nil && !os.IsNotExist(err) {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func copyFile(source, destination string, mode os.FileMode) error {
@@ -258,39 +338,4 @@ func replaceFile(source, destination string, mode os.FileMode) error {
 		}
 	}
 	return nil
-}
-
-func panelHealth(ctx context.Context, cfg config.Config) error {
-	host, port, err := net.SplitHostPort(cfg.ListenAddress)
-	if err != nil {
-		return err
-	}
-	if host == "" || host == "0.0.0.0" || host == "::" {
-		host = "127.0.0.1"
-	}
-	if _, err := strconv.Atoi(port); err != nil {
-		return err
-	}
-	transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}} // local self-signed endpoint
-	defer transport.CloseIdleConnections()
-	client := &http.Client{Transport: transport, Timeout: 3 * time.Second}
-	url := "https://" + net.JoinHostPort(strings.Trim(host, "[]"), port) + "/healthz"
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-	for {
-		request, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-		response, requestErr := client.Do(request)
-		if requestErr == nil {
-			_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
-			response.Body.Close()
-			if response.StatusCode == http.StatusOK {
-				return nil
-			}
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-		}
-	}
 }

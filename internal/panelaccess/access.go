@@ -11,8 +11,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/lum1t4/wpx/internal/config"
+	"github.com/lum1t4/wpx/internal/install"
 	"github.com/lum1t4/wpx/internal/model"
 )
 
@@ -25,10 +27,22 @@ type Runner interface {
 type ExecRunner struct{}
 
 func (ExecRunner) Run(ctx context.Context, executable string, args ...string) error {
-	if err := exec.CommandContext(ctx, executable, args...).Run(); err != nil {
+	command := exec.CommandContext(ctx, executable, args...)
+	// Access is an interactive, root-only CLI operation. Preserve Nginx and
+	// certbot diagnostics so an operator sees why a transition was rolled back.
+	command.Stdout, command.Stderr = os.Stdout, os.Stderr
+	if err := command.Run(); err != nil {
 		return fmt.Errorf("run %s: %w", filepath.Base(executable), err)
 	}
 	return nil
+}
+
+func (ExecRunner) Output(ctx context.Context, executable string, args ...string) ([]byte, error) {
+	output, err := exec.CommandContext(ctx, executable, args...).Output()
+	if err != nil {
+		return nil, fmt.Errorf("run %s: %w", filepath.Base(executable), err)
+	}
+	return output, nil
 }
 
 type Options struct {
@@ -39,13 +53,16 @@ type Options struct {
 	NginxAvailable  string
 	NginxEnabled    string
 	CertificateRoot string
+	ChallengeRoot   string
+	TailscalePath   string
+	ReadyCheck      func(context.Context, config.Config) error
 }
 
 type Result struct {
 	URL string
 }
 
-func Configure(ctx context.Context, options Options) (Result, error) {
+func Configure(ctx context.Context, options Options) (result Result, err error) {
 	if options.ConfigPath == "" {
 		options.ConfigPath = "/etc/wpx/config.json"
 	}
@@ -61,42 +78,113 @@ func Configure(ctx context.Context, options Options) (Result, error) {
 	if options.CertificateRoot == "" {
 		options.CertificateRoot = "/etc/letsencrypt/live"
 	}
+	if options.ChallengeRoot == "" {
+		// Nginx must traverse this directory. DataRoot is private (0750) and
+		// contains encryption keys, so ACME tokens must not live beneath it.
+		options.ChallengeRoot = "/var/lib/wpx-acme"
+	}
+	if options.TailscalePath == "" {
+		options.TailscalePath = "/usr/bin/tailscale"
+	}
+	if options.ReadyCheck == nil {
+		options.ReadyCheck = install.WaitForPanel
+	}
 	cfg, err := config.Load(options.ConfigPath)
 	if err != nil {
 		return Result{}, err
 	}
+	if options.Mode != "local" && options.Mode != "public" && options.Mode != "tailscale" && options.Mode != "domain" {
+		return Result{}, errors.New("access mode must be local, public, tailscale, or domain")
+	}
+	if options.Mode == "domain" {
+		options.Domain = strings.ToLower(strings.TrimSuffix(strings.TrimSpace(options.Domain), "."))
+		if err := model.ValidateDomain(options.Domain); err != nil {
+			return Result{}, err
+		}
+	}
+	proxy, err := snapshotProxy(options)
+	if err != nil {
+		return Result{}, err
+	}
+	// A failed certificate request or service restart must not replace a working
+	// domain with the temporary HTTP challenge server. Rollback gets its own
+	// timeout: a cancelled CLI operation still owes the host its old access path.
+	defer func() {
+		if err != nil && proxy.changed {
+			rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+			defer cancel()
+			if rollbackErr := proxy.restore(rollbackCtx, options); rollbackErr != nil {
+				err = errors.Join(err, fmt.Errorf("restore previous panel proxy: %w", rollbackErr))
+			}
+		}
+	}()
+	if options.Mode != "tailscale" {
+		removed, removeErr := removePanelTailscale(ctx, options)
+		if removeErr != nil {
+			return Result{}, removeErr
+		}
+		if removed {
+			defer func() {
+				if err != nil {
+					rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+					defer cancel()
+					if rollbackErr := options.Runner.Run(rollbackCtx, options.TailscalePath, "serve", "--bg", "--yes", "--https=443", tailscaleTarget); rollbackErr != nil {
+						err = errors.Join(err, fmt.Errorf("restore previous Tailscale Serve route: %w", rollbackErr))
+					}
+				}
+			}()
+		}
+	}
 	switch options.Mode {
 	case "local":
 		cfg.ListenAddress = "127.0.0.1:9443"
-		return Result{URL: "https://127.0.0.1:9443"}, saveAndRestart(ctx, options, cfg)
+		return Result{URL: "https://127.0.0.1:9443"}, configureListener(ctx, options, cfg, proxy)
 	case "public":
 		cfg.ListenAddress = "0.0.0.0:9443"
-		return Result{URL: "https://SERVER_IP:9443"}, saveAndRestart(ctx, options, cfg)
+		return Result{URL: "https://SERVER_IP:9443"}, configureListener(ctx, options, cfg, proxy)
 	case "tailscale":
-		// Tailscale remains responsible for identity, certificates, and ACLs.
-		// WPX only exposes its existing TLS listener to the local daemon.
-		if err := options.Runner.Run(ctx, "/usr/bin/tailscale", "serve", "--bg", "--yes", "--https=443", "https+insecure://127.0.0.1:9443"); err != nil {
-			return Result{}, fmt.Errorf("configure Tailscale Serve: %w", err)
+		alreadyConfigured, inspectErr := inspectTailscale(ctx, options)
+		if inspectErr != nil {
+			return Result{}, inspectErr
+		}
+		if !alreadyConfigured {
+			if err := options.Runner.Run(ctx, options.TailscalePath, "serve", "--bg", "--yes", "--https=443", tailscaleTarget); err != nil {
+				return Result{}, fmt.Errorf("configure Tailscale Serve: %w", err)
+			}
+			defer func() {
+				if err != nil {
+					rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+					defer cancel()
+					if rollbackErr := options.Runner.Run(rollbackCtx, options.TailscalePath, "serve", "--bg", "--yes", "--https=443", "--set-path=/", "off"); rollbackErr != nil {
+						err = errors.Join(err, fmt.Errorf("remove newly created Tailscale Serve route: %w", rollbackErr))
+					}
+				}
+			}()
 		}
 		cfg.ListenAddress = "127.0.0.1:9443"
-		return Result{URL: "https://TAILSCALE_HOSTNAME"}, saveAndRestart(ctx, options, cfg)
+		return Result{URL: "https://TAILSCALE_HOSTNAME"}, configureListener(ctx, options, cfg, proxy)
 	case "domain":
-		return configureDomain(ctx, options, cfg)
+		return configureDomain(ctx, options, cfg, proxy)
 	default:
 		return Result{}, errors.New("access mode must be local, public, tailscale, or domain")
 	}
 }
 
-func configureDomain(ctx context.Context, options Options, cfg config.Config) (Result, error) {
-	domain := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(options.Domain), "."))
-	if err := model.ValidateDomain(domain); err != nil {
-		return Result{}, err
-	}
-	challengeRoot := filepath.Join(cfg.DataRoot, "panel-public")
+func configureDomain(ctx context.Context, options Options, cfg config.Config, proxy *proxySnapshot) (Result, error) {
+	domain := options.Domain
+	challengeRoot := options.ChallengeRoot
 	if err := os.MkdirAll(filepath.Join(challengeRoot, ".well-known", "acme-challenge"), 0755); err != nil {
 		return Result{}, fmt.Errorf("prepare panel challenge root: %w", err)
 	}
+	// Root may invoke the CLI with a restrictive umask. These directories contain
+	// only public ACME tokens, and Nginx must traverse them regardless of umask.
+	for _, path := range []string{challengeRoot, filepath.Join(challengeRoot, ".well-known"), filepath.Join(challengeRoot, ".well-known", "acme-challenge")} {
+		if err := os.Chmod(path, 0755); err != nil {
+			return Result{}, fmt.Errorf("make panel challenge directory readable: %w", err)
+		}
+	}
 	configPath := filepath.Join(options.NginxAvailable, "wpx-panel.conf")
+	proxy.changed = true
 	if err := writeOwned(configPath, []byte(panelHTTPConfig(domain, challengeRoot))); err != nil {
 		return Result{}, err
 	}
@@ -134,22 +222,55 @@ func configureDomain(ctx context.Context, options Options, cfg config.Config) (R
 	return Result{URL: "https://" + domain}, nil
 }
 
+func configureListener(ctx context.Context, options Options, cfg config.Config, proxy *proxySnapshot) error {
+	// Binding the Go process to loopback is not private while its old public
+	// Nginx proxy is still enabled. Keep the available file for operator recovery;
+	// remove only the exact WPX link whose ownership was checked before mutation.
+	if proxy.linkTarget != "" {
+		proxy.changed = true
+		if err := os.Remove(proxy.enabled); err != nil {
+			return fmt.Errorf("disable panel proxy: %w", err)
+		}
+		if err := reloadNginx(ctx, options.Runner); err != nil {
+			return fmt.Errorf("disable panel proxy: %w", err)
+		}
+	}
+	return saveAndRestart(ctx, options, cfg)
+}
+
 func saveAndRestart(ctx context.Context, options Options, cfg config.Config) error {
 	previous, err := config.Load(options.ConfigPath)
 	if err != nil {
 		return err
 	}
 	if err := config.Save(options.ConfigPath, cfg); err != nil {
-		return err
+		return errors.Join(err, restoreConfig(ctx, options, previous))
 	}
-	if err := options.Runner.Run(ctx, "/usr/bin/systemctl", "restart", "wpx.service"); err != nil {
-		// Restore the readable previous configuration before returning. A second
-		// restart is best-effort because the original service may still be alive.
-		_ = config.Save(options.ConfigPath, previous)
-		_ = options.Runner.Run(ctx, "/usr/bin/systemctl", "restart", "wpx.service")
-		return fmt.Errorf("restart panel after access change: %w", err)
+	if err := restartPanel(ctx, options, cfg); err != nil {
+		return errors.Join(fmt.Errorf("restart panel after access change: %w", err), restoreConfig(ctx, options, previous))
 	}
 	return nil
+}
+
+func restoreConfig(ctx context.Context, options Options, previous config.Config) error {
+	rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer cancel()
+	if err := config.Save(options.ConfigPath, previous); err != nil {
+		return fmt.Errorf("restore previous panel configuration: %w", err)
+	}
+	if err := restartPanel(rollbackCtx, options, previous); err != nil {
+		return fmt.Errorf("restart previous panel configuration: %w", err)
+	}
+	return nil
+}
+
+func restartPanel(ctx context.Context, options Options, cfg config.Config) error {
+	if err := options.Runner.Run(ctx, "/usr/bin/systemctl", "restart", "wpx.service"); err != nil {
+		return err
+	}
+	readyCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	return options.ReadyCheck(readyCtx, cfg)
 }
 
 func writeOwned(path string, content []byte) error {
@@ -188,7 +309,11 @@ func activate(available, enabled string) error {
 		return err
 	}
 	if target, err := os.Readlink(enabled); err == nil {
-		if target != available {
+		resolved := target
+		if !filepath.IsAbs(resolved) {
+			resolved = filepath.Join(filepath.Dir(enabled), resolved)
+		}
+		if filepath.Clean(resolved) != available {
 			return fmt.Errorf("refuse to replace unexpected Nginx link %s", enabled)
 		}
 		return nil
@@ -199,9 +324,48 @@ func activate(available, enabled string) error {
 }
 
 func panelHTTPConfig(domain, challengeRoot string) string {
-	return ownershipMarker + "server {\n    listen 80;\n    listen [::]:80;\n    server_name " + domain + ";\n    location ^~ /.well-known/acme-challenge/ { root " + challengeRoot + "; }\n    location / { proxy_pass https://127.0.0.1:9443; proxy_ssl_verify off; proxy_set_header Host $host; proxy_set_header X-Forwarded-Proto $scheme; proxy_set_header X-Real-IP $remote_addr; }\n}\n"
+	return ownershipMarker + fmt.Sprintf(`server {
+    listen 80;
+    listen [::]:80;
+    server_name %s;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root %s;
+    }
+
+    location / { return 404; }
+}
+`, domain, challengeRoot)
 }
 
 func panelTLSConfig(domain, challengeRoot, certRoot string) string {
-	return ownershipMarker + "server {\n    listen 80;\n    listen [::]:80;\n    server_name " + domain + ";\n    location ^~ /.well-known/acme-challenge/ { root " + challengeRoot + "; }\n    location / { return 301 https://$host$request_uri; }\n}\nserver {\n    listen 443 ssl;\n    listen [::]:443 ssl;\n    server_name " + domain + ";\n    ssl_certificate " + filepath.Join(certRoot, "fullchain.pem") + ";\n    ssl_certificate_key " + filepath.Join(certRoot, "privkey.pem") + ";\n    location / { proxy_pass https://127.0.0.1:9443; proxy_ssl_verify off; proxy_set_header Host $host; proxy_set_header X-Forwarded-Proto https; proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; }\n}\n"
+	return ownershipMarker + fmt.Sprintf(`server {
+    listen 80;
+    listen [::]:80;
+    server_name %s;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root %s;
+    }
+
+    location / { return 301 https://$host$request_uri; }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name %s;
+    ssl_certificate %s;
+    ssl_certificate_key %s;
+
+    location / {
+        proxy_pass https://127.0.0.1:9443;
+        proxy_ssl_verify off;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+`, domain, challengeRoot, domain, filepath.Join(certRoot, "fullchain.pem"), filepath.Join(certRoot, "privkey.pem"))
 }

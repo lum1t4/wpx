@@ -39,6 +39,10 @@ type DNSOperator interface {
 	Delete(context.Context, model.DNSProvider, model.DNSRecord) error
 }
 
+type phpVersionChanger interface {
+	ChangePHPVersion(context.Context, model.Site, model.PHPVersionChange, string) error
+}
+
 type BrokerProvisioner struct{ Client broker.Client }
 
 func (p BrokerProvisioner) Provision(ctx context.Context, site model.Site, idempotencyKey string) error {
@@ -47,6 +51,10 @@ func (p BrokerProvisioner) Provision(ctx context.Context, site model.Site, idemp
 
 func (p BrokerProvisioner) Disable(ctx context.Context, site model.Site, stopPHP bool, idempotencyKey string) error {
 	return p.Client.Call(ctx, broker.OpDisableSite, idempotencyKey, broker.DisableSiteRequest{Site: site, StopPHP: stopPHP}, nil)
+}
+
+func (p BrokerProvisioner) ChangePHPVersion(ctx context.Context, site model.Site, change model.PHPVersionChange, idempotencyKey string) error {
+	return p.Client.Call(ctx, broker.OpChangePHPVersion, idempotencyKey, broker.ChangePHPVersionRequest{Site: site, Change: change}, nil)
 }
 
 func (p BrokerProvisioner) ApplySnippets(ctx context.Context, site model.Site, snippets model.SiteSnippets, idempotencyKey string) error {
@@ -187,6 +195,30 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 		if operationErr == nil {
 			operationErr = w.Provisioner.Disable(ctx, site, stopPHP, job.IdempotencyKey)
 		}
+	case "site.php_version":
+		var change model.PHPVersionChange
+		if err := json.Unmarshal([]byte(job.PayloadJSON), &change); err != nil {
+			operationErr = errors.New("PHP version job payload is invalid")
+			break
+		}
+		var site model.Site
+		site, operationErr = w.Store.Site(ctx, job.TargetID)
+		if operationErr != nil {
+			break
+		}
+		if site.Status != "php_changing" || site.PHPVersion != change.PreviousVersion {
+			operationErr = errors.New("PHP version job no longer matches the site")
+			break
+		}
+		if operationErr = model.ValidatePHPVersionChange(site, change); operationErr != nil {
+			break
+		}
+		changer, ok := w.Provisioner.(phpVersionChanger)
+		if !ok {
+			operationErr = errors.New("PHP version changes are unavailable")
+			break
+		}
+		operationErr = changer.ChangePHPVersion(ctx, site, change, job.IdempotencyKey)
 	case "site.config_apply":
 		var site model.Site
 		site, operationErr = w.Store.Site(ctx, job.TargetID)
@@ -462,6 +494,14 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 		}
 	default:
 		operationErr = fmt.Errorf("unsupported job kind %q", job.Kind)
+	}
+	if job.Kind == "site.php_version" && (errors.Is(operationErr, broker.ErrOutcomeUnknown) || errors.Is(operationErr, broker.ErrUnavailable)) {
+		if err := w.Store.RetryPHPVersionChange(ctx, job.ID, "Waiting for broker confirmation: "+operationErr.Error()); err != nil {
+			return false, fmt.Errorf("retry PHP version job %s: %w", job.ID, err)
+		}
+		// The privileged operation can outlive a lost socket connection. Keep
+		// the reservation and let Run wait for its next poll before replaying.
+		return false, fmt.Errorf("PHP version job %s is awaiting broker confirmation: %w", job.ID, operationErr)
 	}
 	if err := w.Store.FinishJob(ctx, job, resultJSON, operationErr); err != nil {
 		return true, fmt.Errorf("finish job %s: %w", job.ID, err)

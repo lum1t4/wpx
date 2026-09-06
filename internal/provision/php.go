@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/lum1t4/wpx/internal/model"
 )
@@ -18,6 +20,30 @@ type AptPHPRuntime struct {
 	ConfigRoot  string
 	RunRoot     string
 	SnippetRoot string
+	SocketReady func(context.Context, string) error
+}
+
+func (p *AptPHPRuntime) waitReady(ctx context.Context, socket string) error {
+	if p.SocketReady != nil {
+		return p.SocketReady(ctx, socket)
+	}
+	readyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	dialer := net.Dialer{Timeout: 200 * time.Millisecond}
+	for {
+		connection, err := dialer.DialContext(readyCtx, "unix", socket)
+		if err == nil {
+			connection.Close()
+			return nil
+		}
+		select {
+		case <-readyCtx.Done():
+			return fmt.Errorf("PHP site socket did not become ready: %w", readyCtx.Err())
+		case <-ticker.C:
+		}
+	}
 }
 
 func (p *AptPHPRuntime) Ensure(ctx context.Context, site model.Site, identity Identity, siteDir string) (string, error) {
@@ -27,23 +53,10 @@ func (p *AptPHPRuntime) Ensure(ctx context.Context, site model.Site, identity Id
 	if p.Runner == nil || !filepath.IsAbs(p.ConfigRoot) || !filepath.IsAbs(p.RunRoot) || !filepath.IsAbs(p.SnippetRoot) {
 		return "", errors.New("invalid PHP runtime configuration")
 	}
-	version := site.PHPVersion
-	fpmBinary := "/usr/sbin/php-fpm" + version
-	if _, err := os.Stat(fpmBinary); os.IsNotExist(err) {
-		prefix := "php" + version + "-"
-		packages := []string{
-			prefix + "fpm", prefix + "cli", prefix + "bcmath", prefix + "curl",
-			prefix + "gd", prefix + "intl", prefix + "mbstring", prefix + "mysql",
-			prefix + "opcache", prefix + "redis", prefix + "xml", prefix + "zip",
-		}
-		args := append([]string{"install", "-y", "--no-install-recommends"}, packages...)
-		if err := p.Runner.Run(ctx, "/usr/bin/apt-get", args...); err != nil {
-			return "", fmt.Errorf("install PHP %s: %w", version, err)
-		}
-	} else if err != nil {
-		return "", fmt.Errorf("inspect PHP %s: %w", version, err)
+	if err := p.ensurePackages(ctx, site.PHPVersion); err != nil {
+		return "", err
 	}
-
+	version := site.PHPVersion
 	poolDir := filepath.Join(p.ConfigRoot, version, "fpm", "pool.d")
 	if err := os.MkdirAll(poolDir, 0755); err != nil {
 		return "", fmt.Errorf("prepare PHP pool directory: %w", err)
@@ -55,14 +68,14 @@ func (p *AptPHPRuntime) Ensure(ctx context.Context, site model.Site, identity Id
 		return "", err
 	}
 	pool := renderPool(site, identity, siteDir, socket, snippetPath)
-	if previous, exists, err := managedFileStateWithMarker(poolPath, phpOwnershipMarker); err != nil {
+	if _, _, err := managedFileStateWithMarker(poolPath, phpOwnershipMarker); err != nil {
 		return "", fmt.Errorf("inspect managed PHP pool: %w", err)
-	} else {
-		_ = previous
-		_ = exists
 	}
 	if err := atomicWrite(poolPath, []byte(pool), 0644); err != nil {
 		return "", fmt.Errorf("write PHP pool: %w", err)
+	}
+	if err := p.Runner.Run(ctx, "/usr/sbin/php-fpm"+version, "-t"); err != nil {
+		return "", fmt.Errorf("validate PHP %s configuration: %w", version, err)
 	}
 	service := "php" + version + "-fpm.service"
 	if err := p.Runner.Run(ctx, "/usr/bin/systemctl", "enable", "--now", service); err != nil {
@@ -72,6 +85,33 @@ func (p *AptPHPRuntime) Ensure(ctx context.Context, site model.Site, identity Id
 		return "", fmt.Errorf("reload PHP %s: %w", version, err)
 	}
 	return socket, nil
+}
+
+func (p *AptPHPRuntime) ensurePackages(ctx context.Context, version string) error {
+	fpmBinary := "/usr/sbin/php-fpm" + version
+	if _, err := os.Stat(fpmBinary); os.IsNotExist(err) {
+		args := append([]string{"install", "-y", "--no-install-recommends"}, phpPackages(version)...)
+		if err := p.Runner.Run(ctx, "/usr/bin/apt-get", args...); err != nil {
+			return fmt.Errorf("install PHP %s: %w", version, err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("inspect PHP %s: %w", version, err)
+	}
+	return nil
+}
+
+func phpPackages(version string) []string {
+	modules := []string{"fpm", "cli", "bcmath", "curl", "gd", "intl", "mbstring", "mysql", "redis", "xml", "zip"}
+	// PHP 8.5 builds OPcache into the runtime. Its distribution no longer
+	// provides a separate php8.5-opcache package, so requesting it aborts APT.
+	if version != "8.5" {
+		modules = append(modules, "opcache")
+	}
+	packages := make([]string, len(modules))
+	for i, module := range modules {
+		packages[i] = "php" + version + "-" + module
+	}
+	return packages
 }
 
 func renderPool(site model.Site, identity Identity, siteDir, socket, snippetPath string) string {

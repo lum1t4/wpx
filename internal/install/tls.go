@@ -4,9 +4,11 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"net"
@@ -14,6 +16,32 @@ import (
 	"path/filepath"
 	"time"
 )
+
+func ensurePanelCertificate(certPath, keyPath string, allowCreate bool) error {
+	certInfo, certErr := os.Lstat(certPath)
+	keyInfo, keyErr := os.Lstat(keyPath)
+	for _, err := range []error{certErr, keyErr} {
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("inspect panel TLS files: %w", err)
+		}
+	}
+	if certErr == nil && !certInfo.Mode().IsRegular() || keyErr == nil && !keyInfo.Mode().IsRegular() {
+		return errors.New("panel TLS files must be regular files")
+	}
+	if certErr == nil && keyErr == nil {
+		if _, err := tls.LoadX509KeyPair(certPath, keyPath); err != nil {
+			return fmt.Errorf("existing panel TLS pair is invalid; restore it before retrying: %w", err)
+		}
+		return os.Chmod(keyPath, 0600)
+	}
+	if !allowCreate {
+		return errors.New("panel TLS files are missing from an existing installation; restore them before retrying")
+	}
+	// The first installation can stop between writing the certificate and key.
+	// No config was saved yet, so no running panel can depend on that incomplete
+	// pair. Once config exists, missing TLS material needs explicit recovery.
+	return generateSelfSignedCertificate(certPath, keyPath)
+}
 
 func generateSelfSignedCertificate(certPath, keyPath string) error {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

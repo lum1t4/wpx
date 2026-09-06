@@ -1,103 +1,83 @@
 # WPX
 
-WPX is a small, open-source server panel for WordPress, PHP, Python, static,
-and reverse-proxy sites. It is designed for agencies and independent operators
-who want a production hosting workflow without handing control of their server
-or operational data to a hosted control plane.
+WPX is a free, GPL-3.0 server panel written in Go. It manages WordPress, PHP,
+Python, static, and reverse-proxy sites on one server, with local accounts,
+site permissions, staging, backups, and DNS tools. There is no hosted WPX account
+or product telemetry.
 
-The first certified platform is Ubuntu 24.04 on Linux amd64 and arm64. WPX is
-distributed as a static Go binary; platform-specific package and service logic
-is kept behind adapters so other Linux distributions can be added later.
+The interface keeps server administration separate from work on an individual
+site. It uses server-rendered HTML and direct Tailwind utilities, with a quiet,
+neutral appearance inspired by shadcn/ui.
 
-## Status
+## Status and platform
 
-WPX is an alpha release and is not yet recommended for production servers. The
-main product workflows are implemented and exercised on disposable Ubuntu 24.04
-systemd hosts, but the project has not yet accumulated the release history and
-real-world operating time required for a production recommendation. Install it
-only on a fresh test VPS whose contents can be recreated.
+WPX is alpha software. Its source and tests are available, but implemented
+features are not a production reliability guarantee. Use a fresh test server
+whose contents can be recovered while evaluating it. See the
+[requirements and current limits](docs/PRODUCT.md) before moving a workload.
+
+Installation currently supports **Ubuntu 24.04, amd64 and arm64**. The WPX binary
+is statically linked and needs no Go or Node.js runtime on the server. Nginx,
+MariaDB, Redis, PHP, and Python still have operating-system dependencies; other
+Linux distributions are not supported yet. WPX has no APT repository or `.deb`
+package. It uses Ubuntu packages and a PHP package source for managed runtimes.
 
 ## Install
 
-On a fresh Ubuntu 24.04 VPS:
+On a fresh Ubuntu 24.04 VPS, run:
 
 ```sh
 curl -fsSL https://github.com/lum1t4/wpx/releases/latest/download/install.sh | sudo sh
 ```
 
-The daily GitHub release check sends only a generic `WPX-update-check` user
-agent and is optional. Disable it during installation with:
+Open the HTTPS setup address printed by the installer and use its one-time
+bootstrap token to create the owner account. The initial certificate is
+self-signed. Then configure a panel domain or private access and enable TOTP
+under Account. The [operator guide](docs/OPERATIONS.md) explains these steps,
+required ports, and recovery diagnostics.
+
+The same command resumes a recognized interrupted installation, or upgrades a
+completed WPX installation. It refuses an unrelated existing hosting stack.
+An upgrade briefly stops the panel and broker and keeps local recovery files.
+It does not replace your operating-system backup.
+
+Daily GitHub release checks are optional. To disable them on first installation:
 
 ```sh
 curl -fsSL https://github.com/lum1t4/wpx/releases/latest/download/install.sh | sudo sh -s -- --no-update-checks
 ```
 
-On an installed host, use `sudo wpx updates --disable` or
-`sudo wpx updates --enable`. `wpx updates --status` is read-only.
-
-If installation is interrupted before WPX prints the setup URL, rerun the same
-one-line command. WPX records an in-progress installation marker and resumes
-idempotently; it still refuses to take ownership of an unrelated existing web
-stack.
-
-The bootstrap selects `amd64` or `arm64`, downloads the static release binary
-and its checksum from the same GitHub release, verifies it, and then hands all
-host changes to the versioned Go installer. WPX has no APT repository and does
-not publish a `.deb`; Ubuntu packages are installed only for the web-server,
-database, language runtimes, and other host services it manages. Until the
-repository name is final, forks can set `WPX_REPOSITORY=owner/repository`.
-
-## Design commitments
-
-- The public web process never runs as root.
-- Privileged work crosses a typed Unix-socket protocol; arbitrary shell strings
-  are not part of that protocol.
-- Site workloads run as dedicated site users.
-- Telemetry is never sent to the WPX project. Metrics and logs stay local.
-- The release is a static Linux binary, not a Debian package.
-- The convenient installer is one line; installation logic lives in the signed
-  and attested binary rather than a large mutable shell script.
-- Running that same command on an existing WPX host performs an explicit
-  upgrade with a local binary and SQLite snapshot, health check, and automatic
-  rollback on failure.
-- Destructive workflows create recovery points and durable audit events.
-
-Read [the architecture](docs/ARCHITECTURE.md), [product specification](docs/PRODUCT.md),
-and [engineering style](docs/STYLE.md) before contributing.
-
-## Panel access
-
-The installer initially exposes the self-signed panel on port 9443 so the owner
-can complete setup. Afterwards, run exactly one root-authorized access mode:
+For an installed panel:
 
 ```sh
-sudo wpx access --domain panel.example.com
-sudo wpx access --tailscale
-sudo wpx access --local
-sudo wpx access --public
+sudo wpx updates --disable
+sudo wpx updates --status
 ```
 
-Domain mode obtains a Let's Encrypt certificate, publishes the panel through a
-WPX-owned Nginx virtual host, and moves the application listener to loopback.
-Tailscale mode configures private HTTPS with Tailscale Serve and also moves the
-listener to loopback. It expects an already installed, connected Tailscale node;
-WPX never handles tailnet enrollment credentials. Public mode deliberately
-restores the direct `0.0.0.0:9443` listener and its local certificate.
+Checks announce releases; installing one remains an explicit operator action.
+The bootstrap verifies the binary's SHA-256 checksum from the same GitHub
+release. GitHub Actions publishes provenance attestations; the installer does
+not independently verify those attestations or use a project signing key.
 
-Access changes refuse to overwrite unmanaged Nginx files. If the panel restart
-fails, WPX restores the previous configuration and attempts to restart it.
+## Find your way around
 
-## Development
+Server navigation contains Overview, Sites, Activity, Storage, DNS providers,
+Users, and Account. Server resources such as storage credentials are configured
+once. Inside a site, Overview, WordPress, Staging, Backups, SSL & security,
+Settings, Files, DNS, and Logs expose the tools relevant to that site and your role.
 
-Go is not required on the host when Docker is available:
+Start with Sites → create a site. Connect storage before using protected
+WordPress updates, restores, or staging deployment. Activity shows whether a
+requested operation is waiting, running, complete, or failed.
 
-```sh
-docker run --rm -v "$PWD:/src" -w /src golang:1.26-bookworm go test ./...
-```
+## Documentation
 
-Build portable Linux binaries:
+- [Operating WPX](docs/OPERATIONS.md): setup, access, backups, upgrades, diagnostics.
+- [Product and requirements](docs/PRODUCT.md): what is implemented and what remains.
+- [Architecture](docs/ARCHITECTURE.md): source map, identities, state, failure boundaries.
+- [Contributing and testing](docs/DEVELOPMENT.md): toolchain, CSS, tests, host verification.
+- [Verification record](docs/VERIFICATION.md): dated checks and their limits.
+- [Engineering style](docs/STYLE.md): code comments, errors, tests, utility-first UI.
+- [Releases](docs/RELEASING.md): maintainer workflow and release trust.
 
-```sh
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o dist/wpx-linux-amd64 ./cmd/wpx
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o dist/wpx-linux-arm64 ./cmd/wpx
-```
+WPX is licensed under [GPL-3.0](LICENSE). The project name is provisional.

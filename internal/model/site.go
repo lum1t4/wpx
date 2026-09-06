@@ -102,7 +102,7 @@ func IsEOLPHP(version string) bool {
 }
 
 func ValidPHPVersion(version string) bool {
-	for minor := 1; minor <= 5; minor++ {
+	for minor := 0; minor <= 5; minor++ {
 		if version == fmt.Sprintf("8.%d", minor) {
 			return true
 		}

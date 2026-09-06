@@ -8,12 +8,22 @@ import (
 	"fmt"
 	"net"
 	"time"
+
+	"github.com/lum1t4/wpx/internal/model"
 )
 
 type Client struct {
 	SocketPath string
 	Timeout    time.Duration
 }
+
+var (
+	ErrUnavailable = errors.New("broker is unavailable")
+	// The peer can continue executing after the client loses its connection.
+	// Durable callers must replay the same operation, not unlock its target and
+	// permit an incompatible new request based on an assumed failure.
+	ErrOutcomeUnknown = errors.New("broker operation outcome is unknown")
+)
 
 func (c Client) Call(ctx context.Context, operation Operation, idempotencyKey string, payload any, result any) error {
 	if idempotencyKey == "" {
@@ -26,7 +36,7 @@ func (c Client) Call(ctx context.Context, operation Operation, idempotencyKey st
 	dialer := net.Dialer{Timeout: timeout}
 	conn, err := dialer.DialContext(ctx, "unix", c.SocketPath)
 	if err != nil {
-		return fmt.Errorf("connect to broker: %w", err)
+		return fmt.Errorf("%w: connect: %w", ErrUnavailable, err)
 	}
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(timeout))
@@ -39,21 +49,28 @@ func (c Client) Call(ctx context.Context, operation Operation, idempotencyKey st
 		Operation: operation, Payload: raw,
 	}
 	if err := json.NewEncoder(conn).Encode(request); err != nil {
-		return fmt.Errorf("send broker request: %w", err)
+		return fmt.Errorf("%w: send request: %w", ErrOutcomeUnknown, err)
 	}
 	var response Response
 	if err := json.NewDecoder(bufio.NewReader(ioLimitReader(conn, maxRequestBytes))).Decode(&response); err != nil {
-		return fmt.Errorf("read broker response: %w", err)
+		return fmt.Errorf("%w: read response: %w", ErrOutcomeUnknown, err)
 	}
 	if response.Version != ProtocolVersion || response.ID != request.ID {
-		return errors.New("broker response does not match request")
+		return fmt.Errorf("%w: response does not match request", ErrOutcomeUnknown)
 	}
 	if !response.OK {
+		if operation == OpChangePHPVersion && len(response.Result) != 0 {
+			var recovery ChangePHPVersionResult
+			if err := json.Unmarshal(response.Result, &recovery); err != nil {
+				return fmt.Errorf("%w: decode PHP recovery state: %w", ErrOutcomeUnknown, err)
+			}
+			return &model.PHPVersionChangeError{Err: errors.New(response.Error), PreviousRestored: recovery.PreviousRestored}
+		}
 		return errors.New(response.Error)
 	}
 	if result != nil && len(response.Result) != 0 {
 		if err := json.Unmarshal(response.Result, result); err != nil {
-			return fmt.Errorf("decode broker result: %w", err)
+			return fmt.Errorf("%w: decode result: %w", ErrOutcomeUnknown, err)
 		}
 	}
 	return nil

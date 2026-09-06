@@ -27,3 +27,17 @@ func TestRenderPoolUsesOndemandWorkersAndSiteIdentity(t *testing.T) {
 		}
 	}
 }
+
+func TestPHPPackagesRespectBundledOPcacheInPHP85(t *testing.T) {
+	for _, version := range []string{"7.4", "8.4", "8.5"} {
+		packages := strings.Join(phpPackages(version), " ")
+		if strings.Contains(packages, "php"+version+"-opcache") != (version != "8.5") {
+			t.Fatalf("PHP %s OPcache packaging is wrong: %s", version, packages)
+		}
+		for _, required := range []string{"fpm", "cli", "mysql", "redis"} {
+			if !strings.Contains(packages, "php"+version+"-"+required) {
+				t.Fatalf("PHP %s is missing required %s package", version, required)
+			}
+		}
+	}
+}

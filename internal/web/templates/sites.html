@@ -1,35 +1,138 @@
 {{define "sites.html"}}
-<!doctype html>
-<html lang="en">
-<head>{{template "head"}}<title>{{.Title}} · WPX</title></head>
-<body class="bg-slate-50 text-slate-900">
-<div class="md:flex">
-  {{template "nav"}}
-  <main class="w-full max-w-7xl p-5 md:p-10">
-    <header><h1 class="text-3xl font-bold tracking-tight">Sites</h1><p class="mt-2 text-slate-500">Create and operate sites without exposing server implementation details.</p></header>
-    {{if .Error}}<p class="mt-5 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-700">{{.Error}}</p>{{end}}
-    {{if .CanManageSites}}
-    <section class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 class="text-xl font-bold">Create site</h2>
-      <form class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4 xl:items-end" method="post" action="/sites">
-        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-        <label><span class="mb-1.5 block text-sm font-semibold text-slate-700">Site ID</span><input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 focus:border-wpx-500 focus:ring-2 focus:ring-wpx-100" name="id" placeholder="example-com" required></label>
-        <label><span class="mb-1.5 block text-sm font-semibold text-slate-700">Domain</span><input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 focus:border-wpx-500 focus:ring-2 focus:ring-wpx-100" name="domain" placeholder="example.com" required></label>
-        <label><span class="mb-1.5 block text-sm font-semibold text-slate-700">Type</span><select class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 focus:border-wpx-500 focus:ring-2 focus:ring-wpx-100" name="kind"><option value="wordpress">WordPress</option><option value="php">PHP</option><option value="python">Python</option><option value="static">Static</option><option value="reverse_proxy">Reverse proxy</option></select></label>
-        <label><span class="mb-1.5 block text-sm font-semibold text-slate-700">PHP</span><select class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 focus:border-wpx-500 focus:ring-2 focus:ring-wpx-100" name="php_version"><option>8.5</option><option selected>8.4</option><option>8.3</option><option>8.2</option><option>8.1</option><option>8.0</option><option>7.4</option><option>7.3</option><option>7.2</option><option>7.1</option></select></label>
-        <label><span class="mb-1.5 block text-sm font-semibold text-slate-700">Proxy upstream</span><input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 focus:border-wpx-500 focus:ring-2 focus:ring-wpx-100" name="upstream" placeholder="http://127.0.0.1:8080"></label>
-        <label><span class="mb-1.5 block text-sm font-semibold text-slate-700">WordPress network</span><select class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 focus:border-wpx-500 focus:ring-2 focus:ring-wpx-100" name="wordpress_multisite"><option value="">Single site</option><option value="subdirectories">Multisite · subdirectories</option><option value="subdomains">Multisite · subdomains</option></select></label>
-        <label class="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4"><input class="mt-0.5 size-4 accent-amber-600" type="checkbox" name="allow_eol" value="yes"><span><span class="block text-sm font-semibold text-amber-900">Allow end-of-life PHP</span><span class="mt-1 block text-xs text-amber-800">Required for PHP 7.1–8.1.</span></span></label>
-        <button class="inline-flex cursor-pointer items-center justify-center rounded-lg bg-wpx-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-wpx-700">Create</button>
-      </form>
+{{template "shell-start" .}}
+  {{if .NewSite}}
+  <div class="max-w-3xl">
+    <a href="/sites" class="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-950"><span aria-hidden="true">←</span> All sites</a>
+    <header class="mt-5">
+      <h1 class="text-2xl font-semibold tracking-tight">Create a site</h1>
+      <p class="mt-1.5 text-sm text-zinc-500">Choose the type of site, then add its domain and settings.</p>
+    </header>
+    {{if .Error}}<div role="alert" class="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{.Error}}</div>{{end}}
+
+    <section class="mt-8" aria-labelledby="site-type-heading">
+      <h2 id="site-type-heading" class="text-sm font-semibold">Site type</h2>
+      <nav aria-label="Site type" class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <a href="/sites/new?kind=wordpress" {{if eq .KindFilter "wordpress"}}aria-current="true"{{end}} class="rounded-md border px-3 py-3 text-center text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 {{if eq .KindFilter "wordpress"}}border-zinc-950 bg-zinc-950 text-white{{else}}border-zinc-200 hover:bg-zinc-50{{end}}">WordPress</a>
+        <a href="/sites/new?kind=php" {{if eq .KindFilter "php"}}aria-current="true"{{end}} class="rounded-md border px-3 py-3 text-center text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 {{if eq .KindFilter "php"}}border-zinc-950 bg-zinc-950 text-white{{else}}border-zinc-200 hover:bg-zinc-50{{end}}">PHP</a>
+        <a href="/sites/new?kind=python" {{if eq .KindFilter "python"}}aria-current="true"{{end}} class="rounded-md border px-3 py-3 text-center text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 {{if eq .KindFilter "python"}}border-zinc-950 bg-zinc-950 text-white{{else}}border-zinc-200 hover:bg-zinc-50{{end}}">Python</a>
+        <a href="/sites/new?kind=static" {{if eq .KindFilter "static"}}aria-current="true"{{end}} class="rounded-md border px-3 py-3 text-center text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 {{if eq .KindFilter "static"}}border-zinc-950 bg-zinc-950 text-white{{else}}border-zinc-200 hover:bg-zinc-50{{end}}">Static</a>
+        <a href="/sites/new?kind=reverse_proxy" {{if eq .KindFilter "reverse_proxy"}}aria-current="true"{{end}} class="rounded-md border px-3 py-3 text-center text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 {{if eq .KindFilter "reverse_proxy"}}border-zinc-950 bg-zinc-950 text-white{{else}}border-zinc-200 hover:bg-zinc-50{{end}}">Reverse proxy</a>
+      </nav>
+      <p class="mt-3 text-sm text-zinc-500">{{if eq .KindFilter "wordpress"}}A fresh WordPress installation with its own database.{{else if eq .KindFilter "php"}}A site with a dedicated PHP runtime.{{else if eq .KindFilter "python"}}A Python application with an isolated environment.{{else if eq .KindFilter "static"}}Serve HTML, CSS, JavaScript, and other static files.{{else}}Forward requests to an existing application.{{end}}</p>
     </section>
+
+    <form method="post" action="/sites" class="mt-7 rounded-lg border border-zinc-200">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <input type="hidden" name="kind" value="{{.KindFilter}}">
+      <div class="space-y-6 p-5 sm:p-6">
+        <div>
+          <label for="site-domain" class="block text-sm font-medium">Domain</label>
+          <input id="site-domain" class="mt-2 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm shadow-xs placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900" name="domain" value="{{index .Form "domain"}}" placeholder="example.com" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="site-domain-help" required autofocus>
+          <p id="site-domain-help" class="mt-2 text-xs leading-5 text-zinc-500">Enter the domain without https:// or a path. SSL can be configured after creation.</p>
+        </div>
+        <div>
+          <label for="site-id" class="block text-sm font-medium">Site identifier</label>
+          <input id="site-id" class="mt-2 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm shadow-xs placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900" name="id" value="{{index .Form "id"}}" placeholder="example-com" minlength="3" maxlength="48" pattern="[a-z][a-z0-9-]{2,47}" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="site-id-help" required>
+          <p id="site-id-help" class="mt-2 text-xs leading-5 text-zinc-500">A permanent name for this site. Use 3–48 lowercase letters, numbers, or single hyphens, starting with a letter.</p>
+        </div>
+        {{if or (eq .KindFilter "wordpress") (eq .KindFilter "php")}}
+        <div>
+          <label for="php-version" class="block text-sm font-medium">PHP version</label>
+          <select id="php-version" class="mt-2 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm shadow-xs focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900" name="php_version">
+            {{$php := index .Form "php_version"}}
+            <option value="8.5" {{if eq $php "8.5"}}selected{{end}}>8.5</option>
+            <option value="8.4" {{if or (eq $php "") (eq $php "8.4")}}selected{{end}}>8.4</option>
+            <option value="8.3" {{if eq $php "8.3"}}selected{{end}}>8.3</option>
+            <option value="8.2" {{if eq $php "8.2"}}selected{{end}}>8.2</option>
+            <option value="8.1" {{if eq $php "8.1"}}selected{{end}}>8.1 · End of life</option>
+            <option value="8.0" {{if eq $php "8.0"}}selected{{end}}>8.0 · End of life</option>
+            <option value="7.4" {{if eq $php "7.4"}}selected{{end}}>7.4 · End of life</option>
+            <option value="7.3" {{if eq $php "7.3"}}selected{{end}}>7.3 · End of life</option>
+            <option value="7.2" {{if eq $php "7.2"}}selected{{end}}>7.2 · End of life</option>
+            <option value="7.1" {{if eq $php "7.1"}}selected{{end}}>7.1 · End of life</option>
+          </select>
+          <p class="mt-2 text-xs leading-5 text-zinc-500">WPX installs the version this site needs.</p>
+        </div>
+        {{end}}
+        {{if eq .KindFilter "reverse_proxy"}}
+        <div>
+          <label for="proxy-upstream" class="block text-sm font-medium">Application address</label>
+          <input id="proxy-upstream" class="mt-2 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm shadow-xs placeholder:text-zinc-400 focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900" name="upstream" type="url" value="{{index .Form "upstream"}}" placeholder="http://127.0.0.1:8080" aria-describedby="proxy-upstream-help" required>
+          <p id="proxy-upstream-help" class="mt-2 text-xs leading-5 text-zinc-500">The HTTP or HTTPS address of the application that will receive requests.</p>
+        </div>
+        {{end}}
+        {{if or (eq .KindFilter "wordpress") (eq .KindFilter "php")}}
+        <details class="border-t border-zinc-200 pt-5" {{if or (index .Form "wordpress_multisite") (index .Form "allow_eol")}}open{{end}}>
+          <summary class="cursor-pointer text-sm font-medium text-zinc-700 focus-visible:outline-2 focus-visible:outline-zinc-900">Advanced options</summary>
+          <div class="mt-5 space-y-5">
+            {{if eq .KindFilter "wordpress"}}
+            <div>
+              <label for="wordpress-network" class="block text-sm font-medium">WordPress network</label>
+              <select id="wordpress-network" class="mt-2 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900" name="wordpress_multisite">
+                <option value="">Single site</option>
+                <option value="subdirectories" {{if eq (index .Form "wordpress_multisite") "subdirectories"}}selected{{end}}>Multisite using subdirectories</option>
+                <option value="subdomains" {{if eq (index .Form "wordpress_multisite") "subdomains"}}selected{{end}}>Multisite using subdomains</option>
+              </select>
+            </div>
+            {{end}}
+            <label class="flex items-start gap-3">
+              <input class="mt-0.5 size-4 rounded border-zinc-300 accent-zinc-950" type="checkbox" name="allow_eol" value="yes" {{if eq (index .Form "allow_eol") "yes"}}checked{{end}}>
+              <span><span class="block text-sm font-medium">Allow an end-of-life PHP version</span><span class="mt-1 block text-xs leading-5 text-zinc-500">Required for PHP 7.1–8.1. These versions no longer receive upstream security fixes.</span></span>
+            </label>
+          </div>
+        </details>
+        {{end}}
+      </div>
+      <div class="flex items-center justify-end gap-3 border-t border-zinc-200 bg-zinc-50/50 px-5 py-4 sm:px-6">
+        <a href="/sites" class="rounded-md px-3 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900">Cancel</a>
+        <button type="submit" class="cursor-pointer rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white shadow-xs hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900">Create site</button>
+      </div>
+    </form>
+  </div>
+  {{else}}
+  <header class="flex flex-wrap items-start justify-between gap-4">
+    <div><h1 class="text-2xl font-semibold tracking-tight">Sites</h1><p class="mt-1.5 text-sm text-zinc-500">Choose a site to manage its files, backups, and settings.</p></div>
+    {{if .CanManageSites}}<a href="/sites/new" class="inline-flex items-center gap-2 rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white shadow-xs hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"><span class="text-base leading-none" aria-hidden="true">+</span> Create site</a>{{end}}
+  </header>
+  {{if .Error}}<div role="alert" class="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{.Error}}</div>{{end}}
+  <form method="get" action="/sites" class="mt-8 flex flex-wrap items-end gap-3" role="search">
+    <div class="min-w-48 flex-1 sm:max-w-sm">
+      <label for="site-search" class="sr-only">Search sites</label>
+      <input id="site-search" class="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm shadow-xs placeholder:text-zinc-400 focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900" name="q" value="{{.Query}}" placeholder="Search by domain or identifier…">
+    </div>
+    <div>
+      <label for="kind-filter" class="sr-only">Site type</label>
+      <select id="kind-filter" name="kind" class="h-10 rounded-md border border-zinc-200 bg-white px-3 text-sm shadow-xs focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900">
+        <option value="">All site types</option><option value="wordpress" {{if eq .KindFilter "wordpress"}}selected{{end}}>WordPress</option><option value="php" {{if eq .KindFilter "php"}}selected{{end}}>PHP</option><option value="python" {{if eq .KindFilter "python"}}selected{{end}}>Python</option><option value="static" {{if eq .KindFilter "static"}}selected{{end}}>Static</option><option value="reverse_proxy" {{if eq .KindFilter "reverse_proxy"}}selected{{end}}>Reverse proxy</option>
+      </select>
+    </div>
+    <button class="h-10 cursor-pointer rounded-md border border-zinc-200 bg-white px-4 text-sm font-medium shadow-xs hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-zinc-900" type="submit">Filter</button>
+    {{if or .Query .KindFilter}}<a href="/sites" class="inline-flex h-10 items-center px-2 text-sm text-zinc-500 hover:text-zinc-950">Clear</a>{{end}}
+  </form>
+  <section class="mt-5 overflow-hidden rounded-lg border border-zinc-200" aria-label="Sites">
+    {{if .Sites}}
+    <div class="overflow-x-auto"><table class="w-full min-w-[580px] text-sm">
+      <thead class="border-b border-zinc-200 bg-zinc-50/70 text-left text-xs font-medium text-zinc-500"><tr><th scope="col" class="px-5 py-3 font-medium">Site</th><th scope="col" class="px-5 py-3 font-medium">Type</th><th scope="col" class="px-5 py-3 font-medium">Status</th><th scope="col" class="px-5 py-3 text-right font-medium"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody class="divide-y divide-zinc-100">
+        {{range .Sites}}
+        <tr class="hover:bg-zinc-50/60">
+          <td class="px-5 py-4"><a href="/sites/{{.ID}}" class="font-medium text-zinc-950 hover:underline focus-visible:outline-2 focus-visible:outline-zinc-900">{{.Domain}}</a><div class="mt-1 text-xs text-zinc-500">{{.ID}}{{if eq .Environment "staging"}} <span class="ml-1 rounded border border-zinc-200 px-1 py-0.5 text-[11px]">Staging</span>{{end}}</div></td>
+          <td class="px-5 py-4"><div class="text-zinc-700">{{template "site-kind" .}}</div>{{if .PHPVersion}}<div class="mt-1 text-xs text-zinc-500">PHP {{.PHPVersion}}</div>{{end}}</td>
+          <td class="px-5 py-4">{{template "site-status" .}}</td>
+          <td class="px-5 py-4 text-right"><a href="/sites/{{.ID}}" class="inline-flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-xs hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900" aria-label="Manage {{.Domain}}">Manage <span aria-hidden="true">→</span></a></td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table></div>
+    <p class="border-t border-zinc-200 px-5 py-3 text-xs text-zinc-500">{{len .Sites}} {{if eq (len .Sites) 1}}site{{else}}sites{{end}}{{if or .Query .KindFilter}} matching your filters{{end}}</p>
+    {{else}}
+    <div class="px-6 py-14 text-center">
+      <h2 class="text-sm font-semibold">{{if or .Query .KindFilter}}No matching sites{{else if .CanManageSites}}No sites yet{{else}}No sites assigned yet{{end}}</h2>
+      <p class="mt-2 text-sm text-zinc-500">{{if or .Query .KindFilter}}Try another search or clear your filters.{{else if .CanManageSites}}Create a site to get started.{{else}}Your administrator can give you access to a site.{{end}}</p>
+      {{if or .Query .KindFilter}}<a href="/sites" class="mt-4 inline-block text-sm font-medium underline underline-offset-4">Clear filters</a>{{else if .CanManageSites}}<a href="/sites/new" class="mt-5 inline-flex rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Create site</a>{{end}}
+    </div>
     {{end}}
-    <div class="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="overflow-x-auto"><table class="w-full">
-      <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-5 py-3">Domain</th><th class="px-5 py-3">Type</th><th class="px-5 py-3">Runtime</th><th class="px-5 py-3">Status</th></tr></thead>
-      <tbody class="divide-y divide-slate-100">{{range .Sites}}<tr><td class="px-5 py-4 font-semibold"><a class="text-wpx-700 hover:underline" href="/sites/{{.ID}}">{{.Domain}}</a></td><td class="px-5 py-4 text-slate-600">{{.Kind}}</td><td class="px-5 py-4 text-slate-600">{{.PHPVersion}}</td><td class="px-5 py-4"><span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">{{.Status}}</span></td></tr>{{else}}<tr><td colspan="4" class="px-5 py-8 text-center text-slate-500">No sites assigned yet.</td></tr>{{end}}</tbody>
-    </table></div></div>
-  </main>
-</div>
-</body>
-</html>
+  </section>
+  {{end}}
+{{template "shell-end" .}}
 {{end}}
