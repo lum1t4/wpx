@@ -96,11 +96,40 @@ An existing WordPress site on the VPS returned HTTP 200 through local Nginx with
 its Host header. Its public DNS was missing, so this was not a public-browser
 WordPress verification.
 
-## Deployment status
+## 2026-09-06: release and VPS upgrade
 
-At the time this candidate record was written, the live panel still ran
-`v0.1.0-alpha.3` with the domain-access repair. Publishing and deploying the full
-candidate remain pending and must be recorded separately after they complete.
+Release [v0.1.0-alpha.4](https://github.com/lum1t4/wpx/releases/tag/v0.1.0-alpha.4)
+was published from source commit
+`ec1d3e06808e63c8adfde38def08a53379777c9b`.
+GitHub [Verify](https://github.com/lum1t4/wpx/actions/runs/34055073457) passed in
+3 minutes 45 seconds and
+[Release](https://github.com/lum1t4/wpx/actions/runs/34055350680) passed in
+3 minutes 55 seconds. The release contains static Linux amd64/arm64 binaries,
+checksums, bootstrap, Go module inventory, and GitHub attestations.
+
+At approximately 19:40 UTC, the existing Ubuntu 24.04 amd64 VPS was upgraded
+using the exact installation command in README:
+
+```sh
+curl -fsSL https://github.com/lum1t4/wpx/releases/latest/download/install.sh | sudo sh
+```
+
+| Check | Observation |
+| --- | --- |
+| Installed version | `wpx version` reported `v0.1.0-alpha.4` and source commit `ec1d3e06808e63c8adfde38def08a53379777c9b`. |
+| Recovery snapshot | Upgrade created `/var/lib/wpx/upgrades/20260906T194034.307770545Z`. |
+| Configuration and secrets | Configuration, encryption-key, and panel TLS file hashes were unchanged from before the upgrade. |
+| Services | WPX, broker, Nginx, MariaDB, and Redis were active. |
+| Access | Panel port 9443 remained loopback-only behind Nginx on 443; trusted public HTTPS health passed. |
+| Existing WordPress workload | Local HTTP through Nginx returned 200. |
+| Existing owner session | The browser session survived the upgrade. |
+| Live UI | Sites and Logs & usage displayed correctly in the authenticated browser. |
+
+This confirms deployment of the redesigned release on the VPS and continuity
+of the checks listed above. Other live UI actions, the site's public WordPress
+DNS/browser access, and a PHP switch on this VPS have not been verified in this
+entry. The disposable-host PHP tests and sample-data visual review remain
+separate evidence. See [requirements coverage](PRODUCT.md) for feature limits.
 
 For future entries, record the commit/release, OS and architecture, exact action,
 observed result, and untested boundary. A fake-runner unit test, a rendered

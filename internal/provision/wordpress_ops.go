@@ -15,6 +15,33 @@ import (
 
 var pluginSlugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,99}$`)
 
+// WP-CLI uses a string update status for ordinary plugins, but boolean false
+// for drop-ins such as Redis's object-cache.php. Normalize that external shape
+// here so one drop-in cannot invalidate the inventory, and the broker protocol
+// keeps a single string representation for all consumers.
+type wpCLIUpdateState string
+
+func (state *wpCLIUpdateState) UnmarshalJSON(data []byte) error {
+	if string(data) == "false" {
+		*state = "none"
+		return nil
+	}
+	var value string
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*state = wpCLIUpdateState(value)
+	return nil
+}
+
+type wpCLIInventoryItem struct {
+	Name          string           `json:"name"`
+	Status        string           `json:"status"`
+	Version       string           `json:"version"`
+	Update        wpCLIUpdateState `json:"update"`
+	UpdateVersion string           `json:"update_version"`
+}
+
 func (h *Host) Inventory(ctx context.Context, site model.Site) (broker.WordPressInventoryResult, error) {
 	plugins, err := h.Plugins(ctx, site)
 	if err != nil {
@@ -24,9 +51,16 @@ func (h *Host) Inventory(ctx context.Context, site model.Site) (broker.WordPress
 	if err != nil {
 		return broker.WordPressInventoryResult{}, err
 	}
-	var themes []broker.WordPressTheme
-	if err := json.Unmarshal(themeOutput, &themes); err != nil {
+	var themeItems []wpCLIInventoryItem
+	if err := json.Unmarshal(themeOutput, &themeItems); err != nil {
 		return broker.WordPressInventoryResult{}, fmt.Errorf("decode WP-CLI theme inventory: %w", err)
+	}
+	themes := make([]broker.WordPressTheme, 0, len(themeItems))
+	for _, item := range themeItems {
+		themes = append(themes, broker.WordPressTheme{
+			Name: item.Name, Status: item.Status, Version: item.Version,
+			Update: string(item.Update), UpdateVersion: item.UpdateVersion,
+		})
 	}
 	versionOutput, err := h.runWordPressOutput(ctx, site, "core", "version")
 	if err != nil {
@@ -74,9 +108,16 @@ func (h *Host) Plugins(ctx context.Context, site model.Site) ([]broker.WordPress
 	if err != nil {
 		return nil, err
 	}
-	var plugins []broker.WordPressPlugin
-	if err := json.Unmarshal(output, &plugins); err != nil {
+	var items []wpCLIInventoryItem
+	if err := json.Unmarshal(output, &items); err != nil {
 		return nil, fmt.Errorf("decode WP-CLI plugin inventory: %w", err)
+	}
+	plugins := make([]broker.WordPressPlugin, 0, len(items))
+	for _, item := range items {
+		plugins = append(plugins, broker.WordPressPlugin{
+			Name: item.Name, Status: item.Status, Version: item.Version,
+			Update: string(item.Update), UpdateVersion: item.UpdateVersion,
+		})
 	}
 	return plugins, nil
 }
