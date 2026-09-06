@@ -126,10 +126,46 @@ curl -fsSL https://github.com/lum1t4/wpx/releases/latest/download/install.sh | s
 | Live UI | Sites and Logs & usage displayed correctly in the authenticated browser. |
 
 This confirms deployment of the redesigned release on the VPS and continuity
-of the checks listed above. Other live UI actions, the site's public WordPress
-DNS/browser access, and a PHP switch on this VPS have not been verified in this
-entry. The disposable-host PHP tests and sample-data visual review remain
-separate evidence. See [requirements coverage](PRODUCT.md) for feature limits.
+of the checks listed above. Authenticated page review was extended after the
+alpha.5 update below. The disposable-host PHP tests and sample-data visual review
+remain separate evidence. See [requirements coverage](PRODUCT.md) for feature limits.
+
+## 2026-09-06: inventory correction and alpha.5 deployment
+
+Live testing after alpha.4 found a WordPress inventory parsing failure: WP-CLI
+returned boolean `false` in a Redis drop-in's `update` field, where WPX expected
+a string. The whole inventory response was rejected even though WordPress
+worked. The correction handles that response shape and includes a regression
+test; drop-ins do not display ordinary plugin activation toggles.
+
+Release [v0.1.0-alpha.5](https://github.com/lum1t4/wpx/releases/tag/v0.1.0-alpha.5)
+was published from source commit
+`bff494ac38f70a05eb20a758195050ecddff2f79`.
+GitHub [Verify](https://github.com/lum1t4/wpx/actions/runs/34055873224) passed in
+3 minutes 48 seconds.
+[Release](https://github.com/lum1t4/wpx/actions/runs/34055874198) passed in
+3 minutes 51 seconds, including race tests, vet, CSS checks, both static Linux
+builds, attestations, and bootstrap publication.
+
+At approximately 19:49 UTC, the README latest-release installation command
+successfully upgraded the VPS again.
+
+| Check | Observation |
+| --- | --- |
+| Installed version | `wpx version` confirmed `v0.1.0-alpha.5`. |
+| Recovery snapshot | Upgrade created `/var/lib/wpx/upgrades/20260906T194947.458197478Z`. |
+| Configuration and secrets | Configuration, encryption-key, and panel TLS hashes again matched their pre-upgrade values. |
+| Services and access | All five core services were active; trusted public panel health passed. |
+| Existing WordPress workload | Local HTTP through Nginx still returned 200. |
+| Live WordPress inventory | Authenticated Firefox displayed core version 7.1, four plugin entries including Redis and its drop-in, and three themes. The drop-in had no activation toggle. |
+| Other authenticated pages | Overview, Files directory listing, PHP Settings, the empty Staging form, and Logs were reviewed. |
+| Cleanup | The temporary repair helper and preview state were removed after verification. |
+
+The live page checks were read-only. Form submissions, plugin changes, staging
+creation/deployment, file saves, and PHP switching were not exercised on the
+existing VPS. The WordPress hostname still had no public DNS answer, so public
+browser access to that site remains unverified. These limits do not change the
+separate disposable-host and automated results above.
 
 For future entries, record the commit/release, OS and architecture, exact action,
 observed result, and untested boundary. A fake-runner unit test, a rendered
