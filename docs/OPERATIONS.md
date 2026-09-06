@@ -295,6 +295,8 @@ the panel's `/phpmyadmin/` path and must pass the WPX owner/administrator
 session with the database capability. A one-minute, one-use broker token signs phpMyAdmin into the selected
 database account; MariaDB root credentials are never handed to the browser.
 The loopback Nginx service is not a separately published database console.
+Each new panel handoff starts in English so an old phpMyAdmin language cookie
+cannot unexpectedly carry into a new session; users can change it afterwards.
 
 Deleting an additional database permanently drops that exact database and SQL
 user and requires typing its generated database name. The operation is durable

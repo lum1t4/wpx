@@ -4,6 +4,7 @@ package web
 
 import (
 	"net/http"
+	"net/url"
 	"testing"
 )
 
@@ -11,6 +12,20 @@ func TestDatabaseAdminCookiesExcludePanelSecrets(t *testing.T) {
 	got := databaseAdminCookies("wpx_session=panel-secret; __Secure-phpMyAdmin_https=session; wpx_csrf=csrf-secret; __Secure-pma_lang_https=en")
 	if got != "__Secure-phpMyAdmin_https=session; __Secure-pma_lang_https=en" {
 		t.Fatalf("filtered cookies=%q", got)
+	}
+}
+
+func TestDatabaseAdminSignonStartsInEnglish(t *testing.T) {
+	response := &http.Response{
+		StatusCode: http.StatusSeeOther,
+		Header:     http.Header{"Location": {"/phpmyadmin/index.php"}},
+		Request:    &http.Request{URL: &url.URL{Path: "/wpx-signon.php"}},
+	}
+	if err := scopeDatabaseAdminCookies(response); err != nil {
+		t.Fatal(err)
+	}
+	if got := response.Header.Get("Location"); got != "/phpmyadmin/index.php?lang=en" {
+		t.Fatalf("sign-on redirect=%q", got)
 	}
 }
 

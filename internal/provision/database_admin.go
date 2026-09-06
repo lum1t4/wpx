@@ -369,6 +369,7 @@ func phpMyAdminConfig(secret, stateRoot string) string {
 		"$cfg['Servers'][$i]['connect_type'] = 'socket';\n" +
 		"$cfg['Servers'][$i]['socket'] = '/run/mysqld/mysqld.sock';\n" +
 		"$cfg['Servers'][$i]['verbose'] = 'Local MariaDB';\n" +
+		"$cfg['DefaultLang'] = 'en';\n" +
 		"$cfg['TempDir'] = '" + filepath.Join(stateRoot, "tmp") + "';\n" +
 		"$cfg['SessionSavePath'] = '" + filepath.Join(stateRoot, "sessions") + "';\n" +
 		"$forwardedHost = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? '';\n" +
@@ -392,7 +393,9 @@ $_SESSION['PMA_single_signon_password'] = $credentials['password'];
 $_SESSION['PMA_single_signon_host'] = 'localhost';
 session_write_close();
 header('Cache-Control: no-store');
-header('Location: /phpmyadmin/index.php', true, 303);
+// Every panel handoff starts predictably in English. A user can still choose a
+// different language inside phpMyAdmin for the remainder of that session.
+header('Location: /phpmyadmin/index.php?lang=en', true, 303);
 `
 }
 

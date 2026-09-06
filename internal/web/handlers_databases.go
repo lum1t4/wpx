@@ -299,6 +299,12 @@ func (s *Server) proxyDatabaseAdmin(w http.ResponseWriter, r *http.Request, _ st
 // required by the public HTTPS origin, and never let the upstream replace a WPX
 // authentication cookie on their shared origin.
 func scopeDatabaseAdminCookies(response *http.Response) error {
+	// Older installed sign-on scripts may not include a language parameter.
+	// Rewriting at the proxy boundary makes upgrades clear stale language
+	// preferences without requiring phpMyAdmin to be reinstalled.
+	if response.Request != nil && response.Request.URL != nil && response.Request.URL.Path == "/wpx-signon.php" && response.StatusCode >= 300 && response.StatusCode < 400 {
+		response.Header.Set("Location", "/phpmyadmin/index.php?lang=en")
+	}
 	cookies := response.Cookies()
 	if len(cookies) == 0 {
 		return nil
