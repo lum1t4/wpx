@@ -68,4 +68,3 @@ commit one top-level selection at a time. An error after an earlier selection
 can leave those earlier changes in place. Extraction can create earlier archive
 members before a later invalid/conflicting member is found; its error reports
 the count and tells the UI to refresh before retrying.
-
