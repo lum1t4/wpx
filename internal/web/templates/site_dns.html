@@ -21,7 +21,7 @@
           <th scope="col" class="px-5 py-3 font-medium">Value</th>
           <th scope="col" class="px-5 py-3 font-medium">TTL</th>
           <th scope="col" class="px-5 py-3 font-medium">Proxy</th>
-          <th scope="col" class="px-5 py-3 font-medium">Status</th>
+          <th scope="col" class="px-5 py-3 font-medium" data-i18n="status">Status</th>
           <th scope="col" class="px-5 py-3 font-medium"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
@@ -48,10 +48,10 @@
           <td class="px-5 py-4"><span class="rounded-md border border-zinc-200 px-2 py-1 text-xs capitalize">{{.Status}}</span></td>
           <td class="px-5 py-4">
             <div class="flex gap-2">
-              <button class="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50" form="record-{{.ID}}">Save</button>
+              <button class="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50" form="record-{{.ID}}" data-i18n="save">Save</button>
               <form method="post" action="/sites/{{$.Site.ID}}/dns/{{.ID}}/delete">
                 <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
-                <button aria-label="Delete DNS record {{.Name}}" class="rounded-md px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-50">Delete</button>
+                <button aria-label="Delete DNS record {{.Name}}" class="rounded-md px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-50" data-i18n="delete">Delete</button>
               </form>
             </div>
           </td>

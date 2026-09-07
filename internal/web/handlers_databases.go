@@ -22,11 +22,12 @@ func (s *Server) createDatabase(w http.ResponseWriter, r *http.Request, user sto
 		http.Error(w, "invalid request token", http.StatusForbidden)
 		return
 	}
-	if _, _, err := s.store.CreateDatabase(r.Context(), user, r.FormValue("site_id"), r.FormValue("label")); err != nil {
+	_, jobID, err := s.store.CreateDatabase(r.Context(), user, r.FormValue("site_id"), r.FormValue("label"))
+	if err != nil {
 		s.renderDatabases(w, r, user, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
-	http.Redirect(w, r, "/databases?created=queued", http.StatusSeeOther)
+	s.respondQueuedAction(w, r, user, jobID, "/databases?created=queued", "Database creation")
 }
 
 func (s *Server) installDatabaseAdmin(w http.ResponseWriter, r *http.Request, user store.User) {
@@ -63,11 +64,12 @@ func (s *Server) deleteDatabase(w http.ResponseWriter, r *http.Request, user sto
 		http.Error(w, "invalid request token", http.StatusForbidden)
 		return
 	}
-	if _, err := s.store.EnqueueDatabaseDelete(r.Context(), user, r.PathValue("id"), r.FormValue("confirmation")); err != nil {
+	jobID, err := s.store.EnqueueDatabaseDelete(r.Context(), user, r.PathValue("id"), r.FormValue("confirmation"))
+	if err != nil {
 		s.renderDatabases(w, r, user, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
-	http.Redirect(w, r, "/databases?delete=queued", http.StatusSeeOther)
+	s.respondQueuedAction(w, r, user, jobID, "/databases?delete=queued", "Database deletion")
 }
 
 func (s *Server) openManagedDatabase(w http.ResponseWriter, r *http.Request, user store.User) {
@@ -146,11 +148,13 @@ func (s *Server) createSiteDatabase(w http.ResponseWriter, r *http.Request, user
 	if !allowSiteMutation(w, r, site) {
 		return
 	}
-	if _, _, err := s.store.CreateDatabase(r.Context(), user, site.ID, r.FormValue("label")); err != nil {
+	_, jobID, err := s.store.CreateDatabase(r.Context(), user, site.ID, r.FormValue("label"))
+	if err != nil {
 		s.renderSiteDatabases(w, r, user, site, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
-	http.Redirect(w, r, "/sites/"+url.PathEscape(site.ID)+"/databases?database=queued", http.StatusSeeOther)
+	returnURL := "/sites/" + url.PathEscape(site.ID) + "/databases?database=queued"
+	s.respondQueuedAction(w, r, user, jobID, returnURL, "Database creation")
 }
 
 func (s *Server) revealSiteDatabase(w http.ResponseWriter, r *http.Request, user store.User) {
@@ -206,11 +210,13 @@ func (s *Server) deleteSiteDatabase(w http.ResponseWriter, r *http.Request, user
 	if !allowSiteMutation(w, r, site) {
 		return
 	}
-	if _, err := s.store.EnqueueDatabaseDelete(r.Context(), user, database.ID, r.FormValue("confirmation")); err != nil {
+	jobID, err := s.store.EnqueueDatabaseDelete(r.Context(), user, database.ID, r.FormValue("confirmation"))
+	if err != nil {
 		s.renderSiteDatabases(w, r, user, site, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
-	http.Redirect(w, r, "/sites/"+url.PathEscape(site.ID)+"/databases?database-delete=queued", http.StatusSeeOther)
+	returnURL := "/sites/" + url.PathEscape(site.ID) + "/databases?database-delete=queued"
+	s.respondQueuedAction(w, r, user, jobID, returnURL, "Database deletion")
 }
 
 func (s *Server) authorizedDatabaseSite(w http.ResponseWriter, r *http.Request, user store.User) (model.Site, bool) {

@@ -42,8 +42,9 @@ func siteHasPendingJobs(ctx context.Context, tx *sql.Tx, siteID string) (bool, e
 	err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM jobs j WHERE j.status IN ('queued','running') AND (
 		(j.target_type='site' AND j.target_id=?) OR
 		(j.target_type='dns_record' AND EXISTS(SELECT 1 FROM dns_records d WHERE d.id=j.target_id AND d.site_id=?)) OR
+		(j.target_type='ftp_user' AND EXISTS(SELECT 1 FROM ftp_users f WHERE f.id=j.target_id AND f.site_id=?)) OR
 		(json_valid(j.payload_json) AND (json_extract(j.payload_json,'$.source_id')=? OR json_extract(j.payload_json,'$.staging_id')=?))
-	))`, siteID, siteID, siteID, siteID).Scan(&pending)
+	))`, siteID, siteID, siteID, siteID, siteID).Scan(&pending)
 	return pending, err
 }
 

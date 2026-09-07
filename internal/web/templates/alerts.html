@@ -1,0 +1,40 @@
+{{template "shell-start" .}}
+<div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+  <div><h1 class="text-2xl font-semibold tracking-tight">Operator alerts</h1><p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Email alerts for server problems.</p></div>
+</div>
+{{if .Message}}<div class="mt-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{.Message}}</div>{{end}}
+{{if .Error}}<div class="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{.Error}}</div>{{end}}
+{{$a := .OperatorAlerts}}{{$s := $a.Settings}}
+<form class="mt-8 space-y-6" method="post" action="/alerts">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <section class="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+    <div class="border-b border-zinc-200 p-5"><h2 class="font-semibold">Delivery</h2><p class="mt-1 text-sm text-zinc-500">SMTP connections require TLS.</p></div>
+    <div class="grid gap-5 p-5 sm:grid-cols-2">
+      <label class="flex items-start gap-3 sm:col-span-2"><input class="mt-1 size-4 accent-zinc-900" type="checkbox" name="enabled" value="yes"{{if $s.Enabled}} checked{{end}}><span class="block text-sm font-medium">Enable email alerts</span></label>
+      <label><span class="mb-2 block text-sm font-medium">SMTP host</span><input class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" name="host" value="{{$s.SMTP.Host}}" required></label>
+      <label><span class="mb-2 block text-sm font-medium" data-i18n="port">Port</span><input class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" type="number" min="1" max="65535" name="port" value="{{$s.SMTP.Port}}" required></label>
+      <label><span class="mb-2 block text-sm font-medium">Encryption</span><select class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" name="transport"><option value="starttls"{{if eq $s.SMTP.Transport "starttls"}} selected{{end}}>STARTTLS</option><option value="tls"{{if eq $s.SMTP.Transport "tls"}} selected{{end}}>TLS</option></select></label>
+      <label><span class="mb-2 block text-sm font-medium" data-i18n="username">Username</span><input class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" name="username" value="{{$s.SMTP.Username}}" autocomplete="username"></label>
+      <label><span class="mb-2 block text-sm font-medium" data-i18n="password">Password</span><input class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" type="password" name="password" autocomplete="new-password" placeholder="{{if $a.PasswordConfigured}}Stored password (leave blank to keep){{else}}SMTP password{{end}}"></label>
+      <div></div>
+      <label><span class="mb-2 block text-sm font-medium">From address</span><input class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" type="email" name="from" value="{{$s.SMTP.From}}" required></label>
+      <label><span class="mb-2 block text-sm font-medium" data-i18n="recipient">Recipient</span><input class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" type="email" name="to" value="{{$s.SMTP.To}}" required></label>
+    </div>
+  </section>
+  <section class="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+    <div class="border-b border-zinc-200 p-5"><h2 class="font-semibold">Conditions</h2><p class="mt-1 text-sm text-zinc-500">Alerts trigger after three bad samples and clear after two healthy ones.</p></div>
+    <div class="grid gap-5 p-5 sm:grid-cols-2 lg:grid-cols-3">
+      <label><span class="flex gap-2 text-sm font-medium"><input type="checkbox" name="cpu" value="yes"{{if $s.CPU}} checked{{end}}> CPU usage</span><input class="mt-2 w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" type="number" min="50" max="100" name="cpu_percent" value="{{$s.CPUPercent}}"></label>
+      <label><span class="flex gap-2 text-sm font-medium"><input type="checkbox" name="memory" value="yes"{{if $s.Memory}} checked{{end}}> Memory usage</span><input class="mt-2 w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" type="number" min="50" max="100" name="memory_percent" value="{{$s.MemoryPercent}}"></label>
+      <label><span class="flex gap-2 text-sm font-medium"><input type="checkbox" name="disk" value="yes"{{if $s.Disk}} checked{{end}}> Disk usage</span><input class="mt-2 w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" type="number" min="50" max="100" name="disk_percent" value="{{$s.DiskPercent}}"></label>
+      <label class="flex gap-2 text-sm font-medium"><input type="checkbox" name="services" value="yes"{{if $s.Services}} checked{{end}}> Core service failures</label>
+      <label class="flex gap-2 text-sm font-medium"><input type="checkbox" name="oom" value="yes"{{if $s.OOM}} checked{{end}}> Out-of-memory kills</label>
+      <label class="flex gap-2 text-sm font-medium"><input type="checkbox" name="updates" value="yes"{{if $s.Updates}} checked{{end}}> WPX updates</label>
+      <label><span class="flex gap-2 text-sm font-medium"><input type="checkbox" name="ssl_expiry" value="yes"{{if $s.SSLExpiry}} checked{{end}}> Certificate expiry</span><input class="mt-2 w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" type="number" min="1" max="90" name="ssl_expiry_days" value="{{$s.SSLExpiryDays}}"></label>
+      <label><span class="mb-2 block text-sm font-medium">Event cooldown (minutes)</span><input class="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm" type="number" min="15" max="10080" name="cooldown_minutes" value="{{$s.CooldownMins}}"></label>
+      <label class="flex items-start gap-3"><input class="mt-1 size-4 accent-zinc-900" type="checkbox" name="auto_swap" value="yes"{{if $s.AutoSwap}} checked{{end}}><span><span class="block text-sm font-medium">Create managed swap when absent</span><span class="mt-1 block text-xs leading-5 text-zinc-500">Creates a 2 GiB swap file in WPX data.</span></span></label>
+    </div>
+  </section>
+  <div class="flex flex-wrap gap-3"><button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800" data-i18n="save">Save settings</button><button class="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50" formaction="/alerts/test">Send test alert</button></div>
+</form>
+{{template "shell-end" .}}

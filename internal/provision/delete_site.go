@@ -213,6 +213,12 @@ func (h *Host) DeleteSite(ctx context.Context, site model.Site, _ bool, jobKey s
 		}
 	}
 	if !record.RuntimeStopped {
+		if err := h.RemoveSiteCron(ctx, site); err != nil {
+			return err
+		}
+		if err := h.deleteSiteHostingLocked(ctx, site); err != nil {
+			return err
+		}
 		record.RuntimeStopped = true
 		if err := writeSiteDeletion(journalPath, record); err != nil {
 			return err

@@ -274,6 +274,8 @@ func runBroker(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	host := provision.DefaultHost(cfg.SiteRoot, cfg.DataRoot)
+	host.PanelTLSCertPath = cfg.TLSCertPath
+	host.PanelTLSKeyPath = cfg.TLSKeyPath
 	server := &broker.Server{
 		SocketPath:  cfg.BrokerSocket,
 		SiteRoot:    cfg.SiteRoot,

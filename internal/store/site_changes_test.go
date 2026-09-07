@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -393,7 +394,10 @@ func TestLifecycleMigrationPreservesExistingSnapshotRows(t *testing.T) {
 	if _, err := db.Exec(`PRAGMA foreign_keys=ON; CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY)`); err != nil {
 		t.Fatal(err)
 	}
-	for index, migration := range migrations[:len(migrations)-1] {
+	for index, migration := range migrations {
+		if strings.Contains(migration, "CREATE TABLE retained_backup_snapshots") {
+			break
+		}
 		if _, err := db.Exec(migration); err != nil {
 			t.Fatal(err)
 		}

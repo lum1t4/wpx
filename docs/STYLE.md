@@ -69,3 +69,12 @@ interface is rendered.
 
 Production serves the compiled, embedded stylesheet. Node.js and the Tailwind
 CLI are build dependencies only and are never installed on a managed server.
+
+## Product copy
+
+Show task names, relevant values, action labels, validation errors, and useful
+outcome feedback. Keep identity derivation, privilege boundaries, protocols and
+implementation explanations in operator/developer documentation. A destructive
+confirmation should name what will be removed, without repeating architecture
+on every row. Short actions show success only after completion is confirmed;
+long-running work retains its background activity state.

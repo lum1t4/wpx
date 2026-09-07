@@ -1,0 +1,66 @@
+{{define "fleet.html"}}
+{{template "shell-start" .}}
+  {{$hasRecoveryStorage := false}}{{range .BackupTargets}}{{if eq .Status "active"}}{{$hasRecoveryStorage = true}}{{end}}{{end}}
+  {{$hasFleetUpdates := false}}{{range .FleetSites}}{{if .CanManage}}{{range .Inventory.Plugins}}{{if eq .Update "available"}}{{$hasFleetUpdates = true}}{{end}}{{end}}{{end}}{{end}}
+  <header class="flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">WordPress</h1>
+      <p class="mt-1.5 max-w-2xl text-sm leading-6 text-zinc-500">Core, plugin, and theme updates across your WordPress sites.</p>
+    </div>
+    <a class="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-950 shadow-sm hover:bg-zinc-50" href="/jobs">View activity</a>
+  </header>
+
+  {{if .Message}}<div role="status" class="mt-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{.Message}}</div>{{end}}
+  {{if .FleetOutcomes}}
+  <section class="mt-6 overflow-hidden rounded-lg border border-zinc-200 bg-white" aria-labelledby="fleet-outcomes-heading">
+    <div class="border-b border-zinc-200 px-5 py-4"><h2 id="fleet-outcomes-heading" class="text-base font-semibold text-zinc-950">Batch results</h2></div>
+    <div class="overflow-x-auto"><table class="w-full min-w-[560px] text-left text-sm"><thead class="border-b border-zinc-200 bg-zinc-50 text-xs text-zinc-500"><tr><th scope="col" class="px-5 py-3 font-medium">Site</th><th scope="col" class="px-5 py-3 font-medium">Plugin</th><th scope="col" class="px-5 py-3 font-medium">Status</th><th scope="col" class="px-5 py-3 font-medium">Activity</th></tr></thead><tbody class="divide-y divide-zinc-200">{{range .FleetOutcomes}}<tr><td class="px-5 py-3"><a class="font-medium text-zinc-950 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" href="/sites/{{.SiteID}}/wordpress">{{.Domain}}</a></td><td class="px-5 py-3 text-zinc-700">{{.Plugin}}</td><td class="px-5 py-3"><span class="inline-flex rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">{{.Status}}</span></td><td class="px-5 py-3"><a class="text-zinc-600 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" href="/jobs">View activity</a></td></tr>{{end}}</tbody></table></div>
+  </section>
+  {{end}}
+
+  {{if .FleetSites}}
+  <form class="mt-7" method="post" action="/wordpress/plugins/update">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    {{if .CanManageWordPress}}
+    {{if and $hasRecoveryStorage $hasFleetUpdates}}
+    <div class="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+      <label class="min-w-56 flex-1"><span class="mb-2 block text-sm font-medium text-zinc-700">Recovery storage</span><select class="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm" name="target_id" required><option value="">Select storage</option>{{range .BackupTargets}}{{if eq .Status "active"}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select></label>
+      <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-medium text-white hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900">Back up and update selected plugins</button>
+      <p class="w-full text-xs leading-5 text-zinc-500">A recovery backup is created before each update.</p>
+    </div>
+    {{else if not $hasRecoveryStorage}}
+    <div class="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm leading-6 text-zinc-600">Connect active backup storage before running fleet updates. {{if .CanManageServer}}<a class="font-medium text-zinc-950 underline underline-offset-4" href="/backups/targets">Set up backup storage</a>{{else}}Ask a server administrator to connect storage.{{end}}</div>
+    {{else}}
+    <div class="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm leading-6 text-zinc-600">All reported plugins are current.</div>
+    {{end}}
+    {{end}}
+
+    <div class="mt-5 space-y-5">
+    {{range .FleetSites}}
+      <section class="overflow-hidden rounded-lg border border-zinc-200 bg-white" aria-labelledby="fleet-site-{{.Site.ID}}">
+        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4">
+          <div><h2 id="fleet-site-{{.Site.ID}}" class="font-semibold text-zinc-950"><a class="hover:underline" href="/sites/{{.Site.ID}}/wordpress">{{.Site.Domain}}</a></h2><p class="mt-1 text-sm text-zinc-500">{{if .Inventory.CoreVersion}}WordPress {{.Inventory.CoreVersion}}{{else}}WordPress{{end}}{{if .Inventory.CoreUpdateVersion}} · <span class="font-medium text-amber-700">Core {{.Inventory.CoreUpdateVersion}} available</span>{{end}}</p></div>
+          <span class="inline-flex rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600">{{siteStatus .Site.Status}}</span>
+        </div>
+        {{if .LoadError}}<div role="alert" class="px-5 py-5 text-sm text-amber-800">{{.LoadError}} <a class="font-medium underline underline-offset-4" href="/wordpress">Refresh inventory</a></div>{{else}}
+        <div class="grid lg:grid-cols-2">
+          <div class="overflow-x-auto border-b border-zinc-200 lg:border-b-0 lg:border-r">
+            <h3 class="px-5 pt-4 text-sm font-semibold text-zinc-950">Plugins <span class="font-normal text-zinc-500">{{len .Inventory.Plugins}}</span></h3>
+            {{if .Inventory.Plugins}}<table class="mt-2 w-full min-w-[440px] text-left text-sm"><thead class="border-y border-zinc-200 bg-zinc-50 text-xs text-zinc-500"><tr><th scope="col" class="px-5 py-2.5 font-medium">Plugin</th><th scope="col" class="px-5 py-2.5 font-medium">Installed</th><th scope="col" class="px-5 py-2.5 font-medium">Update</th></tr></thead><tbody class="divide-y divide-zinc-200">{{range .Inventory.Plugins}}<tr><th scope="row" class="px-5 py-3 font-medium text-zinc-900">{{.Name}}</th><td class="px-5 py-3 text-zinc-600">{{.Version}}</td><td class="px-5 py-3">{{if eq .Update "available"}}<span class="text-amber-700">{{.UpdateVersion}}</span>{{else}}<span class="text-zinc-400">Current</span>{{end}}</td></tr>{{end}}</tbody></table>{{else}}<p class="px-5 py-5 text-sm text-zinc-500">No plugins reported.</p>{{end}}
+          </div>
+          <div class="overflow-x-auto">
+            <h3 class="px-5 pt-4 text-sm font-semibold text-zinc-950">Themes <span class="font-normal text-zinc-500">{{len .Inventory.Themes}}</span></h3>
+            {{if .Inventory.Themes}}<table class="mt-2 w-full min-w-[400px] text-left text-sm"><thead class="border-y border-zinc-200 bg-zinc-50 text-xs text-zinc-500"><tr><th scope="col" class="px-5 py-2.5 font-medium">Theme</th><th scope="col" class="px-5 py-2.5 font-medium">Installed</th><th scope="col" class="px-5 py-2.5 font-medium">Update</th></tr></thead><tbody class="divide-y divide-zinc-200">{{range .Inventory.Themes}}<tr><th scope="row" class="px-5 py-3 font-medium text-zinc-900">{{.Name}}</th><td class="px-5 py-3 text-zinc-600">{{.Version}}</td><td class="px-5 py-3">{{if eq .Update "available"}}<span class="text-amber-700">{{.UpdateVersion}}</span>{{else}}<span class="text-zinc-400">Current</span>{{end}}</td></tr>{{end}}</tbody></table>{{else}}<p class="px-5 py-5 text-sm text-zinc-500">No themes reported.</p>{{end}}
+          </div>
+        </div>
+        {{if .CanManage}}{{$site := .Site}}{{range .Inventory.Plugins}}{{if eq .Update "available"}}<label class="flex items-center gap-3 border-t border-zinc-200 px-5 py-3 text-sm"><input class="size-4 accent-zinc-950" type="checkbox" name="update" value="{{$site.ID}}|{{.Name}}"><span><span class="font-medium text-zinc-950">Update {{.Name}}</span> <span class="text-zinc-500">on {{$site.Domain}} to {{.UpdateVersion}}</span></span></label>{{end}}{{end}}{{end}}
+        {{end}}
+      </section>
+    {{end}}
+    </div>
+  </form>
+  {{else}}
+  <div class="mt-7 rounded-lg border border-zinc-200 bg-zinc-50 px-5 py-10 text-center"><h2 class="font-medium text-zinc-950">No WordPress sites</h2><p class="mt-2 text-sm text-zinc-500">{{if .CanManageSites}}Create a WordPress site to get started.{{else}}No WordPress sites are assigned to you.{{end}}</p>{{if .CanManageSites}}<a class="mt-4 inline-flex rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" href="/sites/new?kind=wordpress">Create WordPress site</a>{{end}}</div>
+  {{end}}
+{{template "shell-end" .}}
+{{end}}

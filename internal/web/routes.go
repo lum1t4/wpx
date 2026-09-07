@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"net/http"
 
+	"github.com/lum1t4/wpx/internal/localize"
 	"github.com/lum1t4/wpx/internal/rbac"
 )
 
@@ -13,6 +14,15 @@ import (
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /language", localize.SwitchHandler)
+	s.registerActionsRoutes(mux)
+	s.registerHostingRoutes(mux)
+	s.registerFileManagerRoutes(mux)
+	s.registerFleetRoutes(mux)
+	s.registerCronRoutes(mux)
+	s.RegisterSiteAccessRoutes(mux)
+	s.registerSecurityRoutes(mux)
+	s.registerOperatorAlertRoutes(mux)
 	staticFS, err := fs.Sub(templateFiles, "static")
 	if err != nil {
 		panic("embedded static filesystem is invalid: " + err.Error())
@@ -41,7 +51,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /sites/new", s.requireSession(s.requireCapability(rbac.ManageAllSites, s.newSitePage)))
 	mux.HandleFunc("POST /sites", s.requireSession(s.requireCapability(rbac.ManageAllSites, s.createSite)))
 	mux.HandleFunc("GET /sites/{id}", s.requireSession(s.sitePage))
-	for _, section := range []string{"wordpress", "staging", "backups", "databases", "security", "settings"} {
+	for _, section := range []string{"wordpress", "staging", "backups", "databases", "settings"} {
 		mux.HandleFunc("GET /sites/{id}/"+section, s.requireSession(s.sitePage))
 	}
 	mux.HandleFunc("POST /sites/{id}/databases", s.requireSession(s.createSiteDatabase))
@@ -77,8 +87,6 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /sites/{id}/dns/{record}", s.requireSession(s.updateSiteDNSRecord))
 	mux.HandleFunc("POST /sites/{id}/dns/{record}/delete", s.requireSession(s.deleteSiteDNSRecord))
 	mux.HandleFunc("POST /sites/{id}/wordpress/plugins/{plugin}", s.requireSession(s.setWordPressPlugin))
-	mux.HandleFunc("GET /sites/{id}/files", s.requireSession(s.filesPage))
-	mux.HandleFunc("POST /sites/{id}/files", s.requireSession(s.saveFile))
 	mux.HandleFunc("GET /account/security", s.requireSession(s.securityPage))
 	mux.HandleFunc("POST /account/totp/begin", s.requireSession(s.beginTOTP))
 	mux.HandleFunc("POST /account/totp/confirm", s.requireSession(s.confirmTOTP))
@@ -97,5 +105,5 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /backups/google-drive/callback", s.googleDriveOAuthCallback)
 	mux.HandleFunc("GET /dns/providers", s.requireSession(s.requireCapability(rbac.ManageServer, s.dnsProvidersPage)))
 	mux.HandleFunc("POST /dns/providers", s.requireSession(s.requireCapability(rbac.ManageServer, s.createDNSProvider)))
-	return s.securityHeaders(s.recoverPanics(mux))
+	return localize.Middleware(s.securityHeaders(s.recoverPanics(mux)))
 }

@@ -721,6 +721,21 @@ func (s *Store) FinishJob(ctx context.Context, job Job, resultJSON string, opera
 		// changed the site. The transaction rolls back without another audit.
 		return err
 	}
+	if job.Kind == "site.cron_apply" || job.Kind == "site.wordpress_cron_apply" {
+		if err := FinishCronJobTx(ctx, tx, job, now, operationErr); err != nil {
+			return err
+		}
+	}
+	if strings.HasPrefix(job.Kind, "hosting.") {
+		if err := finishHostingJob(ctx, tx, job, now, operationErr); err != nil {
+			return err
+		}
+	}
+	if job.Kind == "wordpress.security_apply" {
+		if err := s.finishSecurityApply(ctx, tx, job, errorText, operationErr); err != nil {
+			return err
+		}
+	}
 	if job.Kind == "site.php_version" {
 		if err := finishPHPVersionChange(ctx, tx, job, now, operationErr); err != nil {
 			return err
@@ -783,6 +798,15 @@ func (s *Store) FinishJob(ctx context.Context, job Job, resultJSON string, opera
 			targetStatus = "failed"
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE backup_targets SET status=?,updated_at=? WHERE id=?`, targetStatus, now, job.TargetID); err != nil {
+			return err
+		}
+	}
+	if job.Kind == "site.access_apply" {
+		accessStatus := "active"
+		if operationErr != nil {
+			accessStatus = "failed"
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE site_access_settings SET status=?,last_error=?,updated_at=? WHERE site_id=?`, accessStatus, errorText, now, job.TargetID); err != nil {
 			return err
 		}
 	}

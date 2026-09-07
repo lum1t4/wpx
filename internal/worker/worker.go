@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/lum1t4/wpx/internal/broker"
@@ -186,6 +187,16 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 	var operationErr error
 	resultJSON := "{}"
 	switch job.Kind {
+	case "site.cron_apply", "site.wordpress_cron_apply":
+		operationErr = w.processCron(ctx, job)
+	case "wordpress.security_install":
+		operationErr = w.installSecurity(ctx, job)
+	case "wordpress.security_apply":
+		operationErr = w.applySecurity(ctx, job)
+	case "hosting.node_apply", "hosting.ftp_apply", "hosting.ftp_delete", "hosting.mail_apply":
+		_, operationErr = w.processHosting(ctx, job)
+	case "site.access_apply":
+		operationErr = w.applySiteAccess(ctx, job)
 	case "database.create":
 		var database model.Database
 		database, operationErr = w.Store.Database(ctx, job.TargetID)
@@ -215,6 +226,9 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 		site, operationErr = w.Store.Site(ctx, job.TargetID)
 		if operationErr == nil {
 			operationErr = w.Provisioner.Provision(ctx, site, job.IdempotencyKey)
+		}
+		if operationErr == nil {
+			operationErr = w.enableSiteHosting(ctx, site, job.IdempotencyKey)
 		}
 	case "site.disable":
 		var site model.Site
@@ -528,11 +542,19 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 	default:
 		operationErr = fmt.Errorf("unsupported job kind %q", job.Kind)
 	}
-	if (job.Kind == "site.php_version" || job.Kind == "site.domain_change" || job.Kind == "site.delete") && (errors.Is(operationErr, broker.ErrOutcomeUnknown) || errors.Is(operationErr, broker.ErrUnavailable)) {
+	if (job.Kind == "site.php_version" || job.Kind == "site.domain_change" || job.Kind == "site.delete" || job.Kind == "site.access_apply" || job.Kind == "site.cron_apply" || job.Kind == "site.wordpress_cron_apply" || job.Kind == "wordpress.security_apply" || job.Kind == "wordpress.security_install" || strings.HasPrefix(job.Kind, "hosting.")) && (errors.Is(operationErr, broker.ErrOutcomeUnknown) || errors.Is(operationErr, broker.ErrUnavailable)) {
 		detail := "Waiting for broker confirmation: " + operationErr.Error()
 		var retryErr error
 		if job.Kind == "site.php_version" {
 			retryErr = w.Store.RetryPHPVersionChange(ctx, job.ID, detail)
+		} else if job.Kind == "site.cron_apply" || job.Kind == "site.wordpress_cron_apply" {
+			retryErr = w.Store.RetryCronJob(ctx, job.ID, detail)
+		} else if job.Kind == "site.access_apply" {
+			retryErr = w.Store.RetrySiteAccessJob(ctx, job.ID, detail)
+		} else if job.Kind == "wordpress.security_apply" || job.Kind == "wordpress.security_install" {
+			retryErr = w.Store.RetrySecurityJob(ctx, job.ID, detail)
+		} else if strings.HasPrefix(job.Kind, "hosting.") {
+			retryErr = w.Store.RetryHostingJob(ctx, job.ID, detail)
 		} else {
 			retryErr = w.Store.RetrySiteLifecycleJob(ctx, job.ID, detail)
 		}

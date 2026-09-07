@@ -174,6 +174,16 @@ func (s *Server) handle(conn net.Conn) {
 }
 
 func (s *Server) dispatch(request Request) Response {
+	// Each extension owns a typed, validated operation family. Unknown
+	// operations fall through to the original protocol and are rejected there.
+	for _, dispatch := range []func(Request) (Response, bool){
+		s.dispatchFileManager, s.dispatchSecurity, s.dispatchCron,
+		s.dispatchSiteAccess, s.dispatchOperatorAlerts, s.dispatchHosting,
+	} {
+		if response, handled := dispatch(request); handled {
+			return response
+		}
+	}
 	response := Response{Version: ProtocolVersion, ID: request.ID}
 	switch request.Operation {
 	case OpProbe:

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/lum1t4/wpx/internal/model"
@@ -97,7 +98,10 @@ func TestDatabaseCapabilityMigrationBackfillsCollaborators(t *testing.T) {
 	if _, err := db.Exec(`PRAGMA foreign_keys=ON; CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY)`); err != nil {
 		t.Fatal(err)
 	}
-	for index, migration := range migrations[:len(migrations)-1] {
+	for index, migration := range migrations {
+		if strings.Contains(migration, "INSERT OR IGNORE INTO site_grants(user_id,site_id,capability)") {
+			break
+		}
 		if _, err := db.Exec(migration); err != nil {
 			t.Fatal(err)
 		}

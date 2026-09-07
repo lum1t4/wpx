@@ -41,4 +41,56 @@
   </div>
 </section>
 {{if .CanManageDNS}}<p class="mt-5 text-sm text-zinc-500">Need to point this domain to the server? <a class="font-medium text-zinc-950 underline underline-offset-4" href="/sites/{{.Site.ID}}/dns">Manage DNS records</a></p>{{end}}
+
+{{if .SecuritySettings}}
+{{if not .SecurityAvailable}}
+<section class="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-5" aria-labelledby="defense-install-heading">
+  <h2 id="defense-install-heading" class="text-base font-semibold text-amber-950">Install WordPress defenses</h2>
+  <p class="mt-2 text-sm leading-6 text-amber-900">Install Fail2ban and nftables to enable request protection.</p>
+  {{if or (eq .SecurityInstallStatus "queued") (eq .SecurityInstallStatus "running")}}
+  <p class="mt-4 text-sm font-medium text-amber-950">Installing. <a class="underline underline-offset-4" href="/jobs">View activity</a></p>
+  {{else if .CanManageServer}}
+  <form class="mt-4" method="post" action="/sites/{{.Site.ID}}/security/install"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Install defenses</button></form>
+  {{end}}
+</section>
+{{else}}
+<section class="mt-8 rounded-lg border border-zinc-200 bg-white" aria-labelledby="defense-heading">
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-5 py-4">
+    <div><h2 id="defense-heading" class="text-base font-semibold text-zinc-950">WordPress defense</h2><p class="mt-1 text-sm text-zinc-500">Rate limits and escalating bans for hostile requests.</p></div>
+    <span class="rounded-md border px-2 py-1 text-xs font-medium {{if eq .SecuritySettings.Status "failed"}}border-red-200 bg-red-50 text-red-800{{else if eq .SecuritySettings.Status "queued"}}border-amber-200 bg-amber-50 text-amber-900{{else if .SecuritySettings.Enabled}}border-emerald-200 bg-emerald-50 text-emerald-800{{else}}border-zinc-200 bg-zinc-50 text-zinc-700{{end}}">{{if eq .SecuritySettings.Status "failed"}}Failed{{else if eq .SecuritySettings.Status "queued"}}Applying{{else if .SecuritySettings.Enabled}}Active{{else}}Off{{end}}</span>
+  </div>
+  {{if .SecuritySettings.LastError}}<div class="border-b border-red-200 bg-red-50 px-5 py-3 text-sm text-red-800">{{.SecuritySettings.LastError}}</div>{{end}}
+  {{if .CanManageWordPress}}
+  <form class="grid gap-5 p-5" method="post" action="/sites/{{.Site.ID}}/security/settings" data-quick-action data-action-label="Saving protection">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <label class="flex items-start gap-3"><input class="mt-1 size-4 accent-zinc-950" type="checkbox" name="enabled" value="yes" {{if .SecuritySettings.Enabled}}checked{{end}}><span class="block text-sm font-medium text-zinc-800">Enable WordPress defense</span></label>
+    <div class="grid gap-3 sm:grid-cols-2">
+      <label class="flex items-start gap-3 rounded-md border border-zinc-200 p-3"><input class="mt-1 size-4 accent-zinc-950" type="checkbox" name="login_protection" value="yes" {{if .SecuritySettings.LoginProtection}}checked{{end}}><span class="text-sm text-zinc-700">Limit and detect wp-login.php attempts</span></label>
+      <label class="flex items-start gap-3 rounded-md border border-zinc-200 p-3"><input class="mt-1 size-4 accent-zinc-950" type="checkbox" name="xmlrpc_protection" value="yes" {{if .SecuritySettings.XMLRPCProtection}}checked{{end}}><span class="text-sm text-zinc-700">Limit and detect XML-RPC attempts</span></label>
+      <label class="flex items-start gap-3 rounded-md border border-zinc-200 p-3"><input class="mt-1 size-4 accent-zinc-950" type="checkbox" name="sensitive_path_protection" value="yes" {{if .SecuritySettings.SensitivePathProtection}}checked{{end}}><span class="text-sm text-zinc-700">Block .env and .git scans</span></label>
+      <label class="flex items-start gap-3 rounded-md border border-zinc-200 p-3"><input class="mt-1 size-4 accent-zinc-950" type="checkbox" name="burst_404_protection" value="yes" {{if .SecuritySettings.Burst404Protection}}checked{{end}}><span class="text-sm text-zinc-700">Ban repeated 404 bursts</span></label>
+    </div>
+    <button class="justify-self-start rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50" {{if eq .SecuritySettings.Status "queued"}}disabled{{end}}>{{if eq .SecuritySettings.Status "queued"}}Applying…{{else}}Save protection{{end}}</button>
+  </form>
+  {{end}}
+</section>
+{{end}}
+
+{{if .CanViewLogs}}
+<section class="mt-8 rounded-lg border border-zinc-200 bg-white" aria-labelledby="analysis-heading">
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-5 py-4">
+    <div><h2 id="analysis-heading" class="text-base font-semibold text-zinc-950">Suspicious access</h2><p class="mt-1 text-sm text-zinc-500">Analyze recent local access logs.</p></div>
+    <form method="post" action="/sites/{{.Site.ID}}/security/inspect"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50">Analyze now</button></form>
+  </div>
+  {{if .SecurityReport}}
+  <div class="p-5">
+    <p class="text-sm text-zinc-600"><span class="font-medium text-zinc-950">{{.SecurityReport.Risk}} risk</span> from {{.SecurityReport.LinesRead}} log lines. {{if .SecurityReport.Truncated}}Results were capped.{{end}}{{if .SecurityReport.MalformedLines}} {{.SecurityReport.MalformedLines}} malformed lines were ignored.{{end}}</p>
+    {{if .SecurityReport.Sources}}
+    <div class="mt-4 overflow-x-auto"><table class="min-w-full text-left text-sm"><thead class="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-500"><tr><th class="px-3 py-2">Source</th><th class="px-3 py-2">Risk</th><th class="px-3 py-2">Signals</th><th class="px-3 py-2">Last seen</th></tr></thead><tbody class="divide-y divide-zinc-100">{{range .SecurityReport.Sources}}<tr><td class="px-3 py-3 font-mono text-xs text-zinc-800">{{.IP}}</td><td class="px-3 py-3 capitalize text-zinc-700">{{.Risk}}</td><td class="px-3 py-3 text-zinc-600">{{range $index, $reason := .Reasons}}{{if $index}}, {{end}}{{$reason}}{{else}}No elevated signal{{end}}</td><td class="px-3 py-3 text-zinc-500">{{.LastSeen}}</td></tr>{{end}}</tbody></table></div>
+    {{else}}<p class="mt-4 text-sm text-zinc-500">No suspicious sources appeared in the log window.</p>{{end}}
+  </div>
+  {{end}}
+</section>
+{{end}}
+{{end}}
 {{end}}

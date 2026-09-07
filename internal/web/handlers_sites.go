@@ -263,11 +263,12 @@ func (s *Server) disableSite(w http.ResponseWriter, r *http.Request, user store.
 		http.Error(w, "type the site domain to confirm", http.StatusBadRequest)
 		return
 	}
-	if _, err := s.store.EnqueueSiteDisable(r.Context(), user, site.ID); err != nil {
+	jobID, err := s.store.EnqueueSiteDisable(r.Context(), user, site.ID)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	http.Redirect(w, r, "/sites/"+site.ID+"/settings?lifecycle=queued", http.StatusSeeOther)
+	s.respondQueuedAction(w, r, user, jobID, "/sites/"+site.ID+"/settings?lifecycle=queued", "Disabling site")
 }
 
 func (s *Server) enableSite(w http.ResponseWriter, r *http.Request, user store.User) {
@@ -280,11 +281,12 @@ func (s *Server) enableSite(w http.ResponseWriter, r *http.Request, user store.U
 		http.NotFound(w, r)
 		return
 	}
-	if _, err := s.store.EnqueueSiteEnable(r.Context(), user, site.ID); err != nil {
+	jobID, err := s.store.EnqueueSiteEnable(r.Context(), user, site.ID)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	http.Redirect(w, r, "/sites/"+site.ID+"/settings?lifecycle=queued", http.StatusSeeOther)
+	s.respondQueuedAction(w, r, user, jobID, "/sites/"+site.ID+"/settings?lifecycle=queued", "Enabling site")
 }
 
 func (s *Server) retrySiteProvision(w http.ResponseWriter, r *http.Request, user store.User) {
@@ -310,11 +312,12 @@ func (s *Server) saveSiteSnippets(w http.ResponseWriter, r *http.Request, user s
 		return
 	}
 	snippets := model.SiteSnippets{Nginx: r.FormValue("nginx"), PHP: r.FormValue("php")}
-	if _, err := s.store.SetSiteSnippets(r.Context(), user, site.ID, snippets); err != nil {
+	jobID, err := s.store.SetSiteSnippets(r.Context(), user, site.ID, snippets)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	http.Redirect(w, r, "/sites/"+site.ID+"/settings?config=queued", http.StatusSeeOther)
+	s.respondQueuedAction(w, r, user, jobID, "/sites/"+site.ID+"/settings?config=queued", "Configuration")
 }
 
 func (s *Server) issueCertificate(w http.ResponseWriter, r *http.Request, user store.User) {

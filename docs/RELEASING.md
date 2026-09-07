@@ -23,7 +23,9 @@ maintainer account's security settings.
 ## Prepare and publish
 
 1. Review the candidate diff, generated CSS, operator instructions, and
-   requirements coverage. Note fixed issues and known limitations.
+   requirements coverage. Record changes and limitations in
+   `docs/releases/<tag>.md`; the workflow uses it as the release notes when
+   present, otherwise GitHub generates notes.
 2. Check the Verify run for the commit. For installer, service, access, backup,
    or restore changes, record the relevant real-host/provider exercise in
    addition to unit tests.

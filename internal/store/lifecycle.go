@@ -30,6 +30,12 @@ func (s *Store) enqueueSiteTransition(ctx context.Context, actor User, siteID, k
 		return "", err
 	}
 	defer tx.Rollback()
+	if err := siteLifecycleActor(ctx, tx, actor.ID, false); err != nil {
+		return "", err
+	}
+	if err := requireSiteIdle(ctx, tx, siteID); err != nil {
+		return "", err
+	}
 	var status string
 	if err := tx.QueryRowContext(ctx, `SELECT status FROM sites WHERE id=?`, siteID).Scan(&status); err != nil {
 		return "", errors.New("site is unavailable")

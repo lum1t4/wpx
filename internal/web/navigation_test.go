@@ -126,7 +126,7 @@ func TestSiteSectionPermissions(t *testing.T) {
 			response := navigationRequest(t, server, customer, http.MethodGet, "/sites/team-site"+section, nil)
 			requireNavigationStatus(t, response, http.StatusOK)
 			links := navigationLinks(response.Body.String())
-			for _, restricted := range []string{"/wordpress", "/staging", "/security", "/settings", "/files", "/databases", "/dns"} {
+			for _, restricted := range []string{"/wordpress", "/staging", "/security", "/settings", "/files", "/databases", "/dns", "/access", "/cron", "/runtime", "/ftp"} {
 				if links["/sites/team-site"+restricted] {
 					t.Errorf("customer navigation exposes unavailable tool %s", restricted)
 				}
@@ -150,6 +150,62 @@ func TestSiteSectionPermissions(t *testing.T) {
 	}
 	requireNavigationStatus(t, navigationRequest(t, server, collaborator, http.MethodGet, "/sites/team-site/settings", nil), http.StatusForbidden)
 	requireNavigationStatus(t, navigationRequest(t, server, collaborator, http.MethodGet, "/sites/new", nil), http.StatusForbidden)
+}
+
+func TestSiteAndServerNavigationStaySeparate(t *testing.T) {
+	server, owner, _ := navigationServer(t)
+	navigationSite(t, server, owner, model.Site{ID: "navigation-site", Domain: "navigation.example.com", Kind: model.WordPress, PHPVersion: "8.4"})
+
+	siteResponse := navigationRequest(t, server, owner, http.MethodGet, "/sites/navigation-site", nil)
+	requireNavigationStatus(t, siteResponse, http.StatusOK)
+	siteLinks := navigationAsideLinks(t, siteResponse.Body.String())
+	if strings.Contains(navigationAside(t, siteResponse.Body.String()), `action="/language"`) {
+		t.Error("site sidebar exposes the global language selector")
+	}
+	for _, want := range []string{
+		"/sites",
+		"/sites/navigation-site",
+		"/sites/navigation-site/access",
+		"/sites/navigation-site/cron",
+		"/sites/navigation-site/ftp",
+		"/account/security",
+	} {
+		if !siteLinks[want] {
+			t.Errorf("site sidebar is missing %q", want)
+		}
+	}
+	if siteLinks["/sites/navigation-site/runtime"] {
+		t.Error("WordPress site sidebar exposes reverse-proxy runtime settings")
+	}
+
+	navigationSite(t, server, owner, model.Site{ID: "proxy-site", Domain: "proxy.example.com", Kind: model.ReverseProxy, Upstream: "http://127.0.0.1:3000"})
+	proxyResponse := navigationRequest(t, server, owner, http.MethodGet, "/sites/proxy-site", nil)
+	requireNavigationStatus(t, proxyResponse, http.StatusOK)
+	if !navigationAsideLinks(t, proxyResponse.Body.String())["/sites/proxy-site/runtime"] {
+		t.Error("reverse-proxy site sidebar is missing runtime settings")
+	}
+	for _, serverTool := range []string{"/", "/jobs", "/monitoring", "/wordpress", "/databases", "/backups/targets", "/dns/providers", "/hosting", "/alerts", "/users"} {
+		if siteLinks[serverTool] {
+			t.Errorf("site sidebar exposes server tool %q", serverTool)
+		}
+	}
+
+	serverResponse := navigationRequest(t, server, owner, http.MethodGet, "/", nil)
+	requireNavigationStatus(t, serverResponse, http.StatusOK)
+	serverLinks := navigationAsideLinks(t, serverResponse.Body.String())
+	if !strings.Contains(navigationAside(t, serverResponse.Body.String()), `action="/language"`) {
+		t.Error("server sidebar is missing the language selector")
+	}
+	for _, want := range []string{"/", "/sites", "/jobs", "/monitoring", "/wordpress", "/databases", "/backups/targets", "/dns/providers", "/hosting", "/alerts", "/users", "/account/security"} {
+		if !serverLinks[want] {
+			t.Errorf("server sidebar is missing %q", want)
+		}
+	}
+	for href := range serverLinks {
+		if strings.HasPrefix(href, "/sites/navigation-site/") {
+			t.Errorf("server sidebar exposes site tool %q", href)
+		}
+	}
 }
 
 func TestSiteDatabaseToolsAreScopedToTheSite(t *testing.T) {
@@ -202,13 +258,16 @@ func TestSiteOverviewDoesNotLoadWordPressInventory(t *testing.T) {
 	for _, section := range []string{"", "/backups", "/security", "/settings", "/staging"} {
 		requireNavigationStatus(t, navigationRequest(t, server, owner, http.MethodGet, "/sites/wordpress-site"+section, nil), http.StatusOK)
 	}
-	if len(privileged.calls) != 0 {
-		t.Fatalf("non-WordPress tool pages invoked privileged operations: %v", privileged.calls)
+	for _, operation := range privileged.calls {
+		if operation == broker.OpWordPressInventory {
+			t.Fatalf("non-WordPress tool page invoked WordPress inventory: %v", privileged.calls)
+		}
 	}
+	before := len(privileged.calls)
 	response := navigationRequest(t, server, owner, http.MethodGet, "/sites/wordpress-site/wordpress", nil)
 	requireNavigationStatus(t, response, http.StatusOK)
-	if len(privileged.calls) != 1 || privileged.calls[0] != broker.OpWordPressInventory {
-		t.Fatalf("WordPress page operations = %v, want exactly one inventory call", privileged.calls)
+	if len(privileged.calls) != before+1 || privileged.calls[before] != broker.OpWordPressInventory {
+		t.Fatalf("WordPress page operations = %v, want one new inventory call", privileged.calls)
 	}
 	if !strings.Contains(response.Body.String(), "6.8.3") {
 		t.Fatal("WordPress page did not render the loaded core version")
@@ -335,6 +394,20 @@ func navigationLinks(body string) map[string]bool {
 		links[html.UnescapeString(match[1])] = true
 	}
 	return links
+}
+
+func navigationAsideLinks(t *testing.T, body string) map[string]bool {
+	t.Helper()
+	return navigationLinks(navigationAside(t, body))
+}
+
+func navigationAside(t *testing.T, body string) string {
+	t.Helper()
+	match := regexp.MustCompile(`(?s)<aside\b.*?</aside>`).FindString(body)
+	if match == "" {
+		t.Fatal("page has no desktop sidebar")
+	}
+	return match
 }
 
 func navigationInputValue(body, name string) string {

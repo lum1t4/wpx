@@ -173,7 +173,11 @@ func (h *Host) renderSiteConfig(site model.Site, publicDir string) (string, erro
 	if err != nil {
 		return "", err
 	}
-	return injectNginxSnippet(generated, site, path)
+	generated, err = injectNginxSnippet(generated, site, path)
+	if err != nil {
+		return "", err
+	}
+	return h.decorateSiteConfig(site, generated)
 }
 
 func tlsify(httpConfig, domain, certificateRoot string) (string, error) {

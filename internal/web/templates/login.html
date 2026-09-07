@@ -23,7 +23,7 @@
         <form class="mt-6 grid gap-5" method="post" action="/login">
           <input type="hidden" name="csrf_token" value="{{.CSRF}}" /><label
             ><span class="mb-2 block text-sm font-medium"
-              >Username</span
+              data-i18n="username">Username</span
             ><input
               class="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm shadow-xs focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900"
               name="username"
@@ -34,7 +34,7 @@
               autofocus /></label
           ><label
             ><span class="mb-2 block text-sm font-medium"
-              >Password</span
+              data-i18n="password">Password</span
             ><input
               class="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm shadow-xs focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900"
               type="password"

@@ -249,6 +249,12 @@ var migrations = []string{
 		SELECT g.user_id,g.site_id,'site.databases'
 		FROM site_grants g JOIN users u ON u.id=g.user_id
 		WHERE g.capability='site.view' AND u.role='collaborator';`,
+	// Keep feature migration order stable across every release.
+	SecurityMigration,
+	OperatorAlertsMigration,
+	CronMigration,
+	SiteAccessMigration,
+	HostingMigration,
 }
 
 func (s *Store) migrate(ctx context.Context) error {

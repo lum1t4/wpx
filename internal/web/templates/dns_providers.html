@@ -1,7 +1,7 @@
 {{define "dns_providers.html"}}
 {{template "shell-start" .}}
 <header>
-  <h1 class="text-2xl font-semibold tracking-tight text-zinc-950">DNS providers</h1>
+  <h1 class="text-2xl font-semibold tracking-tight text-zinc-950" data-i18n="dns_providers">DNS providers</h1>
   <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Connect a provider to manage a site's DNS records and issue DNS-verified certificates. Credentials are encrypted on this server.</p>
 </header>
 
@@ -13,7 +13,7 @@
   <div class="overflow-x-auto">
     <table class="w-full min-w-[420px] text-left text-sm">
       <thead class="border-b border-zinc-200 bg-zinc-50 text-zinc-500">
-        <tr><th scope="col" class="px-5 py-3 font-medium">Name</th><th scope="col" class="px-5 py-3 font-medium">Provider</th><th scope="col" class="px-5 py-3 font-medium">Status</th></tr>
+        <tr><th scope="col" class="px-5 py-3 font-medium" data-i18n="name">Name</th><th scope="col" class="px-5 py-3 font-medium">Provider</th><th scope="col" class="px-5 py-3 font-medium" data-i18n="status">Status</th></tr>
       </thead>
       <tbody class="divide-y divide-zinc-100">
         {{range .DNSProviders}}

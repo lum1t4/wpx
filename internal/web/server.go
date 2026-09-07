@@ -18,7 +18,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/lum1t4/wpx/internal/alerts"
 	"github.com/lum1t4/wpx/internal/broker"
+	"github.com/lum1t4/wpx/internal/cloudmeta"
 	"github.com/lum1t4/wpx/internal/config"
 	"github.com/lum1t4/wpx/internal/monitor"
 	"github.com/lum1t4/wpx/internal/store"
@@ -28,6 +30,8 @@ import (
 var templateFiles embed.FS
 
 type Server struct {
+	cloud          *cloudmeta.Cache
+	alerts         *alerts.Monitor
 	cfg            config.Config
 	store          *store.Store
 	templates      *template.Template
@@ -59,7 +63,9 @@ func New(cfg config.Config, state *store.Store, privileged brokerCaller, logger 
 		return monitor.ReadSystem([]string{"/", cfg.SiteRoot, cfg.DataRoot})
 	})
 	return &Server{
-		cfg: cfg, store: state, templates: tmpl, logger: logger, broker: privileged, resources: resources,
+		cloud:  cloudmeta.NewCache(),
+		alerts: alerts.New(state, resources, privileged, logger),
+		cfg:    cfg, store: state, templates: tmpl, logger: logger, broker: privileged, resources: resources,
 		oauthHTTP:      &http.Client{Timeout: 20 * time.Second},
 		googleAuthURL:  "https://accounts.google.com/o/oauth2/v2/auth",
 		googleTokenURL: "https://oauth2.googleapis.com/token",
@@ -69,7 +75,9 @@ func New(cfg config.Config, state *store.Store, privileged brokerCaller, logger 
 func (s *Server) ListenAndServe(ctx context.Context) error {
 	monitorCtx, stopMonitoring := context.WithCancel(ctx)
 	defer stopMonitoring()
+	s.cloud.Start(monitorCtx)
 	go s.MonitorResources(monitorCtx)
+	go s.MonitorOperatorAlerts(monitorCtx)
 	httpServer := &http.Server{
 		Addr: s.cfg.ListenAddress, Handler: s.Handler(),
 		ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 30 * time.Second,

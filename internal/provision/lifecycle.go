@@ -103,5 +103,11 @@ func (h *Host) Disable(ctx context.Context, site model.Site, stopPHP bool) error
 			return fmt.Errorf("stop Python workers: %w", err)
 		}
 	}
+	if err := h.SetSiteCronEnabled(ctx, site, false); err != nil {
+		return err
+	}
+	if err := h.stopSiteHostingLocked(ctx, site); err != nil {
+		return err
+	}
 	return nil
 }

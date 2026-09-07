@@ -2,8 +2,8 @@
 {{template "shell-start" .}}
 <div class="max-w-6xl">
   <header>
-    <p class="text-sm text-zinc-500">Server</p>
-    <h1 class="mt-1 text-2xl font-semibold tracking-tight text-zinc-950">Users</h1>
+    <p class="text-sm text-zinc-500" data-i18n="server">Server</p>
+    <h1 class="mt-1 text-2xl font-semibold tracking-tight text-zinc-950" data-i18n="users">Users</h1>
     <p class="mt-2 text-sm leading-6 text-zinc-500">Manage WPX accounts and the sites each person can access.</p>
   </header>
 
@@ -20,11 +20,11 @@
       <table class="w-full min-w-[720px] text-left text-sm">
         <thead class="border-b border-zinc-200 bg-zinc-50 text-xs font-medium text-zinc-500">
           <tr>
-            <th scope="col" class="px-5 py-3 font-medium">Username</th>
+            <th scope="col" class="px-5 py-3 font-medium" data-i18n="username">Username</th>
             <th scope="col" class="px-5 py-3 font-medium">Role</th>
             <th scope="col" class="px-5 py-3 font-medium">Site access</th>
             <th scope="col" class="px-5 py-3 font-medium">Two-factor</th>
-            <th scope="col" class="px-5 py-3 font-medium">Status</th>
+            <th scope="col" class="px-5 py-3 font-medium" data-i18n="status">Status</th>
             <th scope="col" class="px-5 py-3 font-medium"><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
@@ -40,9 +40,9 @@
             <td class="px-5 py-4 text-zinc-600">{{if .TOTPEnabled}}Enabled{{else}}Not enabled{{end}}</td>
             <td class="px-5 py-4">
               {{if .Disabled}}
-              <span class="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-500">Disabled</span>
+              <span class="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-500" data-i18n="disabled">Disabled</span>
               {{else}}
-              <span class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Active</span>
+              <span class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700" data-i18n="active">Active</span>
               {{end}}
             </td>
             <td class="px-5 py-4">
@@ -54,10 +54,10 @@
                   <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
                   {{if .Disabled}}
                   <input type="hidden" name="action" value="enable">
-                  <button class="inline-flex min-h-9 items-center justify-center rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" type="submit">Enable</button>
+                  <button class="inline-flex min-h-9 items-center justify-center rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" type="submit" data-i18n="enable">Enable</button>
                   {{else}}
                   <input type="hidden" name="action" value="disable">
-                  <button class="inline-flex min-h-9 items-center justify-center rounded-md px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2" type="submit">Disable</button>
+                  <button class="inline-flex min-h-9 items-center justify-center rounded-md px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2" type="submit" data-i18n="disable">Disable</button>
                   {{end}}
                 </form>
                 {{end}}
@@ -80,7 +80,7 @@
       <form class="mt-6 grid gap-5 md:grid-cols-2" method="post" action="/users">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
         <label>
-          <span class="mb-2 block text-sm font-medium text-zinc-700">Username</span>
+          <span class="mb-2 block text-sm font-medium text-zinc-700" data-i18n="username">Username</span>
           <input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400" name="username" value="{{index .Form "username"}}" autocomplete="username" spellcheck="false" required>
         </label>
         <label>
@@ -97,7 +97,7 @@
           <p><span class="font-medium text-zinc-800">Customer</span> — views assigned sites, manages backups, reads logs, and signs in to WordPress.</p>
         </div>
         <label>
-          <span class="mb-2 block text-sm font-medium text-zinc-700">Password</span>
+          <span class="mb-2 block text-sm font-medium text-zinc-700" data-i18n="password">Password</span>
           <input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400" type="password" name="password" minlength="12" maxlength="72" autocomplete="new-password" aria-describedby="new-user-password-help" required>
           <span id="new-user-password-help" class="mt-2 block text-xs text-zinc-500">Use at least 12 characters.</span>
         </label>

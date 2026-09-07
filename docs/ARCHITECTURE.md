@@ -32,7 +32,7 @@ and can decrypt credentials needed for DNS and backups.
 
 Sites have dedicated Unix users. PHP-FPM pools and Python services use those
 users; Nginx receives only the access needed to serve files and reach sockets.
-The file editor uses Linux `openat2` confinement, rejects symlink traversal, and
+The file manager uses Linux `openat2` confinement, rejects symlink traversal, and
 preserves site ownership. These are process/filesystem boundaries, not container
 isolation between mutually hostile tenants.
 
@@ -63,6 +63,8 @@ plain HTTP even though the browser-facing panel origin is HTTPS.
 | `internal/provision` | Nginx/PHP/Python, WordPress, databases/phpMyAdmin, files, backups, certificates, staging, local observation. |
 | `internal/dns` | Cloudflare and Route 53 API requests and record ownership checks. |
 | `internal/monitor` | Unprivileged Linux resource reads, interval rates, bounded in-memory history. |
+| `internal/alerts` | SMTP delivery, incident transitions, resource/service observations and optional swap safeguards. |
+| `internal/localize`, `internal/cloudmeta` | Request-local static labels and bounded link-local provider discovery. |
 | `internal/install`, `internal/platform` | Ubuntu detection, dependencies, identities, units, first-run state. |
 | `internal/panelaccess`, `internal/upgrade` | Root-only reachability changes and panel binary replacement. |
 | `internal/config`, `internal/updatecheck` | Process configuration and optional GitHub release discovery. |
@@ -223,6 +225,27 @@ Go templates render pages; the release embeds compiled Tailwind CSS. Node.js is
 a build dependency. There is no frontend runtime framework or BEM-style CSS
 component layer. Site sections share navigation, while handlers should load
 only data needed for the current section.
+
+Site pages use a dedicated site sidebar. Small JavaScript modules progressively
+enhance short actions and file operations. Durable actions report success only
+after the worker records completion; a still-running action leads to Activity.
+Package installation, backups and WordPress updates remain background jobs.
+The file manager instead uses bounded synchronous operations and separately
+confirmed upload chunks; its journal reconciles a lost response without
+appending the same bytes twice.
+
+Cron, access gates, WordPress defense and hosting settings persist desired state
+with their jobs. Site lifecycle checks include these pending jobs, including
+indirect FTP-user targets. Unknown broker outcomes retain the reservation and
+replay the same key. Host lifecycle removes scheduled commands and companion
+services before finalizing disable or deletion. Feature boundaries and recovery
+details are documented under [dispatch](dispatch/CONTRACT.md).
+
+Static labels are explicitly marked for translation; generated values, logs,
+credentials and file contents are never translated. Cloud metadata discovery
+runs once outside page requests, with fixed link-local endpoints and strict
+timeouts. Operator alert delivery runs with the server lifetime and persists
+incident state independently from page requests.
 
 Metrics and logs stay on the server. Functional network traffic includes
 Ubuntu/PHP package sources, GitHub downloads and optional release checks,

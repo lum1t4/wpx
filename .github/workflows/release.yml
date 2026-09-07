@@ -69,6 +69,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          notes=(--generate-notes)
+          if [ -f "docs/releases/${GITHUB_REF_NAME}.md" ]; then
+            notes=(--notes-file "docs/releases/${GITHUB_REF_NAME}.md")
+          fi
           gh release create "$GITHUB_REF_NAME" \
             dist/wpx-linux-amd64 dist/wpx-linux-arm64 dist/checksums.txt dist/install.sh dist/go-modules.json \
-            --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
+            --repo "$GITHUB_REPOSITORY" --verify-tag "${notes[@]}" --title "$GITHUB_REF_NAME"

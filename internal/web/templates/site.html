@@ -4,7 +4,7 @@
   <div class="min-w-0">
     <p class="mb-2 flex flex-wrap items-center gap-2 text-sm text-zinc-500">
       <span class="break-all">{{.Site.Domain}}</span>
-      {{if eq .Site.Environment "staging"}}<span class="rounded-md border border-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700">Staging</span>{{end}}
+      {{if eq .Site.Environment "staging"}}<span class="rounded-md border border-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700" data-i18n="staging">Staging</span>{{end}}
     </p>
     <h1 class="text-2xl font-semibold tracking-tight text-zinc-950">{{if eq .Section "wordpress"}}WordPress{{else if eq .Section "staging"}}Staging{{else if eq .Section "backups"}}Backups{{else if eq .Section "databases"}}Databases{{else if eq .Section "security"}}Security{{else if eq .Section "settings"}}Site settings{{else}}Site overview{{end}}</h1>
   </div>

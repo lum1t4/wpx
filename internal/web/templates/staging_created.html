@@ -16,8 +16,8 @@
   <p class="mt-2 text-sm leading-6 text-zinc-500">Visitors must enter these credentials before they can view staging. They are separate from your WordPress login.</p>
   <p class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Store the password now. It will not be shown again.</p>
   <div class="mt-5 grid gap-5 sm:grid-cols-2">
-    <label><span class="mb-2 block text-sm font-medium">Username</span><input class="w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-sm" readonly value="{{.StagingUsername}}"></label>
-    <label><span class="mb-2 block text-sm font-medium">Password</span><input class="w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-sm" readonly value="{{.StagingPassword}}"></label>
+    <label><span class="mb-2 block text-sm font-medium" data-i18n="username">Username</span><input class="w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-sm" readonly value="{{.StagingUsername}}"></label>
+    <label><span class="mb-2 block text-sm font-medium" data-i18n="password">Password</span><input class="w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-sm" readonly value="{{.StagingPassword}}"></label>
   </div>
   <a class="mt-6 inline-flex rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800" href="/sites/{{.Site.ID}}">View staging progress</a>
 </section>

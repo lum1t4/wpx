@@ -57,7 +57,7 @@
   <div class="px-5 py-4"><h2 id="expert-heading" class="text-base font-semibold text-zinc-950">Advanced configuration</h2><p class="mt-2 text-sm leading-6 text-zinc-500">WPX validates changes before reloading services and restores the previous configuration if validation fails.</p></div>
   <details class="border-t border-zinc-200">
     <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-zinc-900">Edit Nginx{{if .Site.PHPVersion}} and PHP-FPM{{end}} directives</summary>
-    <form class="grid gap-5 border-t border-zinc-200 p-5" method="post" action="/sites/{{.Site.ID}}/expert-config">
+    <form class="grid gap-5 border-t border-zinc-200 p-5" method="post" action="/sites/{{.Site.ID}}/expert-config" data-quick-action data-action-label="Saving configuration">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
       <label class="block"><span class="mb-2 block text-sm font-medium text-zinc-700">Nginx server directives</span><textarea class="h-44 w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 font-mono text-sm leading-6" name="nginx" spellcheck="false" placeholder='client_max_body_size 128M;&#10;add_header X-Frame-Options "SAMEORIGIN" always;'>{{.SiteSnippets.Nginx}}</textarea><span class="mt-2 block text-xs leading-5 text-zinc-500">Supported: body size and timeouts, FastCGI timeout, expires, and quoted response headers.</span></label>
       {{if .Site.PHPVersion}}<label class="block"><span class="mb-2 block text-sm font-medium text-zinc-700">PHP-FPM directives</span><textarea class="h-36 w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 font-mono text-sm leading-6" name="php" spellcheck="false" placeholder="php_admin_value[memory_limit] = 512M">{{.SiteSnippets.PHP}}</textarea><span class="mt-2 block text-xs leading-5 text-zinc-500">Supported: memory, upload and post limits; execution and input time; input variables; error display and logging.</span></label>{{else}}<input type="hidden" name="php" value="{{.SiteSnippets.PHP}}">{{end}}
@@ -74,15 +74,15 @@
   <p class="mt-2 text-sm leading-6 text-zinc-500">Disable the site to stop serving requests. Its files, database, certificates, and backups are retained.</p>
   <details class="mt-5 rounded-md border border-red-200">
     <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-red-700">Disable site</summary>
-    <form class="flex max-w-xl flex-wrap items-end gap-3 border-t border-red-200 p-4" method="post" action="/sites/{{.Site.ID}}/disable">
+    <form class="flex max-w-xl flex-wrap items-end gap-3 border-t border-red-200 p-4" method="post" action="/sites/{{.Site.ID}}/disable" data-quick-action data-action-label="Disabling site">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
       <label class="min-w-0 flex-1"><span class="mb-2 block text-sm font-medium text-zinc-700">Type {{.Site.Domain}} to confirm</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="confirmation" autocomplete="off" required></label>
-      <button class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700">Disable site</button>
+      <button class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700" data-i18n="disable">Disable site</button>
     </form>
   </details>
   {{else if or (eq .Site.Status "disabled") (eq .Site.Status "enable_failed")}}
   <p class="mt-2 text-sm leading-6 text-zinc-500">Enable the site to start serving requests again using its existing files and configuration.</p>
-  <form class="mt-5" method="post" action="/sites/{{.Site.ID}}/enable"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800">Enable site</button></form>
+  <form class="mt-5" method="post" action="/sites/{{.Site.ID}}/enable" data-quick-action data-action-label="Enabling site"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800" data-i18n="enable">Enable site</button></form>
   {{else if eq .Site.Status "failed"}}
   <p class="mt-2 text-sm leading-6 text-zinc-500">Provisioning failed. Read the error in <a class="font-medium text-zinc-950 underline underline-offset-4" href="/jobs">Activity</a>, resolve the cause, then retry.</p>
   <form class="mt-5" method="post" action="/sites/{{.Site.ID}}/retry"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800">Retry provisioning</button></form>

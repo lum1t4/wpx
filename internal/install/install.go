@@ -105,7 +105,7 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	if err := runner.run(ctx, "/usr/bin/apt-get", "update"); err != nil {
 		return Result{}, err
 	}
-	packages := []string{"ca-certificates", "certbot", "curl", "gunicorn", "logrotate", "nginx", "mariadb-server", "redis-server", "nftables", "rsync", "software-properties-common", "unzip", "python3", "python3-certbot-dns-cloudflare", "python3-certbot-dns-route53", "python3-venv"}
+	packages := []string{"ca-certificates", "certbot", "cron", "curl", "gunicorn", "logrotate", "nginx", "mariadb-server", "redis-server", "nftables", "fail2ban", "rsync", "software-properties-common", "unzip", "python3", "python3-certbot-dns-cloudflare", "python3-certbot-dns-route53", "python3-venv"}
 	args := append([]string{"install", "-y", "--no-install-recommends"}, packages...)
 	if err := runner.run(ctx, "/usr/bin/apt-get", args...); err != nil {
 		return Result{}, err
@@ -201,7 +201,7 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	// Package post-install scripts usually start these services, but WPX makes
 	// the desired boot state explicit. WordPress performance defaults must not
 	// depend on whether a particular cloud image suppresses service startup.
-	if err := runner.run(ctx, "/usr/bin/systemctl", "enable", "--now", "nginx.service", "mariadb.service", "redis-server.service", "certbot.timer"); err != nil {
+	if err := runner.run(ctx, "/usr/bin/systemctl", "enable", "--now", "nginx.service", "mariadb.service", "redis-server.service", "certbot.timer", "fail2ban.service", "cron.service"); err != nil {
 		return Result{}, err
 	}
 	if err := runner.run(ctx, "/usr/bin/systemctl", "enable", "wpx-broker.service", "wpx.service"); err != nil {

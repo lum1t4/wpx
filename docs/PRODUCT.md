@@ -10,8 +10,8 @@ Release notes should identify any additional real-host/provider verification.
 
 WPX is a free GPL-3.0 panel for a single server. It prioritizes efficient hosting
 workflows for its operator, collaborators, and customers. Ubuntu 24.04 on amd64
-and arm64 is the current platform. Other distributions remain future work; Node.js
-hosting is deliberately postponed. The name remains provisional.
+and arm64 is the current platform. Other distributions remain future work. Node.js runs as a managed companion
+to a loopback reverse proxy site. The name remains provisional.
 
 The panel is a static Go executable with embedded UI assets. It uses Nginx,
 MariaDB, PHP-FPM, Redis, and Python on the host. An architecture-specific Linux
@@ -21,11 +21,14 @@ supported. WPX itself has no APT repository or Debian package.
 ## User experience
 
 Server navigation answers “what is on this server?”: Overview, Sites, Activity,
-Monitoring, Databases, Storage, DNS providers, Users, Account. Shared credentials and user management
+Monitoring, WordPress fleet, Databases, Storage, DNS providers, Hosting, Alerts,
+Users, Account. Shared credentials and user management
 belong here.
 
 Selecting a site establishes the context for Overview, WordPress, Staging,
-Backups, SSL & security, Settings, Files, DNS, and Logs. Show only sections
+Backups, Databases, Security, Access, Cron, FTP, Settings, Files, DNS, and Logs.
+A managed reverse proxy also has Runtime. The sidebar switches entirely to site
+context, with a link back to all sites. Show only sections
 appropriate to the site type and capabilities. Common actions stay on their own pages; advanced
 configuration belongs in Settings. Success, waiting, and failure states must be
 visible without reading raw command output.
@@ -46,7 +49,7 @@ utilities remain directly in templates. No BEM classes, semantic styling aliases
 | --- | --- | --- |
 | One-line installation and manual upgrades | GitHub bootstrap, SHA-256 check, Ubuntu installer, resume detection, local recovery copies. | `internal/install/*_test.go`, `internal/upgrade/upgrade_test.go`; CI does not perform a full host install. |
 | Static Go, amd64/arm64 | Both Linux binaries cross-built in CI and release workflow. | Runtime service configuration remains Ubuntu-specific. |
-| WordPress, PHP, Python, static, proxy sites | Provisioning and enable/disable lifecycle with automatic IDs for new sites/copies. | Legacy IDs remain valid and unchanged; Python is currently WSGI `app:application`. No Node.js. |
+| WordPress, PHP, Python, static, proxy sites | Provisioning and enable/disable lifecycle with automatic IDs for new sites/copies. | Legacy IDs remain valid and unchanged; Python is currently WSGI `app:application`. Node.js 24 runs through a managed systemd service for a loopback proxy. |
 | Change site domain | Owner/admin durable change preserves identity, paths, and runtime; single-site WordPress URLs receive serialized-safe replacement and site-scoped cache invalidation. | Active, idle site required; no automatic DNS or certificate transfer. WordPress multisite, hard-coded URL constants, non-root URL layouts, and unsupported persistent cache integrations are refused. |
 | Permanently delete site | Owner-only confirmation by exact domain; resumable cleanup of owned site files, runtime, account, and generated WordPress database. | Delete staging children first. No undo or automatic pre-delete backup; remote DNS, backups, certificates, outside-tree recovery copies, and separately managed app databases remain. |
 | PHP version management with low idle cost | PHP 7.1–8.5 selection at creation and in site Settings; on-demand package installation and FPM pools; unused branches stopped. | PHP model/store/worker/host tests; owner/admin switches require explicit EOL acknowledgement. Switching can briefly interrupt the changing site; application compatibility needs its own check. |
@@ -64,9 +67,16 @@ utilities remain directly in templates. No BEM classes, semantic styling aliases
 | Schedules, retention, restore tests | Every 6 hours/daily/weekly backup; daily/weekly/monthly retention; optional weekly/monthly restore tests. | Schedule and restore tests. No promised restore-time bound; measure a full recovery with actual data. |
 | Restore to original/new/staging | Snapshot restore and WordPress database import, with operation-specific recovery. | Restore/clone tests. Generic app databases and panel state are outside a site snapshot. |
 | Cloudflare and Route 53 | Provider validation, WPX-managed DNS records, DNS-01/wildcard certificate paths. | DNS/store/certificate tests. Not a full DNS-zone editor/importer. Live provider verification is separate. |
-| File manager and editable PHP | Browse/read/save text; PHP syntax validation, revisions, atomic replacement and Linux path confinement. | Linux file tests. No upload/delete/rename/archive/revision-restore UI; 1 MiB UTF-8 edit limit. |
+| File manager and editable PHP | Browse/edit, upload/download, rename/delete, folders, ZIP archive/extract, copy/cut/paste, multiple selection and cross-directory search; chunked resumable uploads. | Linux confinement and HTTP tests. Uploads up to 1 GiB; recursive operations bounded to 10,000 entries, 256 MiB, depth 64 and 12 seconds. Text editor retains its 1 MiB UTF-8 limit. See [file operations](dispatch/files.md). |
 | Expert Nginx/PHP configuration | Constrained snippets with validation/reload handling. | Snippet tests. Generated host files are not the editable source of truth. |
 | Local stats and logs, no telemetry | Monitoring shows server CPU, memory, swap, load, uptime, network, and filesystem usage; 10-second samples and up to one hour of memory-only charts. Site logs/usage, Activity, and local audit records remain separate. | Owner/admin server access; history resets on panel restart. No per-site resource accounting, long-term metrics storage, or full audit browser. |
+| WordPress defenses | Opt-in fail2ban/nftables progressive bans, login/XML-RPC/sensitive-path/404-burst detection, request limits, bounded access-log risk analysis. | Typed broker and parser tests; enabling requires installed defenses. Existing installations have a background installer. See [security defense](dispatch/security-defense.md). |
+| Operator alerts and stability | Encrypted SMTP configuration, separate resource/service/certificate/update switches, cooldown and recovery checks, opt-in managed swap, OOM/crash diagnostics. | SMTP and resource fixtures, confined certificate reads, bounded diagnostics. Delivery and real pressure handling need an installed-host exercise. See [alerts](dispatch/operator-alerts.md). |
+| Cross-site WordPress operations | One authorized inventory page and multi-select plugin updates through the existing backup/recovery worker. | Batch authorization, conflict checks and bounded parallel inventory tests. A failed site's inventory does not hide neighbors. See [fleet operations](dispatch/fleet.md). |
+| Site cron and WordPress cron replacement | Per-site schedules and commands, enable/disable, managed external WordPress trigger. | Commands run as the site identity. Site lifecycle removes or restores scheduled work. See [cron](dispatch/cron.md). |
+| Site access | Basic authentication and Cloudflare-only traffic, with separate public ACME challenge access. | Managed configuration tests and typed authorization. Cloudflare ranges are validated and cached; existing site gates are retained through regeneration. See [site access](dispatch/site-access.md). |
+| Node.js, FTP, outbound mail | Managed Node 24 service, ProFTPD users confined to a site with mandatory TLS, optional loopback-only Postfix. | Host configuration and lifecycle tests. Postfix provides outbound submission, not inboxes or DKIM. See [hosting services](dispatch/hosting-services.md). |
+| Localization and cloud discovery | Request-local language selection and bounded metadata discovery for AWS, DigitalOcean, GCE, Hetzner and Vultr. | Static UI catalogs have English fallback; user content and logs are never translated. Metadata reads use fixed link-local endpoints. See [localization](dispatch/localization-cloud.md). |
 | GitHub release trust | Pinned Actions, cross-builds, checksums and GitHub attestations. | Workflow definitions. Repo protection/immutable-release settings must be verified separately; installer checks checksum, not attestation. |
 
 ## Roles as shipped
@@ -84,7 +94,9 @@ Host-root access and panel-access changes remain SSH/CLI operations.
 
 ## Recovery and operational limits
 
-A successful queued request is not completion; Activity reports the job outcome.
+A successful queued request is not completion. Short actions wait briefly for
+a confirmed outcome and update the current page; ongoing work remains visible
+in Activity. Installs, backups, restores and updates stay background jobs.
 The single worker requeues interrupted work on startup. Each operation owns its
 retry/recovery logic, so do not promise universal exactly-once execution or
 rollback after every possible interruption.
@@ -108,7 +120,7 @@ diagnostics are in [Operating WPX](OPERATIONS.md).
 
 ## Deliberately outside the current scope
 
-No mail hosting, browser terminal, fleet control plane, billing system,
-one-click server import, or Node.js runtime. WordPress migration remains the
+No inbound mail hosting, browser terminal, remote fleet control plane, billing
+system, or one-click server import. WordPress migration remains the
 responsibility of an appropriate migration workflow/plugin. Do not add these
 to make the panel appear more complete; improve the agreed daily workflows first.

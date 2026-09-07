@@ -42,7 +42,15 @@ func (c Client) Call(ctx context.Context, operation Operation, idempotencyKey st
 		return fmt.Errorf("%w: connect: %w", ErrUnavailable, err)
 	}
 	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(timeout))
+	deadline := time.Now().Add(timeout)
+	if contextDeadline, ok := ctx.Deadline(); ok && contextDeadline.Before(deadline) {
+		deadline = contextDeadline
+	}
+	_ = conn.SetDeadline(deadline)
+	// Cancellation must interrupt reads after dialing too. The root operation
+	// may already be running, so the errors below still report unknown outcome.
+	stopCancellation := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stopCancellation()
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return err

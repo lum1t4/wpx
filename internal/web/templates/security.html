@@ -2,7 +2,7 @@
 {{template "shell-start" .}}
 <div class="max-w-3xl">
   <header>
-    <p class="text-sm text-zinc-500">My account</p>
+    <p class="text-sm text-zinc-500" data-i18n="my_account">My account</p>
     <h1 class="mt-1 text-2xl font-semibold tracking-tight text-zinc-950">Account security</h1>
     <p class="mt-2 text-sm leading-6 text-zinc-500">Manage the password and two-factor authentication for your WPX account, <span class="font-medium text-zinc-700">{{.User.Username}}</span>.</p>
   </header>
@@ -21,7 +21,7 @@
         <p class="mt-1 text-sm leading-6 text-zinc-500">Use an authenticator app to add a second step when signing in.</p>
       </div>
       {{if .User.TOTPEnabled}}
-      <span class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Enabled</span>
+      <span class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700" data-i18n="enabled">Enabled</span>
       {{else}}
       <span class="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600">Not enabled</span>
       {{end}}

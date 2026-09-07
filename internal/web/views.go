@@ -45,6 +45,7 @@ func preparePageData(name string, data *pageData) {
 		data.CanManageServer = rbac.Allows(role, rbac.ManageServer)
 		data.CanManageSites = rbac.Allows(role, rbac.ManageAllSites)
 		if data.Site != nil {
+			data.CanManageCron = rbac.Allows(role, rbac.ManageAllSites)
 			data.CanWordPressLogin = data.Site.Kind == model.WordPress && rbac.Allows(role, rbac.WordPressLogin)
 			data.CanManageWordPress = data.Site.Kind == model.WordPress && rbac.Allows(role, rbac.ManageWordPress)
 			data.CanManageTLS = rbac.Allows(role, rbac.ManageTLS)
@@ -79,6 +80,14 @@ func preparePageData(name string, data *pageData) {
 				data.Section = "wordpress"
 			case "staging_created.html", "staging_deploy.html":
 				data.Section = "staging"
+			case "site_cron.html":
+				data.Section = "cron"
+			case "site_access.html":
+				data.Section = "access"
+			case "site_runtime.html":
+				data.Section = "runtime"
+			case "site_ftp.html":
+				data.Section = "ftp"
 			default:
 				data.Section = "overview"
 			}
@@ -90,6 +99,12 @@ func preparePageData(name string, data *pageData) {
 		data.NavSection = "overview"
 	case "monitoring.html":
 		data.NavSection = "monitoring"
+	case "fleet.html":
+		data.NavSection = "wordpress"
+	case "hosting.html":
+		data.NavSection = "hosting"
+	case "alerts.html":
+		data.NavSection = "alerts"
 	case "databases.html":
 		data.NavSection = "databases"
 	case "sites.html":

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/user"
@@ -15,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/lum1t4/wpx/internal/model"
 )
@@ -190,27 +192,43 @@ func accountName(siteID string) string {
 }
 
 type Host struct {
-	SiteRoot         string
-	NginxAvailable   string
-	NginxEnabled     string
-	CertificateRoot  string
-	DataRoot         string
-	Runner           Runner
-	Output           OutputRunner
-	Environment      EnvironmentRunner
-	Input            InputRunner
-	ResticPath       string
-	RclonePath       string
-	StagingAuthRoot  string
-	NginxLogRoot     string
-	NginxSnippetRoot string
-	PHPSnippetRoot   string
-	Identities       IdentityManager
-	PHP              PHPRuntime
-	Database         DatabaseManager
-	DatabaseAdmin    DatabaseAdminManager
-	WordPress        WordPressManager
-	Python           PythonRuntime
+	CronRoot                string
+	ProFTPDConfigRoot       string
+	PanelTLSCertPath        string
+	PanelTLSKeyPath         string
+	PostfixConfigPath       string
+	PolicyRCDPath           string
+	SecurityNginxRoot       string
+	SecurityNginxGlobal     string
+	SecurityFail2banJails   string
+	SecurityFail2banFilters string
+	AccessRoot              string
+	CloudflareRangesURL     string
+	CloudflareHTTPClient    *http.Client
+	CloudflareRangesTTL     time.Duration
+	SiteRoot                string
+	NginxAvailable          string
+	NginxEnabled            string
+	CertificateRoot         string
+	DataRoot                string
+	Runner                  Runner
+	Output                  OutputRunner
+	Environment             EnvironmentRunner
+	Input                   InputRunner
+	ResticPath              string
+	RclonePath              string
+	StagingAuthRoot         string
+	NginxLogRoot            string
+	NginxSnippetRoot        string
+	PHPSnippetRoot          string
+	Identities              IdentityManager
+	PHP                     PHPRuntime
+	Database                DatabaseManager
+	DatabaseAdmin           DatabaseAdminManager
+	WordPress               WordPressManager
+	Python                  PythonRuntime
+	HostingUnitRoot         string
+	NodeInstallRoot         string
 
 	mu       sync.Mutex
 	backupMu sync.Mutex
@@ -219,27 +237,42 @@ type Host struct {
 func DefaultHost(siteRoot, dataRoot string) *Host {
 	runner := ExecRunner{Output: os.Stderr}
 	return &Host{
-		SiteRoot:         siteRoot,
-		NginxAvailable:   "/etc/nginx/sites-available",
-		NginxEnabled:     "/etc/nginx/sites-enabled",
-		CertificateRoot:  "/etc/letsencrypt/live",
-		DataRoot:         dataRoot,
-		Runner:           runner,
-		Output:           ExecOutputRunner{},
-		Environment:      ExecEnvironmentRunner{},
-		Input:            ExecInputRunner{},
-		ResticPath:       "/usr/local/lib/wpx/restic",
-		RclonePath:       "/usr/local/lib/wpx/rclone",
-		StagingAuthRoot:  "/etc/wpx/staging",
-		NginxLogRoot:     "/var/log/nginx",
-		NginxSnippetRoot: "/etc/wpx/snippets/nginx",
-		PHPSnippetRoot:   "/etc/wpx/snippets/php",
-		Identities:       SystemIdentities{Runner: runner},
-		PHP:              &AptPHPRuntime{Runner: runner, ConfigRoot: "/etc/php", RunRoot: "/run/php", SnippetRoot: "/etc/wpx/snippets/php"},
-		Database:         &MariaDB{SecretsRoot: filepath.Join(dataRoot, "secrets", "sites"), SQL: ExecSQL{}},
-		DatabaseAdmin:    DefaultPHPMyAdmin(runner, dataRoot),
-		WordPress:        &WPCLI{Runner: runner, Path: "/usr/local/lib/wpx/wp-cli.phar"},
-		Python:           &SystemPython{Runner: runner, UnitRoot: "/etc/systemd/system", RunRoot: "/run/wpx-sites"},
+		CronRoot:                "/etc/cron.d",
+		ProFTPDConfigRoot:       "/etc/proftpd/conf.d",
+		PanelTLSCertPath:        "/var/lib/wpx/tls/panel.crt",
+		PanelTLSKeyPath:         "/var/lib/wpx/tls/panel.key",
+		PostfixConfigPath:       "/etc/postfix/main.cf",
+		PolicyRCDPath:           "/usr/sbin/policy-rc.d",
+		SecurityNginxRoot:       "/etc/wpx/security/sites",
+		SecurityNginxGlobal:     "/etc/nginx/conf.d/wpx-security-zones.conf",
+		SecurityFail2banJails:   "/etc/fail2ban/jail.d",
+		SecurityFail2banFilters: "/etc/fail2ban/filter.d",
+		AccessRoot:              "/etc/wpx/access/sites",
+		CloudflareRangesURL:     "https://api.cloudflare.com/client/v4/ips",
+		CloudflareRangesTTL:     24 * time.Hour,
+		SiteRoot:                siteRoot,
+		NginxAvailable:          "/etc/nginx/sites-available",
+		NginxEnabled:            "/etc/nginx/sites-enabled",
+		CertificateRoot:         "/etc/letsencrypt/live",
+		DataRoot:                dataRoot,
+		Runner:                  runner,
+		Output:                  ExecOutputRunner{},
+		Environment:             ExecEnvironmentRunner{},
+		Input:                   ExecInputRunner{},
+		ResticPath:              "/usr/local/lib/wpx/restic",
+		RclonePath:              "/usr/local/lib/wpx/rclone",
+		StagingAuthRoot:         "/etc/wpx/staging",
+		NginxLogRoot:            "/var/log/nginx",
+		NginxSnippetRoot:        "/etc/wpx/snippets/nginx",
+		PHPSnippetRoot:          "/etc/wpx/snippets/php",
+		Identities:              SystemIdentities{Runner: runner},
+		PHP:                     &AptPHPRuntime{Runner: runner, ConfigRoot: "/etc/php", RunRoot: "/run/php", SnippetRoot: "/etc/wpx/snippets/php"},
+		Database:                &MariaDB{SecretsRoot: filepath.Join(dataRoot, "secrets", "sites"), SQL: ExecSQL{}},
+		DatabaseAdmin:           DefaultPHPMyAdmin(runner, dataRoot),
+		WordPress:               &WPCLI{Runner: runner, Path: "/usr/local/lib/wpx/wp-cli.phar"},
+		Python:                  &SystemPython{Runner: runner, UnitRoot: "/etc/systemd/system", RunRoot: "/run/wpx-sites"},
+		HostingUnitRoot:         "/etc/systemd/system",
+		NodeInstallRoot:         "/opt/wpx",
 	}
 }
 
@@ -388,7 +421,14 @@ func (h *Host) Provision(ctx context.Context, site model.Site) error {
 	if err != nil {
 		return err
 	}
-	return h.activateNginx(ctx, site.ID, []byte(nginxConfig))
+	nginxConfig, err = h.decorateSiteConfig(site, nginxConfig)
+	if err != nil {
+		return err
+	}
+	if err := h.activateNginx(ctx, site.ID, []byte(nginxConfig)); err != nil {
+		return err
+	}
+	return h.SetSiteCronEnabled(ctx, site, true)
 }
 
 // ApplyPerformance reconciles the WordPress and Nginx sides from persisted
@@ -431,6 +471,10 @@ func (h *Host) ApplyPerformance(ctx context.Context, site model.Site) error {
 	if err != nil {
 		return err
 	}
+	httpConfig, err = h.decorateSiteConfig(site, httpConfig)
+	if err != nil {
+		return err
+	}
 	if err := h.activateNginx(ctx, site.ID, []byte(httpConfig)); err != nil {
 		return err
 	}
@@ -459,7 +503,7 @@ func ensurePHPWelcomePage(publicDir string, identity Identity) error {
 }
 
 func (h *Host) validate() error {
-	for name, path := range map[string]string{"site root": h.SiteRoot, "nginx available root": h.NginxAvailable, "nginx enabled root": h.NginxEnabled, "certificate root": h.CertificateRoot, "data root": h.DataRoot, "nginx snippet root": h.NginxSnippetRoot, "php snippet root": h.PHPSnippetRoot} {
+	for name, path := range map[string]string{"site access root": h.AccessRoot, "site security root": h.SecurityNginxRoot, "site root": h.SiteRoot, "nginx available root": h.NginxAvailable, "nginx enabled root": h.NginxEnabled, "certificate root": h.CertificateRoot, "data root": h.DataRoot, "nginx snippet root": h.NginxSnippetRoot, "php snippet root": h.PHPSnippetRoot} {
 		if !filepath.IsAbs(path) || filepath.Clean(path) != path || path == "/" {
 			return fmt.Errorf("%s must be an absolute, clean, non-root path", name)
 		}

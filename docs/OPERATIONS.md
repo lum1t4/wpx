@@ -33,6 +33,30 @@ invalid existing encryption key rather than replacing it. Before owner setup,
 use the new bootstrap token printed by the resumed attempt. Never delete
 `/var/lib/wpx`, the secret key, or the installation marker to bypass an error.
 
+## Site and server tools
+
+Open a site to use its Files, Cron, Access, Security and FTP sections. The global
+WordPress page lists installed core, plugins and themes across authorized sites;
+selected plugin updates use the existing recovery-backup workflow.
+
+- [File manager](dispatch/files.md): resumable uploads, downloads, multi-select,
+  search, copy/move and archives, with documented recursive-operation limits.
+- [Cron](dispatch/cron.md): scheduled argument vectors and replacement of the
+  WordPress visitor-triggered runner. Commands run as the site's Unix identity.
+- [Site access](dispatch/site-access.md): Basic authentication and Cloudflare
+  origin allowlisting, preserving certificate-validation paths.
+- [WordPress defenses](dispatch/security-defense.md): opt-in request limits,
+  fail2ban/nftables and access-log analysis. Existing installations can install
+  dependencies from Security. Cloudflare-only mode cannot be combined with
+  these origin-IP bans because the network peers are shared Cloudflare edges.
+- [Operator alerts](dispatch/operator-alerts.md): configure SMTP and individual
+  alert rules under Alerts; use the test action to verify actual delivery.
+- [Hosting services](dispatch/hosting-services.md): Node runtimes, TLS-only
+  ProFTPD accounts and optional local outbound Postfix. Mailbox hosting and
+  delivery-domain setup are separate from outbound submission.
+- [Languages and cloud detection](dispatch/localization-cloud.md): 33 locale
+  catalogs with English fallback, and optional provider metadata discovery.
+
 ## Choose panel access
 
 Access configuration is an SSH/root operation. It is separate from a hosted

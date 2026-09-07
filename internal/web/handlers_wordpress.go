@@ -57,11 +57,12 @@ func (s *Server) setWordPressPerformance(w http.ResponseWriter, r *http.Request,
 		http.Error(w, "permission denied", http.StatusForbidden)
 		return
 	}
-	if _, err := s.store.SetWordPressPerformance(r.Context(), user, site.ID, r.FormValue("redis") == "on", r.FormValue("fastcgi_cache") == "on"); err != nil {
+	jobID, err := s.store.SetWordPressPerformance(r.Context(), user, site.ID, r.FormValue("redis") == "on", r.FormValue("fastcgi_cache") == "on")
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	http.Redirect(w, r, "/sites/"+site.ID+"/wordpress?wordpress=queued", http.StatusSeeOther)
+	s.respondQueuedAction(w, r, user, jobID, "/sites/"+site.ID+"/wordpress?wordpress=queued", "Caching settings")
 }
 
 func (s *Server) updateWordPress(w http.ResponseWriter, r *http.Request, user store.User) {
