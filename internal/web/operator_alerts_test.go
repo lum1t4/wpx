@@ -5,10 +5,12 @@ package web
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 
+	"github.com/lum1t4/wpx/internal/model"
 	"github.com/lum1t4/wpx/internal/rbac"
 )
 
@@ -31,6 +33,8 @@ func TestOperatorAlertRoutesAuthorizeAndNeverRenderSMTPPassword(t *testing.T) {
 	response = navigationRequest(t, server, customer, http.MethodGet, "/alerts", nil)
 	requireNavigationStatus(t, response, http.StatusForbidden)
 	response = navigationRequest(t, server, customer, http.MethodPost, "/alerts", form)
+	requireNavigationStatus(t, response, http.StatusForbidden)
+	response = navigationRequest(t, server, customer, http.MethodPost, "/alerts/toggle", url.Values{"name": {"enabled"}, "value": {"no"}})
 	requireNavigationStatus(t, response, http.StatusForbidden)
 }
 
@@ -163,4 +167,77 @@ func TestOperatorAlertTestValidatesOnlySelectedChannel(t *testing.T) {
 	form.Set("test_channel", "all")
 	response = navigationRequest(t, server, owner, http.MethodPost, "/alerts/test", form)
 	requireNavigationStatus(t, response, http.StatusUnprocessableEntity)
+}
+
+func TestOperatorAlertChannelRuleSelectionsPersistIndependently(t *testing.T) {
+	server, owner, _ := navigationServer(t)
+	form := url.Values{
+		"channels_version": {"1"}, "rules_version": {"1"},
+		"cpu": {"yes"}, "memory": {"yes"}, "disk": {"yes"}, "services": {"yes"}, "ssl_expiry": {"yes"}, "updates": {"yes"}, "oom": {"yes"},
+		"cpu_percent": {"90"}, "memory_percent": {"90"}, "disk_percent": {"90"}, "ssl_expiry_days": {"14"}, "cooldown_minutes": {"60"},
+		"smtp_rule_cpu": {"yes"}, "slack_rule_memory": {"yes"}, "slack_rule_services": {"yes"},
+	}
+	requireNavigationStatus(t, navigationRequest(t, server, owner, http.MethodPost, "/alerts", form), http.StatusSeeOther)
+	settings, err := server.store.OperatorAlertSettings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.SMTPRules == nil || !settings.SMTPRules.CPU || settings.SMTPRules.Memory {
+		t.Fatalf("SMTP rules = %#v", settings.SMTPRules)
+	}
+	if settings.Slack.Rules == nil || !settings.Slack.Rules.Memory || !settings.Slack.Rules.Services || settings.Slack.Rules.CPU {
+		t.Fatalf("Slack rules = %#v", settings.Slack.Rules)
+	}
+	if settings.Telegram.Rules == nil || *settings.Telegram.Rules != (model.AlertRuleSelection{}) {
+		t.Fatalf("explicit empty Telegram rules = %#v", settings.Telegram.Rules)
+	}
+	page := navigationRequest(t, server, owner, http.MethodGet, "/alerts", nil)
+	requireNavigationStatus(t, page, http.StatusOK)
+	body := page.Body.String()
+	for _, field := range []string{"smtp_rule_cpu", "slack_rule_memory", "telegram_rule_oom"} {
+		if !strings.Contains(body, `name="`+field+`"`) {
+			t.Errorf("rendered form missing %s", field)
+		}
+	}
+}
+
+func TestOperatorAlertTogglePersistsImmediatelyWithoutUnsavedFormValues(t *testing.T) {
+	server, owner, _ := navigationServer(t)
+	base := url.Values{
+		"channels_version": {"1"}, "smtp_enabled": {"yes"},
+		"cpu_percent": {"90"}, "memory_percent": {"90"}, "disk_percent": {"90"}, "ssl_expiry_days": {"14"}, "cooldown_minutes": {"60"},
+		"host": {"saved.example.com"}, "port": {"587"}, "transport": {"starttls"}, "password": {"stored-secret"}, "from": {"alerts@example.com"}, "to": {"ops@example.com"},
+	}
+	requireNavigationStatus(t, navigationRequest(t, server, owner, http.MethodPost, "/alerts", base), http.StatusSeeOther)
+	missingCSRF := httptest.NewRequest(http.MethodPost, "/alerts/toggle", strings.NewReader(url.Values{"name": {"smtp_enabled"}, "value": {"no"}}.Encode()))
+	missingCSRF.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	missingCSRFResponse := httptest.NewRecorder()
+	server.toggleOperatorAlerts(missingCSRFResponse, missingCSRF, owner)
+	if missingCSRFResponse.Code != http.StatusForbidden {
+		t.Fatalf("missing CSRF status=%d", missingCSRFResponse.Code)
+	}
+	afterRejected, err := server.store.OperatorAlertSettings(context.Background())
+	if err != nil || !afterRejected.SMTPEnabled {
+		t.Fatalf("missing-CSRF toggle mutated settings: %#v err=%v", afterRejected, err)
+	}
+	toggle := navigationRequest(t, server, owner, http.MethodPost, "/alerts/toggle", url.Values{
+		"name": {"smtp_enabled"}, "value": {"no"}, "host": {"unsaved.example.com"},
+	})
+	if toggle.Code != http.StatusOK {
+		t.Fatalf("toggle status=%d body=%s", toggle.Code, toggle.Body.String())
+	}
+	settings, err := server.store.OperatorAlertSettings(context.Background())
+	if err != nil || settings.SMTPEnabled || settings.SMTP.Host != "saved.example.com" || settings.SMTP.Password != "stored-secret" {
+		t.Fatalf("narrow toggle changed unsaved configuration: %#v err=%v", settings, err)
+	}
+	page := navigationRequest(t, server, owner, http.MethodGet, "/alerts", nil)
+	requireNavigationStatus(t, page, http.StatusOK)
+	if strings.Contains(page.Body.String(), `name="smtp_enabled" value="yes" aria-controls="email-delivery-fields" aria-expanded="false" checked`) {
+		t.Fatal("disabled email channel re-enabled after refresh")
+	}
+
+	toggle = navigationRequest(t, server, owner, http.MethodPost, "/alerts/toggle", url.Values{"name": {"enabled"}, "value": {"yes"}})
+	if toggle.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("master enabled without a channel status=%d body=%s", toggle.Code, toggle.Body.String())
+	}
 }

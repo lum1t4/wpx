@@ -80,4 +80,43 @@ func TestOperatorAlertSettingsLegacyJSONKeepsSMTPEnabled(t *testing.T) {
 	if !loaded.SMTPEnabled {
 		t.Fatal("legacy SMTP channel was disabled")
 	}
+	if loaded.SMTPRules != nil || !loaded.RulesForChannel("smtp").CPU {
+		t.Fatalf("legacy SMTP rules did not inherit global rules: %#v", loaded.SMTPRules)
+	}
+}
+
+func TestOperatorAlertSettingsPersistsDisabledSMTPAndExplicitEmptyRules(t *testing.T) {
+	s := openTestStore(t)
+	if err := s.ConfigureSecretKey([]byte(strings.Repeat("m", 32))); err != nil {
+		t.Fatal(err)
+	}
+	owner, err := s.CreateOwner(context.Background(), "operator", "a-secure-test-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := model.DefaultOperatorAlertSettings()
+	settings.SMTPEnabled = false
+	settings.SMTPRules = &model.AlertRuleSelection{}
+	settings.Slack.Rules = &model.AlertRuleSelection{CPU: true}
+	if err := s.SaveOperatorAlertSettings(context.Background(), owner, settings); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := s.OperatorAlertSettings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.SMTPEnabled || loaded.SMTPRules == nil || loaded.SMTPRules.CPU || loaded.Slack.Rules == nil || !loaded.Slack.Rules.CPU {
+		t.Fatalf("channel settings did not round-trip: %#v", loaded)
+	}
+	var ciphertext []byte
+	if err := s.db.QueryRow(`SELECT config_ciphertext FROM operator_alert_settings WHERE id=1`).Scan(&ciphertext); err != nil {
+		t.Fatal(err)
+	}
+	plaintext, err := s.decrypt(ciphertext)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(plaintext), `"smtp_enabled":false`) || !strings.Contains(string(plaintext), `"smtp_rules":{`) {
+		t.Fatalf("explicit false/empty mask absent from stored JSON: %s", plaintext)
+	}
 }

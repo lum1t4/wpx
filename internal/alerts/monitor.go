@@ -106,16 +106,16 @@ func (m *Monitor) Evaluate(ctx context.Context) {
 	}
 	now := m.now().UTC()
 	if settings.CPU && snapshot.Error == "" && snapshot.Current.CPUReady {
-		m.condition(ctx, settings, "cpu", snapshot.Current.CPUPercent >= float64(settings.CPUPercent), 3, fmt.Sprintf("CPU usage is %.1f%% (threshold %d%%).", snapshot.Current.CPUPercent, settings.CPUPercent), resourceDetail(snapshot))
+		m.condition(ctx, settings, model.AlertCPU, "cpu", snapshot.Current.CPUPercent >= float64(settings.CPUPercent), 3, fmt.Sprintf("CPU usage is %.1f%% (threshold %d%%).", snapshot.Current.CPUPercent, settings.CPUPercent), resourceDetail(snapshot))
 	}
 	if settings.Memory && snapshot.Error == "" && snapshot.Current.MemoryReady {
-		m.condition(ctx, settings, "memory", snapshot.Current.MemoryPercent >= float64(settings.MemoryPercent), 3, fmt.Sprintf("Memory usage is %.1f%% (threshold %d%%).", snapshot.Current.MemoryPercent, settings.MemoryPercent), resourceDetail(snapshot))
+		m.condition(ctx, settings, model.AlertMemory, "memory", snapshot.Current.MemoryPercent >= float64(settings.MemoryPercent), 3, fmt.Sprintf("Memory usage is %.1f%% (threshold %d%%).", snapshot.Current.MemoryPercent, settings.MemoryPercent), resourceDetail(snapshot))
 	}
 	if settings.Disk && snapshot.Error == "" {
 		for _, disk := range snapshot.Current.Disks {
 			if disk.Error == "" && disk.Total > 0 {
 				percent := 100 * float64(disk.Used) / float64(disk.Total)
-				m.condition(ctx, settings, "disk:"+disk.Path, percent >= float64(settings.DiskPercent), 3, fmt.Sprintf("Disk usage on %s is %.1f%% (threshold %d%%).", disk.Path, percent, settings.DiskPercent), resourceDetail(snapshot))
+				m.condition(ctx, settings, model.AlertDisk, "disk:"+disk.Path, percent >= float64(settings.DiskPercent), 3, fmt.Sprintf("Disk usage on %s is %.1f%% (threshold %d%%).", disk.Path, percent, settings.DiskPercent), resourceDetail(snapshot))
 			}
 		}
 	}
@@ -126,10 +126,10 @@ func (m *Monitor) Evaluate(ctx context.Context) {
 			if detail == "" {
 				detail = resourceDetail(snapshot)
 			}
-			m.condition(ctx, settings, "service:"+service.Name, unhealthy, 1, fmt.Sprintf("Service %s is %s/%s (restarts %d, exit %d).", service.Name, service.Active, service.Sub, service.Restarts, service.ExitStatus), detail)
+			m.condition(ctx, settings, model.AlertServices, "service:"+service.Name, unhealthy, 1, fmt.Sprintf("Service %s is %s/%s (restarts %d, exit %d).", service.Name, service.Active, service.Sub, service.Restarts, service.ExitStatus), detail)
 			if service.Restarts > 0 {
 				event := fmt.Sprintf("Service %s has restarted %d times (current state %s/%s, exit %d).", service.Name, service.Restarts, service.Active, service.Sub, service.ExitStatus)
-				m.event(ctx, settings, "service-crash:"+service.Name, "WPX alert: service restart", event, detail)
+				m.event(ctx, settings, model.AlertServices, "service-crash:"+service.Name, "WPX alert: service restart", event, detail)
 			}
 		}
 	}
@@ -146,20 +146,20 @@ func (m *Monitor) Evaluate(ctx context.Context) {
 					summary = fmt.Sprintf("Certificate for %s expires in %d days (%s).", certificate.Domain, days, expiry.Format("2006-01-02"))
 				}
 			}
-			m.condition(ctx, settings, "ssl:"+certificate.SiteID, bad, 1, summary, certificate.Error)
+			m.condition(ctx, settings, model.AlertSSLExpiry, "ssl:"+certificate.SiteID, bad, 1, summary, certificate.Error)
 		}
 	}
 	if settings.Updates {
 		if update, updateErr := m.store.UpdateStatus(ctx); updateErr == nil && update.Status == "ok" && update.LatestVersion != "" {
-			m.condition(ctx, settings, "update", update.CurrentVersion != update.LatestVersion, 1, fmt.Sprintf("WPX %s is available; this server runs %s.\n%s", update.LatestVersion, update.CurrentVersion, update.ReleaseURL), "")
+			m.condition(ctx, settings, model.AlertUpdates, "update", update.CurrentVersion != update.LatestVersion, 1, fmt.Sprintf("WPX %s is available; this server runs %s.\n%s", update.LatestVersion, update.CurrentVersion, update.ReleaseURL), "")
 		}
 	}
 	if settings.OOM && len(diagnostics.OOMEvents) > 0 {
-		m.event(ctx, settings, "oom", "WPX alert: out of memory event", strings.Join(diagnostics.OOMEvents, "\n"), resourceDetail(snapshot))
+		m.event(ctx, settings, model.AlertOOM, "oom", "WPX alert: out of memory event", strings.Join(diagnostics.OOMEvents, "\n"), resourceDetail(snapshot))
 	}
 }
 
-func (m *Monitor) condition(ctx context.Context, settings model.OperatorAlertSettings, key string, bad bool, trigger int, summary, detail string) {
+func (m *Monitor) condition(ctx context.Context, settings model.OperatorAlertSettings, rule model.AlertRule, key string, bad bool, trigger int, summary, detail string) {
 	state, err := m.store.OperatorAlertState(ctx, key)
 	if err != nil {
 		m.logger.Error("load alert state", "key", key, "error", err)
@@ -184,7 +184,7 @@ func (m *Monitor) condition(ctx context.Context, settings model.OperatorAlertSet
 					identity = "open:1"
 					state.LastFingerprint = identity
 				}
-				_ = m.send(ctx, settings, key, identity, "WPX alert: "+key, summary, detail)
+				_ = m.send(ctx, settings, rule, key, identity, "WPX alert: "+key, summary, detail)
 			}
 		}
 	} else {
@@ -197,12 +197,12 @@ func (m *Monitor) condition(ctx context.Context, settings model.OperatorAlertSet
 				state.GoodSamples = 0
 				state.LastSentAt = now
 				state.LastFingerprint = "resolved:" + cycle
-				_ = m.send(ctx, settings, key, state.LastFingerprint, "WPX resolved: "+key, summary+" The condition has recovered.", detail)
+				_ = m.send(ctx, settings, rule, key, state.LastFingerprint, "WPX resolved: "+key, summary+" The condition has recovered.", detail)
 			}
 		} else {
 			state.GoodSamples = 0
 			if strings.HasPrefix(state.LastFingerprint, "resolved:") {
-				_ = m.send(ctx, settings, key, state.LastFingerprint, "WPX resolved: "+key, summary+" The condition has recovered.", detail)
+				_ = m.send(ctx, settings, rule, key, state.LastFingerprint, "WPX resolved: "+key, summary+" The condition has recovered.", detail)
 			}
 		}
 	}
@@ -230,7 +230,7 @@ func nextConditionCycle(phase string) string {
 	return strconv.FormatUint(cycle+1, 10)
 }
 
-func (m *Monitor) event(ctx context.Context, settings model.OperatorAlertSettings, key, subject, event, detail string) {
+func (m *Monitor) event(ctx context.Context, settings model.OperatorAlertSettings, rule model.AlertRule, key, subject, event, detail string) {
 	digest := fmt.Sprintf("%x", sha256.Sum256([]byte(event)))
 	state, err := m.store.OperatorAlertState(ctx, key)
 	if err != nil {
@@ -239,7 +239,7 @@ func (m *Monitor) event(ctx context.Context, settings model.OperatorAlertSetting
 	now := m.now().UTC()
 	cooldown := time.Duration(settings.CooldownMins) * time.Minute
 	if digest != state.LastFingerprint && (state.LastSentAt.IsZero() || now.Sub(state.LastSentAt) >= cooldown) {
-		if m.send(ctx, settings, key, digest, subject, event, detail) == nil {
+		if m.send(ctx, settings, rule, key, digest, subject, event, detail) == nil {
 			state.LastSentAt = now
 			state.LastFingerprint = digest
 		}
@@ -249,7 +249,7 @@ func (m *Monitor) event(ctx context.Context, settings model.OperatorAlertSetting
 	}
 }
 
-func (m *Monitor) send(ctx context.Context, settings model.OperatorAlertSettings, incidentKey, deliveryIdentity, subject, summary, detail string) error {
+func (m *Monitor) send(ctx context.Context, settings model.OperatorAlertSettings, rule model.AlertRule, incidentKey, deliveryIdentity, subject, summary, detail string) error {
 	subject = strings.NewReplacer("\r", " ", "\n", " ").Replace(subject)
 	if len(subject) > 160 {
 		subject = subject[:160]
@@ -264,17 +264,17 @@ func (m *Monitor) send(ctx context.Context, settings model.OperatorAlertSettings
 		send func() error
 	}
 	var deliveries []delivery
-	if settings.SMTPEnabled {
+	if settings.SMTPEnabled && settings.RulesForChannel("smtp").Allows(rule) {
 		deliveries = append(deliveries, delivery{"smtp", func() error { return m.sender.Send(ctx, settings.SMTP, subject, body) }})
 	}
-	if settings.Slack.Enabled {
+	if settings.Slack.Enabled && settings.RulesForChannel("slack").Allows(rule) {
 		deliveries = append(deliveries, delivery{"slack", func() error { return m.channels.SendSlack(ctx, settings.Slack, subject, body) }})
 	}
-	if settings.Telegram.Enabled {
+	if settings.Telegram.Enabled && settings.RulesForChannel("telegram").Allows(rule) {
 		deliveries = append(deliveries, delivery{"telegram", func() error { return m.channels.SendTelegram(ctx, settings.Telegram, subject, body) }})
 	}
 	if len(deliveries) == 0 {
-		return errors.New("no alert delivery channel enabled")
+		return nil
 	}
 	cooldown := time.Duration(settings.CooldownMins) * time.Minute
 	now := m.now().UTC()

@@ -112,6 +112,34 @@ func TestAlpha18FeatureVocabularyIsLocalized(t *testing.T) {
 	}
 }
 
+func TestAlpha19AlertVocabularyIsLocalized(t *testing.T) {
+	for _, option := range Supported() {
+		for _, key := range alpha19Keys {
+			if got := strings.TrimSpace(catalog[option.Tag][key]); got == "" {
+				t.Errorf("locale %q has no %q translation", option.Tag, key)
+			}
+		}
+	}
+
+	tests := []struct {
+		locale Locale
+		key    string
+		want   string
+	}{
+		{locale: "it", key: "notify_for", want: "Invia notifiche per"},
+		{locale: "it", key: "save_changes", want: "Salva modifiche"},
+		{locale: "de", key: "high_memory", want: "Hohe Speicherauslastung"},
+		{locale: "ja", key: "high_disk", want: "ディスク使用率が高い"},
+		{locale: "pt-BR", key: "saving", want: "Salvando"},
+		{locale: "zh-TW", key: "high_cpu", want: "CPU 使用率過高"},
+	}
+	for _, test := range tests {
+		if got := T(test.locale, test.key); got != test.want {
+			t.Errorf("T(%q, %q) = %q, want %q", test.locale, test.key, got, test.want)
+		}
+	}
+}
+
 func TestResolveCookieThenLanguageHeader(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header.Set("Accept-Language", "fr-CA;q=0.9,en;q=0.8")

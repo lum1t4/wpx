@@ -4,6 +4,36 @@ This record separates automated coverage, development previews, and real host
 observations. Results apply to the candidate and environment described here;
 they are not a claim that every supported workflow has been exercised live.
 
+## 2026-09-08: persistent alert channels and reusable WordPress sign-in
+
+The alpha.19 candidate includes the alpha.18 changes recorded below. Alpha.18
+passed GitHub Verify on `a7606687e4816e27058e1affe2390fbf66eec408`; its Release
+run was cancelled before publication to incorporate the additional fixes in a
+new tag. The alpha.18 tag was not moved and was not installed on the VPS.
+
+Full local Go tests and vet passed, along with JavaScript syntax, generated CSS,
+direct Tailwind policy, Go formatting, shell syntax and diff checks. Independent
+review covered exact managed-file cleanup, private capability ownership, FIFO/
+symlink/hardlink refusal, atomic publication and claim, scoped bodyless redirects,
+per-channel notification routing, and confirmed versus uncertain save outcomes.
+
+Native Ubuntu 24.04 ARM64/PHP 8.3.6 executed the final generated login handler.
+Twelve concurrent submissions of one capability produced one 302/authentication
+and eleven 410 responses. Replay and expiry returned 410. A simulated fatal
+WordPress bootstrap consumed the capability before failing, and replay remained
+unavailable. The GET bridge kept the fragment out of its response and request
+log. The disposable fixture was removed.
+
+Actual Firefox 141 used a disposable database and the real alert handlers to
+check save/refresh persistence, independent masks, secret redaction, disabling
+the last channel, rapid toggles, rejected saves and malformed successful replies.
+Uncertain replies required refresh instead of falsely reporting success. All
+notification sends and non-alert mutations were blocked in this fixture.
+Global/site database lists and Create/Delete dialogs passed desktop and 390px
+light/dark checks, including contained layout, focus, Escape, backdrop dismissal,
+required-field validation and old create fragments. Browser credential reveal
+was not exercised; authorization and reveal behavior have Go test coverage.
+
 ## 2026-09-08: plugin recovery and WordPress operations
 
 The live `ds2.mitadev.com` incident was a PHP fatal error in

@@ -35,20 +35,88 @@ type OperatorAlertSettings struct {
 	Cooldown      time.Duration       `json:"-"`
 	CooldownMins  int                 `json:"cooldown_minutes"`
 	SMTPEnabled   bool                `json:"smtp_enabled"`
+	SMTPRules     *AlertRuleSelection `json:"smtp_rules,omitempty"`
 	SMTP          SMTPConfig          `json:"smtp"`
 	Slack         SlackAlertConfig    `json:"slack"`
 	Telegram      TelegramAlertConfig `json:"telegram"`
 }
 
 type SlackAlertConfig struct {
-	Enabled    bool   `json:"enabled"`
-	WebhookURL string `json:"webhook_url,omitempty"`
+	Enabled    bool                `json:"enabled"`
+	WebhookURL string              `json:"webhook_url,omitempty"`
+	Rules      *AlertRuleSelection `json:"rules,omitempty"`
 }
 
 type TelegramAlertConfig struct {
-	Enabled  bool   `json:"enabled"`
-	BotToken string `json:"bot_token,omitempty"`
-	ChatID   string `json:"chat_id,omitempty"`
+	Enabled  bool                `json:"enabled"`
+	BotToken string              `json:"bot_token,omitempty"`
+	ChatID   string              `json:"chat_id,omitempty"`
+	Rules    *AlertRuleSelection `json:"rules,omitempty"`
+}
+
+type AlertRule string
+
+const (
+	AlertCPU       AlertRule = "cpu"
+	AlertMemory    AlertRule = "memory"
+	AlertDisk      AlertRule = "disk"
+	AlertServices  AlertRule = "services"
+	AlertSSLExpiry AlertRule = "ssl_expiry"
+	AlertUpdates   AlertRule = "updates"
+	AlertOOM       AlertRule = "oom"
+)
+
+type AlertRuleSelection struct {
+	CPU       bool `json:"cpu,omitempty"`
+	Memory    bool `json:"memory,omitempty"`
+	Disk      bool `json:"disk,omitempty"`
+	Services  bool `json:"services,omitempty"`
+	SSLExpiry bool `json:"ssl_expiry,omitempty"`
+	Updates   bool `json:"updates,omitempty"`
+	OOM       bool `json:"oom,omitempty"`
+}
+
+func (selection AlertRuleSelection) Allows(rule AlertRule) bool {
+	switch rule {
+	case AlertCPU:
+		return selection.CPU
+	case AlertMemory:
+		return selection.Memory
+	case AlertDisk:
+		return selection.Disk
+	case AlertServices:
+		return selection.Services
+	case AlertSSLExpiry:
+		return selection.SSLExpiry
+	case AlertUpdates:
+		return selection.Updates
+	case AlertOOM:
+		return selection.OOM
+	default:
+		return false
+	}
+}
+
+func (settings OperatorAlertSettings) GlobalRules() AlertRuleSelection {
+	return AlertRuleSelection{CPU: settings.CPU, Memory: settings.Memory, Disk: settings.Disk, Services: settings.Services, SSLExpiry: settings.SSLExpiry, Updates: settings.Updates, OOM: settings.OOM}
+}
+
+func (settings OperatorAlertSettings) RulesForChannel(channel string) AlertRuleSelection {
+	var configured *AlertRuleSelection
+	switch channel {
+	case "smtp":
+		configured = settings.SMTPRules
+	case "slack":
+		configured = settings.Slack.Rules
+	case "telegram":
+		configured = settings.Telegram.Rules
+	default:
+		return AlertRuleSelection{}
+	}
+	if configured == nil {
+		return settings.GlobalRules()
+	}
+	return *configured
 }
 
 type SMTPConfig struct {

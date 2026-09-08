@@ -259,6 +259,9 @@ func (s *Server) renderSiteDatabases(w http.ResponseWriter, r *http.Request, use
 	if message != "" {
 		data.Error = message
 	}
+	if status == http.StatusBadRequest && r.Method == http.MethodPost && r.URL.Path == "/sites/"+url.PathEscape(site.ID)+"/databases" {
+		data.Form = map[string]string{"open_create": "yes", "label": r.FormValue("label")}
+	}
 	s.renderStatus(w, "site.html", status, data)
 }
 
@@ -353,6 +356,9 @@ func (s *Server) renderDatabases(w http.ResponseWriter, r *http.Request, user st
 	data := pageData{Title: "Databases", User: &user, CSRF: s.ensureCSRF(w, r), Databases: databases, Sites: sites, DatabaseAdminStatus: adminStatus, SelectedDatabase: selected}
 	if message != "" {
 		data.Error = message
+	}
+	if status == http.StatusBadRequest && r.Method == http.MethodPost && r.URL.Path == "/databases" {
+		data.Form = map[string]string{"open_create": "yes", "label": r.FormValue("label"), "site_id": r.FormValue("site_id")}
 	}
 	if r.URL.Query().Get("created") == "queued" {
 		data.Message = "Database creation is queued. Activity will show when it is ready."

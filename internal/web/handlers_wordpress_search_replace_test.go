@@ -16,8 +16,8 @@ import (
 )
 
 type searchReplaceWebBroker struct {
-	calls     int
-	tableName string
+	calls   int
+	invalid bool
 }
 
 func (b *searchReplaceWebBroker) Call(_ context.Context, operation broker.Operation, _ string, input, output any) error {
@@ -29,13 +29,12 @@ func (b *searchReplaceWebBroker) Call(_ context.Context, operation broker.Operat
 	if !request.DryRun {
 		return nil
 	}
-	tableName := b.tableName
-	if tableName == "" {
-		tableName = "wp_posts"
+	if b.invalid {
+		*output.(*broker.WordPressSearchReplaceResult) = broker.WordPressSearchReplaceResult{Tables: -1, Replacements: 3}
+		return nil
 	}
 	*output.(*broker.WordPressSearchReplaceResult) = broker.WordPressSearchReplaceResult{
-		Tables: 1, Replacements: 3,
-		TableResults: []broker.WordPressSearchReplaceTableResult{{Name: tableName, Replacements: 3}},
+		Tables: 2, Replacements: 3,
 	}
 	return nil
 }
@@ -109,14 +108,14 @@ func TestWordPressSearchReplaceRejectsCSRFAndChangedPreview(t *testing.T) {
 	if response.Code != http.StatusForbidden || privileged.calls != 0 {
 		t.Fatalf("missing CSRF status=%d broker calls=%d", response.Code, privileged.calls)
 	}
-	privileged.tableName = `<img src=x onerror=alert(1)>`
+	privileged.invalid = true
 	untrusted := navigationRequest(t, server, fixture.owner, http.MethodPost, "/sites/fleet-web-one/wordpress/search-replace/preview", url.Values{
 		"search": {"old"}, "replace": {"new"}, "target_id": {fixture.targetID},
 	})
-	if untrusted.Code != http.StatusInternalServerError || strings.Contains(untrusted.Body.String(), privileged.tableName) {
+	if untrusted.Code != http.StatusInternalServerError {
 		t.Fatalf("untrusted broker result status=%d body=%s", untrusted.Code, untrusted.Body.String())
 	}
-	privileged.tableName = ""
+	privileged.invalid = false
 
 	preview := navigationRequest(t, server, fixture.owner, http.MethodPost, "/sites/fleet-web-one/wordpress/search-replace/preview", url.Values{
 		"search": {"old"}, "replace": {"new"}, "target_id": {fixture.targetID},

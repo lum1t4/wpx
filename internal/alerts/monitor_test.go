@@ -132,14 +132,14 @@ func TestOOMEventsAreFingerprintDeduplicatedAndCooledDown(t *testing.T) {
 	settings, _ := monitor.store.OperatorAlertSettings(context.Background())
 	settings.OOM = true
 	settings.CooldownMins = 60
-	monitor.event(context.Background(), settings, "oom", "WPX alert: OOM", "Killed process 123", "snapshot")
-	monitor.event(context.Background(), settings, "oom", "WPX alert: OOM", "Killed process 123", "snapshot")
-	monitor.event(context.Background(), settings, "oom", "WPX alert: OOM", "Killed process 456", "snapshot")
+	monitor.event(context.Background(), settings, model.AlertOOM, "oom", "WPX alert: OOM", "Killed process 123", "snapshot")
+	monitor.event(context.Background(), settings, model.AlertOOM, "oom", "WPX alert: OOM", "Killed process 123", "snapshot")
+	monitor.event(context.Background(), settings, model.AlertOOM, "oom", "WPX alert: OOM", "Killed process 456", "snapshot")
 	if len(sender.mail) != 1 {
 		t.Fatalf("cooldown allowed %d messages", len(sender.mail))
 	}
 	monitor.now = func() time.Time { return time.Date(2026, 9, 8, 13, 1, 0, 0, time.UTC) }
-	monitor.event(context.Background(), settings, "oom", "WPX alert: OOM", "Killed process 456", "snapshot")
+	monitor.event(context.Background(), settings, model.AlertOOM, "oom", "WPX alert: OOM", "Killed process 456", "snapshot")
 	if len(sender.mail) != 2 {
 		t.Fatal("new event remained suppressed after cooldown")
 	}
@@ -154,14 +154,14 @@ func TestPartialChannelFailureDoesNotRepeatSuccessfulDelivery(t *testing.T) {
 		t.Fatal(err)
 	}
 	settings.Slack = model.SlackAlertConfig{Enabled: true, WebhookURL: "https://hooks.slack.com/services/T000/B000/secret_token"}
-	monitor.condition(context.Background(), settings, "cpu-partial", true, 1, "high CPU", "snapshot 1")
-	monitor.condition(context.Background(), settings, "cpu-partial", true, 1, "higher CPU", "snapshot 2")
+	monitor.condition(context.Background(), settings, model.AlertCPU, "cpu-partial", true, 1, "high CPU", "snapshot 1")
+	monitor.condition(context.Background(), settings, model.AlertCPU, "cpu-partial", true, 1, "higher CPU", "snapshot 2")
 	if len(smtp.mail) != 1 || channels.slackCalls != 1 {
 		t.Fatalf("successful or failed channel repeated inside cooldown: SMTP=%d Slack=%d", len(smtp.mail), channels.slackCalls)
 	}
 	channels.slackErr = nil
 	monitor.now = func() time.Time { return time.Date(2026, 9, 8, 13, 1, 0, 0, time.UTC) }
-	monitor.condition(context.Background(), settings, "cpu-partial", true, 1, "highest CPU", "snapshot 3")
+	monitor.condition(context.Background(), settings, model.AlertCPU, "cpu-partial", true, 1, "highest CPU", "snapshot 3")
 	if len(smtp.mail) != 1 || channels.slackCalls != 2 {
 		t.Fatalf("retry did not target only failed channel: SMTP=%d Slack=%d", len(smtp.mail), channels.slackCalls)
 	}
@@ -169,10 +169,10 @@ func TestPartialChannelFailureDoesNotRepeatSuccessfulDelivery(t *testing.T) {
 	if err != nil || !state.Active {
 		t.Fatalf("incident not activated after all channels delivered: %#v %v", state, err)
 	}
-	monitor.condition(context.Background(), settings, "cpu-partial", false, 1, "normal CPU", "recovery 1")
-	monitor.condition(context.Background(), settings, "cpu-partial", false, 1, "normal CPU", "recovery 2")
+	monitor.condition(context.Background(), settings, model.AlertCPU, "cpu-partial", false, 1, "normal CPU", "recovery 1")
+	monitor.condition(context.Background(), settings, model.AlertCPU, "cpu-partial", false, 1, "normal CPU", "recovery 2")
 	monitor.now = func() time.Time { return time.Date(2026, 9, 8, 14, 2, 0, 0, time.UTC) }
-	monitor.condition(context.Background(), settings, "cpu-partial", true, 1, "high CPU again", "new incident")
+	monitor.condition(context.Background(), settings, model.AlertCPU, "cpu-partial", true, 1, "high CPU again", "new incident")
 	if len(smtp.mail) != 3 || channels.slackCalls != 4 {
 		t.Fatalf("recovery and new incident cycle deliveries: SMTP=%d Slack=%d", len(smtp.mail), channels.slackCalls)
 	}
@@ -200,18 +200,62 @@ func TestPartialOpenThenRecoveryAndNewIncidentKeepsChannelLifecycle(t *testing.T
 	}
 	settings.Slack = model.SlackAlertConfig{Enabled: true, WebhookURL: "https://hooks.slack.com/services/T000/B000/secret_token"}
 
-	monitor.condition(context.Background(), settings, "cpu-cycle", true, 1, "high CPU", "open snapshot")
-	monitor.condition(context.Background(), settings, "cpu-cycle", false, 1, "normal CPU", "recovery sample 1")
-	monitor.condition(context.Background(), settings, "cpu-cycle", false, 1, "normal CPU", "recovery sample 2")
+	monitor.condition(context.Background(), settings, model.AlertCPU, "cpu-cycle", true, 1, "high CPU", "open snapshot")
+	monitor.condition(context.Background(), settings, model.AlertCPU, "cpu-cycle", false, 1, "normal CPU", "recovery sample 1")
+	monitor.condition(context.Background(), settings, model.AlertCPU, "cpu-cycle", false, 1, "normal CPU", "recovery sample 2")
 	if len(smtp.mail) != 2 || channels.slackCalls != 1 {
 		t.Fatalf("open/recovery delivery counts: SMTP=%d Slack=%d", len(smtp.mail), channels.slackCalls)
 	}
 
 	channels.slackErr = nil
 	monitor.now = func() time.Time { return time.Date(2026, 9, 8, 13, 1, 0, 0, time.UTC) }
-	monitor.condition(context.Background(), settings, "cpu-cycle", false, 1, "normal CPU", "changed recovery snapshot")
-	monitor.condition(context.Background(), settings, "cpu-cycle", true, 1, "high CPU again", "new open snapshot")
+	monitor.condition(context.Background(), settings, model.AlertCPU, "cpu-cycle", false, 1, "normal CPU", "changed recovery snapshot")
+	monitor.condition(context.Background(), settings, model.AlertCPU, "cpu-cycle", true, 1, "high CPU again", "new open snapshot")
 	if len(smtp.mail) != 3 || channels.slackCalls != 3 {
 		t.Fatalf("recovery retry/new cycle delivery counts: SMTP=%d Slack=%d", len(smtp.mail), channels.slackCalls)
+	}
+}
+
+func TestDeliveryUsesIndependentExplicitChannelRuleMasks(t *testing.T) {
+	monitor, _, smtp, _ := alertTestMonitor(t)
+	channels := &fakeChannelSender{}
+	monitor.channels = channels
+	settings, err := monitor.store.OperatorAlertSettings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings.Slack = model.SlackAlertConfig{Enabled: true, WebhookURL: "https://hooks.slack.com/services/T000/B000/secret_token", Rules: &model.AlertRuleSelection{Memory: true}}
+	settings.Telegram = model.TelegramAlertConfig{Enabled: true, BotToken: "123456789:abcdefghijklmnopqrstuvwxyzABCDEFGHI", ChatID: "123", Rules: &model.AlertRuleSelection{}}
+	settings.SMTPRules = &model.AlertRuleSelection{CPU: true}
+
+	if err := monitor.send(context.Background(), settings, model.AlertCPU, "masked-cpu", "open:1", "CPU", "high", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := monitor.send(context.Background(), settings, model.AlertMemory, "masked-memory", "open:1", "Memory", "high", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := monitor.send(context.Background(), settings, model.AlertDisk, "masked-disk", "open:1", "Disk", "high", ""); err != nil {
+		t.Fatal(err)
+	}
+	if len(smtp.mail) != 1 || channels.slackCalls != 1 || channels.telegramCalls != 0 {
+		t.Fatalf("masked deliveries: SMTP=%d Slack=%d Telegram=%d", len(smtp.mail), channels.slackCalls, channels.telegramCalls)
+	}
+}
+
+func TestLegacyNilChannelRulesInheritGlobalDetectionRules(t *testing.T) {
+	monitor, _, smtp, _ := alertTestMonitor(t)
+	channels := &fakeChannelSender{}
+	monitor.channels = channels
+	settings, _ := monitor.store.OperatorAlertSettings(context.Background())
+	settings.Slack = model.SlackAlertConfig{Enabled: true, WebhookURL: "https://hooks.slack.com/services/T000/B000/secret_token"}
+	settings.Memory = false
+	if err := monitor.send(context.Background(), settings, model.AlertCPU, "legacy-cpu", "open:1", "CPU", "high", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := monitor.send(context.Background(), settings, model.AlertMemory, "legacy-memory", "open:1", "Memory", "high", ""); err != nil {
+		t.Fatal(err)
+	}
+	if len(smtp.mail) != 1 || channels.slackCalls != 1 {
+		t.Fatalf("legacy inheritance: SMTP=%d Slack=%d", len(smtp.mail), channels.slackCalls)
 	}
 }

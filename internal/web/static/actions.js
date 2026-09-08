@@ -106,15 +106,16 @@
     while (isCurrent(generation, node) && response && (response.status === "queued" || response.status === "running") && Date.now() < expires) {
       showStatus(node, response);
       await pause(450);
-      if (!isCurrent(generation, node)) return;
+      if (!isCurrent(generation, node)) return response?.status;
       response = await requestJSON(response.poll_url, { headers: { "X-WPX-Action": "partial" }, signal });
     }
-    if (!response || !isCurrent(generation, node)) return;
+    if (!response || !isCurrent(generation, node)) return response?.status;
     showStatus(node, response);
     if (response.status === "succeeded") {
       await pause(180);
       if (isCurrent(generation, node)) await refreshMain(response.redirect_url, generation, signal);
     }
+    return response.status;
   }
 
   window.addEventListener("pagehide", cancelPending);
@@ -143,6 +144,7 @@
     if (button) button.disabled = true;
     const actionLabel = button?.dataset.actionLabel || form.dataset.actionLabel;
     node.textContent = actionLabel ? `${actionLabel}…` : "Working…";
+    let keepDisabled = false;
     try {
       const response = await requestJSON(actionURL, {
         method: (method || "post").toUpperCase(),
@@ -150,14 +152,16 @@
         headers: { "X-WPX-Action": "partial", "Accept": "application/json" },
         signal: controller.signal,
       });
-      await follow(response, node, generation, controller.signal);
+      keepDisabled = response.status === "queued" || response.status === "running";
+      const status = await follow(response, node, generation, controller.signal);
+      keepDisabled = status === "queued" || status === "running";
     } catch (error) {
       if (error.name === "AbortError") return;
       node.className = "mt-3 text-sm text-red-700 dark:text-red-300";
       node.textContent = error.message || "The response could not be loaded. Check Activity before retrying.";
     } finally {
       if (currentController === controller) currentController = undefined;
-      if (button && document.contains(button)) button.disabled = false;
+      if (button && document.contains(button) && !keepDisabled) button.disabled = false;
     }
   });
 })();

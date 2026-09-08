@@ -2,12 +2,16 @@ package web
 
 import (
 	"net/http"
+	"net/url"
+	"regexp"
 
 	"github.com/lum1t4/wpx/internal/broker"
 	"github.com/lum1t4/wpx/internal/model"
 	"github.com/lum1t4/wpx/internal/rbac"
 	"github.com/lum1t4/wpx/internal/store"
 )
+
+var wordpressLoginFragment = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 // WordPress actions authorize the selected site before crossing the broker
 // boundary. Durable changes are queued; one-click login and inventory are reads
@@ -135,5 +139,18 @@ func (s *Server) wordpressLogin(w http.ResponseWriter, r *http.Request, user sto
 		s.renderStatus(w, "site.html", http.StatusBadGateway, pageData{Title: site.Domain, User: &user, CSRF: s.ensureCSRF(w, r), Site: &site, CanManageUsers: rbac.Allows(user.Role, rbac.ManageUsers), CanWordPressLogin: true, Error: err.Error()})
 		return
 	}
-	http.Redirect(w, r, result.URL, http.StatusSeeOther)
+	target, err := url.Parse(result.URL)
+	expectedScheme := "http"
+	if site.TLSStatus == "active" {
+		expectedScheme = "https"
+	}
+	if err != nil || target.Scheme != expectedScheme || target.Host != site.Domain || target.User != nil || target.Path != "/wpx-login-handler.php" || target.RawQuery != "" || !wordpressLoginFragment.MatchString(target.Fragment) {
+		http.Error(w, "could not open WordPress administration", http.StatusBadGateway)
+		return
+	}
+	// http.Redirect writes a small HTML body containing the Location value.
+	// This capability must exist only in the Location fragment, never a body.
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Location", target.String())
+	w.WriteHeader(http.StatusSeeOther)
 }

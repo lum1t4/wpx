@@ -63,6 +63,60 @@ func TestDatabaseCreateReturnsRealQueuedAction(t *testing.T) {
 	}
 }
 
+func TestDatabasePagesUseUnifiedListsAndNativeDialogs(t *testing.T) {
+	server, owner, _ := navigationServer(t)
+	ctx := context.Background()
+	navigationSite(t, server, owner, model.Site{ID: "database-ui-site", Domain: "app.example.com", Kind: model.PHP, PHPVersion: "8.4"})
+	navigationSite(t, server, owner, model.Site{ID: "database-ui-wordpress", Domain: "blog.example.com", Kind: model.WordPress, PHPVersion: "8.4"})
+	database, _, err := server.store.CreateDatabase(ctx, owner, "database-ui-site", "Store data")
+	if err != nil {
+		t.Fatal(err)
+	}
+	job, found, err := server.store.ClaimNextJob(ctx)
+	if err != nil || !found || job.TargetID != database.ID {
+		t.Fatalf("claim database job: job=%#v found=%t err=%v", job, found, err)
+	}
+	if err := server.store.FinishJob(ctx, job, "{}", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.store.EnqueueDatabaseAdminInstall(ctx, owner); err != nil {
+		t.Fatal(err)
+	}
+	job, found, err = server.store.ClaimNextJob(ctx)
+	if err != nil || !found || job.Kind != "database.admin_install" {
+		t.Fatalf("claim phpMyAdmin job: job=%#v found=%t err=%v", job, found, err)
+	}
+	if err := server.store.FinishJob(ctx, job, "{}", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	response := navigationRequest(t, server, owner, http.MethodGet, "/databases", nil)
+	requireNavigationStatus(t, response, http.StatusOK)
+	body := response.Body.String()
+	for _, want := range []string{"Store data", "blog.example.com", `data-database-create-dialog`, `data-database-delete-dialog`, `Open phpMyAdmin`, assetURL("databases.js"), `<noscript>`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("global database page is missing %q", want)
+		}
+	}
+	if strings.Contains(body, ">Ready<") || strings.Contains(body, "Application databases") || strings.Contains(body, "WordPress databases") {
+		t.Fatal("global database page retained the split inventory or Ready strip")
+	}
+
+	response = navigationRequest(t, server, owner, http.MethodPost, "/databases", url.Values{"site_id": {"database-ui-site"}, "label": {"x"}})
+	requireNavigationStatus(t, response, http.StatusBadRequest)
+	body = response.Body.String()
+	if !strings.Contains(body, `data-open-on-load`) || !strings.Contains(body, `value="database-ui-site" selected`) || !strings.Contains(body, `name="label" value="x"`) {
+		t.Fatal("invalid create did not reopen the dialog with nonsecret form state")
+	}
+
+	response = navigationRequest(t, server, owner, http.MethodGet, "/sites/database-ui-site/databases", nil)
+	requireNavigationStatus(t, response, http.StatusOK)
+	body = response.Body.String()
+	if !strings.Contains(body, "Store data") || strings.Contains(body, "blog.example.com") || !strings.Contains(body, `id="create-site-database"`) {
+		t.Fatal("site database list or create dialog is not scoped to its site")
+	}
+}
+
 func TestDatabaseAdminCookiesExcludePanelSecrets(t *testing.T) {
 	got := databaseAdminCookies("wpx_session=panel-secret; __Secure-phpMyAdmin_https=session; wpx_csrf=csrf-secret; __Secure-pma_lang_https=en")
 	if got != "__Secure-phpMyAdmin_https=session; __Secure-pma_lang_https=en" {

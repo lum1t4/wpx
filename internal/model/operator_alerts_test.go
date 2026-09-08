@@ -63,3 +63,20 @@ func TestOperatorAlertChannelsValidateIndependently(t *testing.T) {
 		t.Fatal("invalid Telegram chat ID accepted")
 	}
 }
+
+func TestOperatorAlertRuleSelectionSupportsLegacyAndExplicitEmptyMasks(t *testing.T) {
+	settings := DefaultOperatorAlertSettings()
+	for _, rule := range []AlertRule{AlertCPU, AlertMemory, AlertDisk, AlertServices, AlertSSLExpiry, AlertUpdates, AlertOOM} {
+		if !settings.RulesForChannel("smtp").Allows(rule) {
+			t.Errorf("legacy SMTP mask did not inherit %s", rule)
+		}
+	}
+	settings.SMTPRules = &AlertRuleSelection{}
+	if settings.RulesForChannel("smtp").Allows(AlertCPU) {
+		t.Fatal("explicit empty SMTP mask inherited global CPU unexpectedly")
+	}
+	settings.Slack.Rules = &AlertRuleSelection{Disk: true}
+	if !settings.RulesForChannel("slack").Allows(AlertDisk) || settings.RulesForChannel("slack").Allows(AlertCPU) {
+		t.Fatal("explicit Slack mask was not applied independently")
+	}
+}

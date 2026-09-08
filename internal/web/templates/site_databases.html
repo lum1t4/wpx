@@ -1,97 +1,41 @@
 {{define "site-databases"}}
-<div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-  <div class="flex flex-wrap items-center gap-2">
-    <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">phpMyAdmin</span>
-    <span class="rounded-md border px-2 py-0.5 text-xs font-medium {{if eq .DatabaseAdminStatus "active"}}border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300{{else if eq .DatabaseAdminStatus "failed"}}border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300{{else}}border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-600 dark:text-zinc-300{{end}}">{{if eq .DatabaseAdminStatus "not_installed"}}Not installed{{else if eq .DatabaseAdminStatus "queued"}}Installing{{else if eq .DatabaseAdminStatus "active"}}Ready{{else}}Failed{{end}}</span>
-  </div>
-  {{if eq .Site.Status "active"}}<a href="#create-site-database" class="inline-flex w-fit items-center justify-center rounded-md bg-zinc-950 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100">Create database</a>{{end}}
-</div>
+<script src="{{asset "databases.js"}}" defer></script>
+<div class="min-w-0 max-w-6xl">
+  <div class="flex justify-end">{{if eq .Site.Status "active"}}<a href="#create-site-database-fallback" data-database-create-open class="inline-flex items-center gap-2 rounded-md bg-zinc-950 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100"><span class="size-4">{{template "icon-plus"}}</span>Create database</a>{{end}}</div>
 
-{{if ne .DatabaseAdminStatus "active"}}
-<section aria-label="phpMyAdmin setup" class="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-5 py-4">
-  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <p class="text-sm text-zinc-600 dark:text-zinc-300">Database browser unavailable</p>
-    {{if .CanManageServer}}<a class="w-fit rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 transition hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100" href="/databases">Manage phpMyAdmin</a>{{else}}<p class="text-sm text-zinc-500 dark:text-zinc-400">Ask a server administrator to install it.</p>{{end}}
-  </div>
-</section>
-{{end}}
+  {{if and (ne .DatabaseAdminStatus "active") .CanManageServer}}
+  <aside class="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border {{if eq .DatabaseAdminStatus "failed"}}border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950{{else}}border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950{{end}} px-4 py-3" aria-label="phpMyAdmin setup"><p class="text-sm {{if eq .DatabaseAdminStatus "failed"}}text-red-700 dark:text-red-300{{else}}text-zinc-600 dark:text-zinc-300{{end}}">{{if eq .DatabaseAdminStatus "queued"}}Installing phpMyAdmin{{else}}phpMyAdmin is unavailable{{end}}</p><a class="text-sm font-medium text-zinc-800 dark:text-zinc-200 underline underline-offset-4" href="{{if eq .DatabaseAdminStatus "queued"}}/jobs{{else}}/databases{{end}}">{{if eq .DatabaseAdminStatus "queued"}}View activity{{else}}Set up{{end}}</a></aside>
+  {{end}}
 
-{{if .SelectedDatabase}}
-<section aria-labelledby="site-database-credentials-heading" class="mt-6 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-  <div class="flex flex-col gap-3 border-b border-zinc-200 dark:border-zinc-800 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-    <h2 id="site-database-credentials-heading" class="text-base font-semibold text-zinc-950 dark:text-zinc-100">Credentials · {{.SelectedDatabase.Label}}</h2>
-    <a class="w-fit text-sm font-medium text-zinc-700 dark:text-zinc-300 underline underline-offset-4 hover:text-zinc-950 dark:hover:text-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100" href="/sites/{{.Site.ID}}/databases">Hide credentials</a>
-  </div>
-  <dl class="grid gap-4 p-5 sm:grid-cols-2">
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400" data-i18n="host">Host</dt><dd class="mt-1.5"><input aria-label="Database host" class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-950 dark:text-zinc-100" readonly value="localhost"></dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Database name</dt><dd class="mt-1.5"><input aria-label="Database name" class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-950 dark:text-zinc-100" readonly value="{{.SelectedDatabase.Name}}"></dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400" data-i18n="username">Username</dt><dd class="mt-1.5"><input aria-label="Database username" class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-950 dark:text-zinc-100" readonly value="{{.SelectedDatabase.Username}}"></dd></div>
-    <div><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400" data-i18n="password">Password</dt><dd class="mt-1.5"><input aria-label="Database password" class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-950 dark:text-zinc-100" readonly value="{{.SelectedDatabase.Password}}"></dd></div>
-  </dl>
-</section>
-{{end}}
+  <section aria-labelledby="site-database-list-heading" class="mt-6 min-w-0 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+    <div class="border-b border-zinc-200 dark:border-zinc-800 px-5 py-4"><h2 id="site-database-list-heading" class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">Databases</h2></div>
+    <div class="divide-y divide-zinc-200 dark:divide-zinc-800">
+      {{$hasDatabases := false}}
+      {{if eq .Site.Kind "wordpress"}}{{$hasDatabases = true}}
+      <article class="px-5 py-4"><div class="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,.7fr)_auto] md:items-center"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><h3 class="truncate text-sm font-semibold text-zinc-950 dark:text-zinc-100">WordPress</h3><span class="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-300">Primary</span></div><p class="mt-1 truncate text-xs text-zinc-500 dark:text-zinc-400">{{.Site.Domain}}</p></div><div><p class="text-sm text-zinc-700 dark:text-zinc-300">Managed by WordPress</p><p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{siteStatus .Site.Status}}</p></div><div class="flex md:justify-end">{{if and (eq .Site.Status "active") (eq .DatabaseAdminStatus "active")}}<form method="post" action="/sites/{{.Site.ID}}/database/open"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800">Open phpMyAdmin <span class="sr-only">for WordPress</span><span aria-hidden="true">↗</span></button></form>{{end}}</div></div></article>
+      {{end}}
 
-{{if eq .Site.Kind "wordpress"}}
-<section aria-labelledby="wordpress-database-heading" class="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
-  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-    <div class="min-w-0">
-      <div class="flex flex-wrap items-center gap-2"><h2 id="wordpress-database-heading" class="text-base font-semibold text-zinc-950 dark:text-zinc-100">WordPress database</h2><span class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-300">{{siteStatus .Site.Status}}</span></div>
-      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Included in backups and staging</p>
+      {{range .Databases}}{{$hasDatabases = true}}
+      <article class="px-5 py-4">
+        <div class="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,.7fr)_auto] md:items-center">
+          <div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><h3 class="truncate text-sm font-semibold text-zinc-950 dark:text-zinc-100">{{.Label}}</h3><span class="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-300">Application</span></div><p class="mt-1 truncate font-mono text-xs text-zinc-500 dark:text-zinc-400" title="{{.Name}}">{{.Name}}</p></div>
+          <div><p class="text-sm text-zinc-700 dark:text-zinc-300">Application database</p><p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{if eq .Status "queued"}}Creating{{else if eq .Status "active"}}Active{{else if eq .Status "failed"}}Creation failed{{else if eq .Status "deleting"}}Deleting{{else if eq .Status "delete_failed"}}Deletion failed{{else}}{{.Status}}{{end}}</p></div>
+          <div class="flex flex-wrap items-center gap-2 md:justify-end">{{if eq .Status "active"}}{{if eq $.DatabaseAdminStatus "active"}}<form method="post" action="/sites/{{$.Site.ID}}/databases/{{.ID}}/open"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><button class="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800">Open phpMyAdmin <span class="sr-only">for {{.Label}}</span><span aria-hidden="true">↗</span></button></form>{{end}}<form method="post" action="/sites/{{$.Site.ID}}/databases/{{.ID}}/reveal"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><button class="rounded-md border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800">Credentials</button></form>{{end}}{{if or (eq .Status "active") (eq .Status "failed") (eq .Status "delete_failed")}}<button type="button" data-database-delete-open="delete-site-database-dialog-{{.ID}}" class="rounded-md px-3 py-2 text-sm font-medium text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950">Delete</button>{{end}}</div>
+        </div>
+        {{if and $.SelectedDatabase (eq $.SelectedDatabase.ID .ID)}}<div class="mt-4 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4" aria-label="Database credentials"><div class="flex items-center justify-between gap-3"><h4 id="site-database-credentials-heading" class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">Credentials · {{.Label}}</h4><a class="text-sm font-medium text-zinc-600 dark:text-zinc-300 underline underline-offset-4" href="/sites/{{$.Site.ID}}/databases">Hide</a></div><dl class="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">{{template "database-credential-fields" $.SelectedDatabase}}</dl></div>{{end}}
+        {{if or (eq .Status "active") (eq .Status "failed") (eq .Status "delete_failed")}}<dialog id="delete-site-database-dialog-{{.ID}}" data-database-delete-dialog aria-labelledby="delete-site-database-title-{{.ID}}" class="m-auto w-[min(34rem,calc(100%-2rem))] rounded-xl border border-red-200 dark:border-red-900 bg-white dark:bg-zinc-900 p-0 text-zinc-950 dark:text-zinc-100 shadow-xl backdrop:bg-zinc-950/40"><form class="grid gap-4 p-5 sm:p-6" method="post" action="/sites/{{$.Site.ID}}/databases/{{.ID}}/delete" data-quick-action data-action-label="Delete database"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><div class="flex items-center justify-between gap-4"><h4 id="delete-site-database-title-{{.ID}}" class="text-lg font-semibold">Delete {{.Label}}?</h4><button type="button" data-database-delete-close aria-label="Close dialog" class="rounded-md p-1.5 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">{{template "icon-x"}}</button></div><p class="text-sm text-zinc-600 dark:text-zinc-300">This permanently removes the database and its user. Enter <strong class="font-mono text-zinc-950 dark:text-zinc-100">{{.Name}}</strong> to confirm.</p><label class="grid gap-1.5 text-sm font-medium">Database name<input class="min-w-0 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 font-mono font-normal" name="confirmation" autocomplete="off" required></label><div class="flex justify-end gap-3"><button type="button" data-database-delete-close class="rounded-md border border-zinc-200 dark:border-zinc-800 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">Cancel</button><button class="rounded-md bg-red-700 dark:bg-red-600 px-4 py-2 text-sm font-medium text-white">Delete permanently</button></div></form></dialog>{{end}}
+      </article>
+      {{end}}
+
+      {{if not $hasDatabases}}<div class="px-5 py-12 text-center"><h3 class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">No databases</h3><p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{if eq .Site.Status "active"}}Create one when this site needs a data store.{{else}}Activate this site to create a database.{{end}}</p></div>{{end}}
     </div>
-    {{if and (eq .Site.Status "active") (eq .DatabaseAdminStatus "active")}}
-    <form class="shrink-0" method="post" action="/sites/{{.Site.ID}}/database/open"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="rounded-md bg-zinc-950 dark:bg-zinc-100 px-3 py-2 text-sm font-medium text-white dark:text-zinc-900 transition hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100">Open phpMyAdmin <span aria-hidden="true">↗</span></button></form>
-    {{end}}
-  </div>
-</section>
-{{end}}
+  </section>
 
-<section aria-labelledby="application-databases-heading" class="mt-6 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 px-5 py-4"><h2 id="application-databases-heading" class="text-base font-semibold text-zinc-950 dark:text-zinc-100">Application databases</h2><span class="text-xs font-medium text-amber-700 dark:text-amber-300">Separate backups required</span></div>
-  <div class="divide-y divide-zinc-100 dark:divide-zinc-800">
-    {{range .Databases}}
-    <article class="px-5 py-4">
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div class="min-w-0">
-          <div class="flex flex-wrap items-center gap-2">
-            <h3 class="font-medium text-zinc-950 dark:text-zinc-100">{{.Label}}</h3>
-            <span class="rounded-md border px-2 py-0.5 text-xs font-medium {{if eq .Status "active"}}border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300{{else if or (eq .Status "failed") (eq .Status "delete_failed")}}border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300{{else}}border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-600 dark:text-zinc-300{{end}}">{{if eq .Status "queued"}}Creating{{else if eq .Status "active"}}Active{{else if eq .Status "failed"}}Failed{{else if eq .Status "deleting"}}Deleting{{else if eq .Status "delete_failed"}}Deletion failed{{else}}{{.Status}}{{end}}</span>
-          </div>
-          <p class="mt-1 break-all font-mono text-xs text-zinc-500 dark:text-zinc-400">{{.Name}}</p>
-        </div>
-        {{if or (eq .Status "active") (eq .Status "failed") (eq .Status "delete_failed")}}
-        <div class="flex shrink-0 flex-wrap items-start gap-2">
-          {{if eq .Status "active"}}
-          {{if eq $.DatabaseAdminStatus "active"}}<form method="post" action="/sites/{{$.Site.ID}}/databases/{{.ID}}/open"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><button class="rounded-md bg-zinc-950 dark:bg-zinc-100 px-3 py-2 text-sm font-medium text-white dark:text-zinc-900 transition hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100">Open phpMyAdmin <span aria-hidden="true">↗</span></button></form>{{end}}
-          <form method="post" action="/sites/{{$.Site.ID}}/databases/{{.ID}}/reveal"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><button class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 transition hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100">Show credentials</button></form>
-          {{end}}
-          <details class="w-full sm:w-auto">
-            <summary class="ml-auto w-fit cursor-pointer rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm font-medium text-red-700 dark:text-red-300 transition hover:bg-red-50 dark:hover:bg-red-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700" data-i18n="delete">Delete</summary>
-            <form class="mt-2 rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 p-4 sm:w-[32rem]" method="post" action="/sites/{{$.Site.ID}}/databases/{{.ID}}/delete" data-quick-action data-action-label="Delete database">
-          <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
-          <p class="text-sm leading-6 text-zinc-600 dark:text-zinc-300">This permanently removes the database and its user. Type <strong class="font-mono text-zinc-950 dark:text-zinc-100">{{.Name}}</strong> to confirm.</p>
-          <div class="mt-3 flex flex-col gap-2 sm:flex-row"><label class="sr-only" for="delete-site-database-{{.ID}}">Database name</label><input id="delete-site-database-{{.ID}}" class="min-w-0 flex-1 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950 dark:focus:outline-zinc-100" name="confirmation" autocomplete="off" required><button class="rounded-md bg-red-700 dark:bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800 dark:hover:bg-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">Delete permanently</button></div>
-            </form>
-          </details>
-        </div>
-        {{end}}
-      </div>
-    </article>
-    {{else}}
-    <div class="px-5 py-10 text-center"><p class="font-medium text-zinc-950 dark:text-zinc-100">No application databases</p><p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Create one when this site needs its own data store.</p></div>
-    {{end}}
-  </div>
-</section>
-
-{{if eq .Site.Status "active"}}
-<section id="create-site-database" aria-labelledby="create-site-database-heading" class="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-  <div class="border-b border-zinc-200 dark:border-zinc-800 px-5 py-4"><h2 id="create-site-database-heading" class="text-base font-semibold text-zinc-950 dark:text-zinc-100">Create an application database</h2></div>
-  <form class="p-5" method="post" action="/sites/{{.Site.ID}}/databases" data-quick-action data-action-label="Create database">
-    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-    <label class="block max-w-xl"><span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300" data-i18n="label">Label</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm focus:outline-2 focus:outline-offset-2 focus:outline-zinc-950 dark:focus:outline-zinc-100" name="label" placeholder="Storefront data" minlength="2" maxlength="64" required></label>
-    <button class="mt-5 rounded-md bg-zinc-950 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100">Create database</button>
-  </form>
-</section>
-{{else}}
-<p class="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4 text-sm leading-6 text-zinc-600 dark:text-zinc-300">Activate this site before creating an application database.</p>
-{{end}}
+  {{if eq .Site.Status "active"}}
+  <dialog id="create-site-database" data-database-create-dialog {{if eq (index .Form "open_create") "yes"}}data-open-on-load{{end}} aria-labelledby="create-site-database-title" class="m-auto w-[min(34rem,calc(100%-2rem))] rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-0 text-zinc-950 dark:text-zinc-100 shadow-xl backdrop:bg-zinc-950/40">
+    <form class="grid gap-5 p-5 sm:p-6" method="post" action="/sites/{{.Site.ID}}/databases" data-quick-action data-action-label="Create database"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><div class="flex items-center justify-between gap-4"><h2 id="create-site-database-title" class="text-lg font-semibold">Create database</h2><button type="button" data-database-create-close aria-label="Close dialog" class="rounded-md p-1.5 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">{{template "icon-x"}}</button></div>{{if eq (index .Form "open_create") "yes"}}<p role="alert" class="rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-3 py-2 text-sm text-red-700 dark:text-red-300">{{.Error}}</p>{{end}}<label class="grid gap-1.5 text-sm font-medium">Label<input autofocus class="min-w-0 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 font-normal" name="label" value="{{index .Form "label"}}" placeholder="Storefront data" minlength="2" maxlength="64" required></label><div class="flex justify-end gap-3"><button type="button" data-database-create-close class="rounded-md border border-zinc-200 dark:border-zinc-800 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">Cancel</button><button class="rounded-md bg-zinc-950 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900">Create database</button></div></form>
+  </dialog>
+  <noscript><section id="create-site-database-fallback" class="mt-6 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800"><h2 class="text-base font-semibold">Create database</h2><form class="mt-4 grid gap-4" method="post" action="/sites/{{.Site.ID}}/databases"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><label class="grid gap-1 text-sm font-medium">Label<input class="rounded-md border px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900" name="label" minlength="2" maxlength="64" required></label><div><button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">Create database</button></div></form></section></noscript>
+  {{end}}
+</div>
 {{end}}

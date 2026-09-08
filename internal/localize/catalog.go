@@ -388,6 +388,96 @@ var alpha18ContextCorrections = map[Locale]map[string]string{
 	},
 }
 
+var alpha19Keys = [...]string{"notify_for", "high_cpu", "high_memory", "high_disk", "service_failures", "certificate_expiry", "wpx_updates", "out_of_memory", "all_changes_saved", "changes_not_saved", "unsaved_changes", "saving", "save_changes"}
+
+var alpha19Words = map[Locale]string{
+	English: "Notify for|High CPU|High memory|High disk|Service failures|Certificate expiry|WPX updates|Out of memory|All changes saved|Changes not saved|Unsaved changes|Saving|Save changes",
+	"ar":    "إشعار لـ|وحدة معالجة مركزية عالية|ذاكرة عالية|قرص عالي|أعطال الخدمة|انتهاء صلاحية الشهادة|تحديثات WPX|نفاد الذاكرة|تم حفظ جميع التغييرات|لم يتم حفظ التغييرات|تغييرات غير محفوظة|جارٍ الحفظ|حفظ التغييرات",
+	"bn":    "এর জন্য অবহিত করুন|হাই সিপিইউ|উচ্চ মেমরি|হাই ডিস্ক|পরিষেবা ব্যর্থতা|শংসাপত্রের মেয়াদ শেষ|WPX আপডেট|মেমরির বাইরে|সমস্ত পরিবর্তন সেভ করা হয়েছে|পরিবর্তনগুলি সেভ করা হয়নি|অসংরক্ষিত পরিবর্তন|সংরক্ষণ করা হচ্ছে|পরিবর্তনগুলি সেভ করুন",
+	"ca":    "Notifica a|CPU alta|Alta memòria|Disc alt|Fallades en el servei|Caducitat del certificat|Actualitzacions de WPX|Sense memòria|S'han desat tots els canvis|No s'han desat els canvis|Canvis no desats|Desant|Desa els canvis",
+	"cs":    "Upozornit na|Vysoký CPU|Vysoká paměť|Vysoký disk|Poruchy služby|Vypršení platnosti certifikátu|Aktualizace WPX|Nedostatek paměti|Všechny změny uloženy|Změny nebyly uloženy|Neuložené změny|Ukládání|Uložit změny",
+	"da":    "Giv besked for|Høj CPU|Høj hukommelse|Høj disk|Tjenestesvigt|Certifikatets udløbsdato|WPX-opdateringer|Ikke mere hukommelse|Alle ændringer er gemt|Ændringer ikke gemt|Ikke-gemte ændringer|Gemmer|Gem ændringer",
+	"de":    "Benachrichtigen für|Hohe CPU|Hohes Gedächtnis|Hohe Festplatte|Serviceausfälle|Ablauf des Zertifikats|WPX-Updates|Nicht genügend Arbeitsspeicher|Alle Änderungen gespeichert|Änderungen nicht gespeichert|Nicht gespeicherte Änderungen|Speichern|Änderungen speichern",
+	"el":    "Ειδοποίηση για|Υψηλή CPU|Υψηλή μνήμη|Υψηλός δίσκος|Βλάβες σέρβις|Λήξη πιστοποιητικού|Ενημερώσεις WPX|Εξαντλημένη μνήμη|Όλες οι αλλαγές αποθηκεύτηκαν|Οι αλλαγές δεν αποθηκεύτηκαν|Μη αποθηκευμένες αλλαγές|Αποθήκευση|Αποθήκευση αλλαγών",
+	"es":    "Notificar para|CPU alta|Memoria alta|Disco alto|Fallos de servicio|Caducidad del certificado|Actualizaciones de WPX|Sin memoria|Todos los cambios guardados|Cambios no guardados|Cambios no guardados|Guardando|Guardar cambios",
+	"fi":    "Ilmoita kohteelle|Korkea CPU|Korkea muisti|Korkea levy|Huoltovirheet|Sertifikaatin voimassaolo päättyy|WPX-päivitykset|Muisti loppui|Kaikki muutokset tallennettu|Muutoksia ei tallennettu|Tallentamattomat muutokset|Tallennetaan|Tallenna muutokset",
+	"fr":    "Notifier pour|Processeur élevé|Mémoire élevée|Disque haut|Défaillances du service|Expiration du certificat|Mises à jour WPX|Mémoire insuffisante|Toutes les modifications enregistrées|Modifications non enregistrées|Modifications non enregistrées|Enregistrement|Enregistrer les modifications",
+	"he":    "הודע עבור|מעבד גבוה|זיכרון גבוה|דיסק גבוה|תקלות בשירות|תוקף התעודה|עדכוני WPX|אזל מהזיכרון|כל השינויים נשמרו|השינויים לא נשמרו|שינויים שלא נשמרו|שומר|שמירת השינויים",
+	"hi":    "के लिए सूचित करें|उच्च सीपीयू|उच्च मेमोरी|हाई डिस्क|सेवा की विफलताएँ|सर्टिफ़िकेट की समय - सीमा खत्म|WPX अपडेट|मेमोरी खत्म हो गई है|सभी बदलाव सेव किए गए|बदलाव सेव नहीं किए गए|सेव नहीं किए गए बदलाव|सेव किया जा रहा है|बदलाव सेव करें",
+	"hr":    "Obavijesti za|Visoki CPU|Visoka memorija|Visoki disk|Kvarovi usluge|Istek certifikata|WPX ažuriranja|Ponestaje memorije|Sve su promjene spremljene|Promjene nisu spremljene|Promjene koje nisu spremljene|Spremanje|Spremi izmjene",
+	"hu":    "Értesítés neki:|Magas CPU|Magas memória|Magas lemez|Szervizelési hibák|Tanúsítvány lejárata|WPX-frissítések|Elfogyott a memória|Minden módosítás mentve|A módosítások nincsenek mentve|Nem mentett módosítások|Megtakarítás|Módosítások mentése",
+	"id":    "Beri tahu untuk|CPU tinggi|Memori tinggi|Disk tinggi|Kegagalan layanan|Kedaluwarsa sertifikat|Pembaruan WPX|Kehabisan memori|Semua perubahan disimpan|Perubahan tidak disimpan|Perubahan yang belum disimpan|Menyimpan|Simpan perubahan",
+	"it":    "Invia notifiche per|CPU elevata|Memoria elevata|Utilizzo disco elevato|Errori dei servizi|Scadenza certificato|Aggiornamenti WPX|Memoria esaurita|Tutte le modifiche sono state salvate|Modifiche non salvate|Modifiche non salvate|Salvataggio in corso|Salva modifiche",
+	"ja":    "通知対象|高CPU|大容量メモリ|ハイディスク|サービス障害|証明書の有効期限|WPXアップデート|メモリ不足|すべての変更が保存されました|変更が保存されていません|保存されていない変更|保存しています|変更を保存",
+	"ko":    "다음에 대한 알림|높은 CPU|대용량 메모리|하이 디스크|서비스 장애|인증서 만료|WPX 업데이트|메모리 부족|모든 변경 사항 저장됨|변경 사항이 저장되지 않음|저장되지 않은 변경 사항|저장 중|변경사항 저장",
+	"nl":    "Melden voor|Hoge CPU|Hoog geheugen|Hoge schijf|Storingen in de service|Vervaldatum certificaat|WPX-updates|Onvoldoende geheugen|Alle wijzigingen opgeslagen|Wijzigingen niet opgeslagen|Niet-opgeslagen wijzigingen|Besparing|Wijzigingen opslaan",
+	"no":    "Varsle for| Høy CPU| Høy hukommelse| Høy disk| Tjenestefeil| Sertifikatets utløpsdato| WPX-oppdateringer| Tom for minne| Alle endringer er lagret| Endringene ble ikke lagret| Ulagrede endringer| Sparing| Lagre endringer",
+	"pl":    "Powiadom o|Wysoki procesor|Wysoka pamięć|Dysk wysoki|Awarie serwisowe|Wygaśnięcie certyfikatu|Aktualizacje WPX|Brak pamięci|Wszystkie zmiany zostały zapisane|Zmiany nie zostały zapisane|Niezapisane zmiany|Zapisywanie|Zapisz zmiany",
+	"pt-BR": "Notificar para|CPU alta|Alta memória|Disco alto|Falhas no serviço|Validade do certificado|Atualizações do WPX|Sem memória|Todas as alterações salvas|Alterações não guardadas|Alterações não guardadas|Poupança|Guardar alterações",
+	"ro":    "Notificare pentru|CPU ridicat|Memorie ridicată|Disc înalt|Defecțiuni de service|Expirarea certificatului|Actualizări WPX|Memorie epuizată|Toate modificările au fost salvate|Modificările nu au fost salvate|Modificări nesalvate|Se salvează|Salvează modificările",
+	"ru":    "Уведомлять о|Высокий уровень ЦП|Большая память|Высокий диск|Сбои в обслуживании|Срок действия сертификата|Обновления WPX|Недостаточно памяти|Все изменения сохранены|Изменения не сохранены|Несохраненные изменения|Сохранение|Сохранить изменения",
+	"sk":    "Upozorniť na|Vysoký procesor|Vysoká pamäť|Vysoký disk|Poruchy služby|Vypršanie platnosti certifikátu|Aktualizácie WPX|Nedostatok pamäte|Všetky zmeny boli uložené|Zmeny sa neuložili|Neuložené zmeny|Ukladá sa|Uložiť zmeny",
+	"sv":    "Meddela för|Hög CPU|Högt minne|Hög disk|Tjänstefel|Certifikatets utgångsdatum|WPX-uppdateringar|Slut på minne|Alla ändringar sparade|Ändringar har inte sparats|Osparade ändringar|Sparar|Spara ändringar",
+	"th":    "แจ้งเตือนสำหรับ|CPU สูง|หน่วยความจำสูง|ดิสก์สูง|ความล้มเหลวในการให้บริการ|วันหมดอายุของใบรับรอง|การอัปเดต WPX|หน่วยความจำไม่เพียงพอ|บันทึกการเปลี่ยนแปลงทั้งหมดแล้ว|ไม่ได้บันทึกการเปลี่ยนแปลง|การเปลี่ยนแปลงที่ไม่ได้บันทึก|กำลังบันทึก|บันทึกการเปลี่ยนแปลง",
+	"tr":    "Şunun için bildir:|Yüksek CPU|Yüksek bellek|Yüksek disk|Hizmet hataları|Sertifikanın geçerlilik süresi|WPX güncellemeleri|Bellek yetersiz|Tüm değişiklikler kaydedildi|Değişiklikler kaydedilmedi|Kaydedilmemiş değişiklikler|Kaydediliyor|Değişiklikleri kaydet",
+	"uk":    "Сповістити про|Високий рівень процесора|Високий рівень пам 'яті|Високий диск|Помилки обслуговування|Термін дії сертифіката|Оновлення WPX|Недостатньо пам 'яті|Усі зміни збережено|Зміни не збережено|Незбережені зміни|Збереження|Зберегти зміни",
+	"vi":    "Thông báo cho|CPU cao|Bộ nhớ cao|Đĩa cao|Lỗi dịch vụ|Giấy chứng nhận hết hạn|Cập nhật WPX|Hết bộ nhớ|Đã lưu tất cả thay đổi|Thay đổi chưa được lưu|Thay đổi chưa lưu|Đang lưu|Lưu thay đổi",
+	"zh-CN": "通知|高CPU|高内存|高磁盘|服务故障|证书过期|WPX更新|内存不足|所有更改已保存|更改未保存|未保存的更改|正在保存|保存更改",
+	"zh-TW": "通知|高CPU|高內存|高磁碟|服務失敗|憑證到期|WPX更新|內存不足|已儲存所有變更|變更未儲存|未儲存的變更|正在儲存|儲存變更",
+}
+
+var alpha19ContextCorrections = map[Locale]map[string]string{
+	"de": {
+		"high_cpu":    "Hohe CPU-Auslastung",
+		"high_memory": "Hohe Speicherauslastung",
+		"high_disk":   "Hohe Festplattenauslastung",
+		"saving":      "Wird gespeichert",
+	},
+	"hu": {
+		"saving": "Mentés folyamatban",
+	},
+	"ja": {
+		"high_cpu":    "CPU使用率が高い",
+		"high_memory": "メモリ使用率が高い",
+		"high_disk":   "ディスク使用率が高い",
+	},
+	"ko": {
+		"high_cpu":    "높은 CPU 사용률",
+		"high_memory": "높은 메모리 사용률",
+		"high_disk":   "높은 디스크 사용률",
+	},
+	"nl": {
+		"saving": "Bezig met opslaan",
+	},
+	"no": {
+		"high_cpu":    "Høy CPU-bruk",
+		"high_memory": "Høy minnebruk",
+		"high_disk":   "Høy diskbruk",
+		"saving":      "Lagrer",
+	},
+	"pt-BR": {
+		"changes_not_saved": "Alterações não salvas",
+		"unsaved_changes":   "Alterações não salvas",
+		"saving":            "Salvando",
+		"save_changes":      "Salvar alterações",
+	},
+	"ru": {
+		"high_memory": "Высокая загрузка памяти",
+		"high_disk":   "Высокая загрузка диска",
+	},
+	"zh-CN": {
+		"high_cpu":    "CPU 使用率过高",
+		"high_memory": "内存使用率过高",
+		"high_disk":   "磁盘使用率过高",
+	},
+	"zh-TW": {
+		"high_cpu":      "CPU 使用率過高",
+		"high_memory":   "記憶體使用率過高",
+		"high_disk":     "磁碟使用率過高",
+		"out_of_memory": "記憶體不足",
+	},
+}
+
 func init() {
 	for locale, values := range selectorWords {
 		catalog[locale]["language"] = values[0]
@@ -439,7 +529,21 @@ func init() {
 			catalog[locale][alpha18Keys[index]] = value
 		}
 	}
+	for locale, joined := range alpha19Words {
+		values := strings.Split(joined, "|")
+		if len(values) != len(alpha19Keys) {
+			panic("localization alpha19 catalog has wrong length for " + string(locale))
+		}
+		for index, value := range values {
+			catalog[locale][alpha19Keys[index]] = value
+		}
+	}
 	for locale, corrections := range alpha18ContextCorrections {
+		for key, value := range corrections {
+			catalog[locale][key] = value
+		}
+	}
+	for locale, corrections := range alpha19ContextCorrections {
 		for key, value := range corrections {
 			catalog[locale][key] = value
 		}

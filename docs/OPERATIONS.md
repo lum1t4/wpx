@@ -51,8 +51,9 @@ selected plugin updates use the existing recovery-backup workflow.
   interrupted installation is missing them. Cloudflare-only mode cannot be
   combined with these origin-IP bans because the network peers are shared
   Cloudflare edges.
-- [Operator alerts](dispatch/operator-alerts.md): configure email, Slack or Telegram and individual
-  alert rules under Alerts; use each channel’s test action to verify delivery.
+- [Operator alerts](dispatch/operator-alerts.md): configure email, Slack or
+  Telegram and each channel's alert rules under Alerts; use the selected
+  channel's test action to verify delivery.
 - [Hosting services](dispatch/hosting-services.md): Node runtimes, TLS-only
   ProFTPD accounts and optional local outbound Postfix. Mailbox hosting and
   delivery-domain setup are separate from outbound submission.
@@ -203,8 +204,31 @@ embedded file. This keeps Firefox navigation from combining markup from a new
 binary with cached assets from another build. If a tab predates an upgrade,
 reload it once rather than clearing server state or changing file permissions.
 
-One-click WordPress login uses HTTPS when the site's SSL is active and HTTP
-otherwise. Activate SSL before using administrator login over a public network.
+One-click WordPress login uses the trusted, stable
+`SITE_ROOT/SITE_ID/public/wpx-login-handler.php` and a private capability under
+`SITE_ROOT/SITE_ID/tmp/wpx-login`. The browser receives a 256-bit token in the
+URL fragment, removes it from browser history and POSTs it to the handler. The
+raw token is not written to disk: its hash names a private state file that
+records the expiry. It expires after 90 seconds and is atomically claimed and
+removed before WordPress bootstrap, administrator lookup or cookie creation. A
+replay, concurrent use, expired token or failure after the claim requires a new
+link.
+
+WPX refuses to issue a link when the stable handler or its ownership, mode,
+content, directories or `wp-load.php` are untrusted. Issuance performs bounded
+cleanup: it scans at most 4,096 private entries and removes at most 256 expired
+managed capability files. It also removes at most 256 expired legacy
+`wpx-login-<token>.php` scripts, and only when their content and file properties
+still exactly identify them as WPX-managed. Modified, lookalike and live legacy
+files are left untouched. The stable public handler remains in place; private
+capability files exist only until use, expiry and cleanup.
+
+The handoff uses HTTPS when the site's SSL status is active and HTTP otherwise.
+Activate SSL before administrator login over a public network: although the
+fragment is absent from the initial request and referrer, a non-TLS site's token
+POST is still plaintext HTTP. JavaScript is required to move the fragment into
+the POST. The handler applies no-store, no-referrer, noindex, nosniff and a
+restrictive nonce-based content security policy.
 
 Generic PHP/Python/static application deployment remains an operator task. The
 file editor supports UTF-8 text up to 1 MiB, including PHP syntax checks before
@@ -392,6 +416,14 @@ Every SQL user receives privileges only on its own database. Credentials are
 encrypted in panel state and are revealed only after an authenticated,
 CSRF-protected request; the access is recorded locally.
 
+WordPress and application databases appear in one compact list. Active rows can
+open phpMyAdmin; application rows also offer audited credential reveal and
+deletion. Create database opens a native dialog and accepts a 2–64 character
+label plus an active site. After invalid input, the dialog reopens with the
+nonsecret label and site selection preserved. Legacy create URL fragments still
+open the dialog, and browsers without JavaScript receive native fallback forms.
+The panel continues to generate database names, SQL users and passwords.
+
 phpMyAdmin is an optional one-click installation from that page. The durable
 installation downloads phpMyAdmin 5.2.3 from its official immutable URL,
 verifies the pinned SHA-256, omits its setup application, and configures a
@@ -404,12 +436,41 @@ Each new panel handoff starts in English so an old phpMyAdmin language cookie
 cannot unexpectedly carry into a new session; users can change it afterwards.
 
 Deleting an additional database permanently drops that exact database and SQL
-user and requires typing its generated database name. The operation is durable
-and retryable after a partial failure. Deleting a site does not implicitly
+user. Its native confirmation dialog requires typing the generated database
+name. The operation is durable and retryable after a partial failure. Deleting
+a site does not implicitly
 delete its additional databases: the association becomes “Former site” so the
 operator can export or delete it deliberately. Site backups still include only
 the generated WordPress database; export generic application databases through
 phpMyAdmin or another explicit backup procedure.
+
+## Alert routing and saved state
+
+The master alert switch and the Email, Slack and Telegram channel switches are
+independent persisted settings. Each channel can select CPU, memory, disk,
+service failure, certificate expiry, WPX update and OOM conditions. Detection
+still obeys the global condition switches and thresholds; a notification is sent
+only when the detected condition is globally enabled, the master and channel are
+enabled, and that channel selects it. A legacy channel with no stored mask
+inherits the global switches. An explicitly saved all-off mask means that the
+channel receives no event types and remains all-off after refresh.
+
+Successful deliveries are persisted and deduplicated by incident cycle, phase
+and channel. A failed channel retries after the configured cooldown, which must
+be between 15 minutes and seven days, without resending a channel that already
+succeeded. Recoveries and new incident cycles are separate phases. A provider
+may accept a request immediately before WPX loses the connection or state write;
+because provider delivery and local state do not share a transaction, that
+uncertain case can produce a duplicate.
+
+Immediate switches persist as they change. Thresholds, credentials and per-
+channel conditions remain unsaved until Save changes succeeds. A timeout leaves
+the result uncertain; reload the page and inspect the stored values. A channel's
+Test action validates and sends only that channel, regardless of its condition
+mask, and does not test the other destinations. Disabling the last active
+channel also pauses the master switch. Automated tests use fake
+transports; verify live Email, Slack and Telegram delivery with operator-supplied
+credentials after configuration.
 
 ## Updates
 

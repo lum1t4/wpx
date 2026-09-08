@@ -45,7 +45,7 @@ func TestShortOperationsWaitForLifecycleLock(t *testing.T) {
 			identity := &shortOperationIdentity{}
 			host.Identities = identity
 			host.Output = &fakeOutputRunner{}
-			site := model.Site{ID: "existing-site", Domain: "example.com", Kind: model.WordPress, PHPVersion: "8.4"}
+			site := model.Site{ID: "existing-site", Domain: "example.com", Kind: model.WordPress, PHPVersion: "8.4", Status: "active"}
 			createWordPressPublicFixture(t, host, site)
 
 			host.mu.Lock()
@@ -72,7 +72,7 @@ func TestShortOperationsCannotRecreateDeletedSiteIdentity(t *testing.T) {
 			identity := &shortOperationIdentity{}
 			output := &fakeOutputRunner{}
 			host.Identities, host.Output = identity, output
-			site := model.Site{ID: "deleted-site", Domain: "example.com", Kind: model.WordPress, PHPVersion: "8.4"}
+			site := model.Site{ID: "deleted-site", Domain: "example.com", Kind: model.WordPress, PHPVersion: "8.4", Status: "active"}
 			publicDir := createWordPressPublicFixture(t, host, site)
 
 			host.mu.Lock()
@@ -104,7 +104,7 @@ func TestShortOperationsRejectSymlinkBeforeIdentityCreation(t *testing.T) {
 				identity := &shortOperationIdentity{}
 				output := &fakeOutputRunner{}
 				host.Identities, host.Output = identity, output
-				site := model.Site{ID: "linked-site", Domain: "example.com", Kind: model.WordPress, PHPVersion: "8.4"}
+				site := model.Site{ID: "linked-site", Domain: "example.com", Kind: model.WordPress, PHPVersion: "8.4", Status: "active"}
 				publicDir := createWordPressPublicFixture(t, host, site)
 				linkedDir := publicDir
 				if component == "site" {
