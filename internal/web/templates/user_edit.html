@@ -1,9 +1,9 @@
 {{define "user_edit.html"}}
 {{template "shell-start" .}}
-<div class="max-w-3xl">
+<div class="min-w-0 max-w-full lg:max-w-3xl">
   <a class="inline-flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400" href="/users"><span aria-hidden="true">←</span> All users</a>
   <header class="mt-5">
-    <h1 class="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">Edit access</h1>
+    <h1 class="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100" data-i18n="edit_user">Edit user</h1>
     <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Manage permissions for <span class="font-medium text-zinc-700 dark:text-zinc-300">{{.SelectedUser.Username}}</span>. Changes take effect on their next request.</p>
   </header>
 
@@ -11,7 +11,17 @@
   <div class="mt-6 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-700 dark:text-red-300" role="alert">{{.Error}}</div>
   {{end}}
 
-  <section class="mt-8 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900" aria-labelledby="access-title">
+  <section class="mt-8 min-w-0 max-w-full overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900" aria-labelledby="edit-username-title">
+    <div class="border-b border-zinc-200 dark:border-zinc-800 px-5 py-4 sm:px-6"><h2 id="edit-username-title" class="text-base font-semibold text-zinc-950 dark:text-zinc-100" data-i18n="sign_in_name">Sign-in name</h2></div>
+    <form class="grid gap-4 p-5 sm:grid-cols-2 sm:items-end sm:p-6" method="post" action="/users/{{.SelectedUser.ID}}/username">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <label class="min-w-0 flex-1"><span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300" data-i18n="username_or_email">Username or email</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400" name="username" value="{{.SelectedUser.Username}}" maxlength="254" autocomplete="off" autocapitalize="none" spellcheck="false" required></label>
+      <label><span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300" data-i18n="current_password">Current password</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400" type="password" name="current_password" autocomplete="current-password" required></label>
+      <div class="sm:col-span-2"><button class="inline-flex min-h-9 items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400" type="submit" data-i18n="update">Update</button></div>
+    </form>
+  </section>
+
+  <section class="mt-6 min-w-0 max-w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900" aria-labelledby="access-title">
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 px-5 py-4 sm:px-6">
       <h2 id="access-title" class="text-base font-semibold text-zinc-950 dark:text-zinc-100">{{.SelectedUser.Username}}</h2>
       {{if .SelectedUser.Disabled}}
@@ -23,19 +33,14 @@
     <form class="space-y-6 p-5 sm:p-6" method="post" action="/users/{{.SelectedUser.ID}}">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
       <div>
-        <label for="user-role" class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Role</label>
+        <div class="mb-2 flex items-center gap-2"><label for="user-role" class="block text-sm font-medium text-zinc-700 dark:text-zinc-300" data-i18n="role">Role</label><span class="group relative"><button class="flex size-5 cursor-help items-center justify-center rounded-full border border-zinc-300 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400" type="button" aria-labelledby="edit-role-help-label" aria-describedby="edit-role-description"><span aria-hidden="true">?</span><span id="edit-role-help-label" class="sr-only" data-i18n="role_permissions">Role permissions</span></button><span id="edit-role-description" role="tooltip" class="invisible absolute left-0 z-10 mt-2 block w-72 max-w-[calc(100vw-3rem)] rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3 text-xs leading-5 text-zinc-600 dark:text-zinc-300 shadow-lg group-hover:visible group-focus-within:visible">{{if eq .User.Role "owner"}}<span class="block" data-i18n="administrator_permissions">Administrator: server, users, and all sites.</span>{{end}}<span class="block" data-i18n="collaborator_permissions">Collaborator: manages assigned sites.</span><span class="block" data-i18n="customer_permissions">Customer: backups, logs, and WordPress for assigned sites.</span></span></span></div>
         <select id="user-role" class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:max-w-sm" name="role" aria-describedby="edit-role-description">
           {{if eq .User.Role "owner"}}
-          <option value="administrator"{{if eq .SelectedUser.Role "administrator"}} selected{{end}}>Administrator</option>
+          <option value="administrator"{{if eq .SelectedUser.Role "administrator"}} selected{{end}} data-i18n="administrator">Administrator</option>
           {{end}}
-          <option value="collaborator"{{if eq .SelectedUser.Role "collaborator"}} selected{{end}}>Collaborator</option>
-          <option value="customer"{{if eq .SelectedUser.Role "customer"}} selected{{end}}>Customer</option>
+          <option value="collaborator"{{if eq .SelectedUser.Role "collaborator"}} selected{{end}} data-i18n="collaborator">Collaborator</option>
+          <option value="customer"{{if eq .SelectedUser.Role "customer"}} selected{{end}} data-i18n="customer">Customer</option>
         </select>
-        <div id="edit-role-description" class="mt-4 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-          {{if eq .User.Role "owner"}}<p><span class="font-medium text-zinc-800 dark:text-zinc-200">Administrator</span> — manages the server, users, and every site.</p>{{end}}
-          <p><span class="font-medium text-zinc-800 dark:text-zinc-200">Collaborator</span> — manages assigned sites, including files, deployments, DNS, and WordPress.</p>
-          <p><span class="font-medium text-zinc-800 dark:text-zinc-200">Customer</span> — views assigned sites, manages backups, reads logs, and signs in to WordPress.</p>
-        </div>
       </div>
       <fieldset>
         <legend class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Assigned sites</legend>

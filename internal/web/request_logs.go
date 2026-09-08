@@ -1,7 +1,10 @@
 package web
 
 import (
+	"bytes"
+	"encoding/csv"
 	"errors"
+	"mime"
 	"net"
 	"net/http"
 	"net/url"
@@ -9,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 const (
@@ -36,25 +40,27 @@ type RequestLogFilters struct {
 }
 
 type RequestLogView struct {
-	Rows         []RequestLog
-	Filters      RequestLogFilters
-	ParsedCount  int
-	Skipped      int
-	HasFilters   bool
-	Error        string
-	CurrentQuery string
-	AllQuery     string
-	ErrorsQuery  string
+	Rows          []RequestLog
+	Filters       RequestLogFilters
+	ParsedCount   int
+	Skipped       int
+	HasFilters    bool
+	Error         string
+	CurrentQuery  string
+	AllQuery      string
+	ErrorsQuery   string
+	DownloadQuery string
 }
 
 func requestLogView(r *http.Request, lines []string) (RequestLogView, error) {
 	filters, err := parseRequestLogFilters(r)
 	view := RequestLogView{
-		Filters:      filters,
-		HasFilters:   filters.IP != "" || filters.Status != "" || filters.Method != "" || filters.Path != "",
-		CurrentQuery: requestLogQuery(filters, filters.Status),
-		AllQuery:     requestLogQuery(filters, ""),
-		ErrorsQuery:  requestLogQuery(filters, "errors"),
+		Filters:       filters,
+		HasFilters:    filters.IP != "" || filters.Status != "" || filters.Method != "" || filters.Path != "",
+		CurrentQuery:  requestLogQuery(filters, filters.Status),
+		AllQuery:      requestLogQuery(filters, ""),
+		ErrorsQuery:   requestLogQuery(filters, "errors"),
+		DownloadQuery: requestLogDownloadQuery(filters),
 	}
 	if err != nil {
 		view.Error = err.Error()
@@ -84,7 +90,21 @@ func requestLogView(r *http.Request, lines []string) (RequestLogView, error) {
 	return view, nil
 }
 
+func requestLogDownloadQuery(filters RequestLogFilters) string {
+	query := requestLogValues(filters, filters.Status)
+	query.Set("download", "csv")
+	return "?" + query.Encode()
+}
+
 func requestLogQuery(filters RequestLogFilters, status string) string {
+	query := requestLogValues(filters, status)
+	if encoded := query.Encode(); encoded != "" {
+		return "?" + encoded
+	}
+	return ""
+}
+
+func requestLogValues(filters RequestLogFilters, status string) url.Values {
 	query := url.Values{}
 	if filters.IP != "" {
 		query.Set("ip", filters.IP)
@@ -98,10 +118,54 @@ func requestLogQuery(filters RequestLogFilters, status string) string {
 	if filters.Path != "" {
 		query.Set("path", filters.Path)
 	}
-	if encoded := query.Encode(); encoded != "" {
-		return "?" + encoded
+	return query
+}
+
+func requestLogsCSV(rows []RequestLog) ([]byte, error) {
+	var output bytes.Buffer
+	writer := csv.NewWriter(&output)
+	if err := writer.Write([]string{"Timestamp", "IP", "Method", "Path", "Status", "Bytes"}); err != nil {
+		return nil, err
 	}
-	return ""
+	for _, row := range rows {
+		byteCount := ""
+		if row.HasBytes {
+			byteCount = strconv.FormatInt(row.Bytes, 10)
+		}
+		values := []string{row.Timestamp, row.IP, row.Method, row.Path, strconv.Itoa(row.Status), byteCount}
+		for index := range values {
+			values[index] = safeSpreadsheetCell(values[index])
+		}
+		if err := writer.Write(values); err != nil {
+			return nil, err
+		}
+	}
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return nil, err
+	}
+	return output.Bytes(), nil
+}
+
+func safeSpreadsheetCell(value string) string {
+	trimmed := strings.TrimLeftFunc(value, unicode.IsSpace)
+	if trimmed != "" && strings.ContainsRune("=+-@", rune(trimmed[0])) {
+		return "'" + value
+	}
+	return value
+}
+
+func writeRequestLogsCSV(w http.ResponseWriter, rows []RequestLog) error {
+	content, err := requestLogsCSV(rows)
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": "request-logs.csv"}))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "no-store")
+	_, err = w.Write(content)
+	return err
 }
 
 func parseRequestLogFilters(r *http.Request) (RequestLogFilters, error) {

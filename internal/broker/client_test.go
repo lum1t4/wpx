@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -69,5 +70,54 @@ func TestClientFailureOutcomes(t *testing.T) {
 	client := Client{SocketPath: filepath.Join(t.TempDir(), "absent.sock")}
 	if err := client.Call(context.Background(), OpChangePHPVersion, "same-durable-job", struct{}{}, nil); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("unavailable broker must retain a retried operation's reservation: %v", err)
+	}
+}
+
+func TestClientPreservesSearchReplaceRecoveryResultOnFailure(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		result    json.RawMessage
+		uncertain bool
+	}{
+		{name: "valid recovery", result: json.RawMessage(`{"recovery_snapshot_id":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}`)},
+		{name: "malformed recovery", result: json.RawMessage(`{"recovery_snapshot_id":false}`), uncertain: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			socket := filepath.Join(t.TempDir(), "broker.sock")
+			listener, err := net.Listen("unix", socket)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer listener.Close()
+			done := make(chan error, 1)
+			go func() {
+				connection, err := listener.Accept()
+				if err != nil {
+					done <- err
+					return
+				}
+				defer connection.Close()
+				var request Request
+				if err := json.NewDecoder(connection).Decode(&request); err != nil {
+					done <- err
+					return
+				}
+				done <- json.NewEncoder(connection).Encode(Response{Version: ProtocolVersion, ID: request.ID, Error: "database replacement failed", Result: test.result})
+			}()
+			var result WordPressSearchReplaceResult
+			err = (Client{SocketPath: socket, Timeout: time.Second}).Call(context.Background(), OpWordPressSearchReplace, "same-durable-job", struct{}{}, &result)
+			if serverErr := <-done; serverErr != nil {
+				t.Fatal(serverErr)
+			}
+			if err == nil || !strings.Contains(err.Error(), "database replacement failed") && !test.uncertain {
+				t.Fatalf("confirmed broker failure was lost: %v", err)
+			}
+			if errors.Is(err, ErrOutcomeUnknown) != test.uncertain {
+				t.Fatalf("uncertain=%t err=%v", test.uncertain, err)
+			}
+			if !test.uncertain && result.RecoverySnapshotID != "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" {
+				t.Fatalf("recovery result was discarded: %#v", result)
+			}
+		})
 	}
 }

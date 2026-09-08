@@ -1,10 +1,18 @@
 package main
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/lum1t4/wpx/internal/config"
+	"github.com/lum1t4/wpx/internal/store"
+	"github.com/lum1t4/wpx/internal/web"
 )
 
 func TestPreviewRejectsWritesBeforeCallingPanel(t *testing.T) {
@@ -34,5 +42,55 @@ func TestPreviewUsesItsOwnSessionAndMarksSampleHTML(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "Preview · sample data · read-only") || response.Header().Get("X-WPX-Preview") != "sample-data" {
 		t.Fatal("preview response is not visibly marked as sample data")
+	}
+}
+
+func TestFeaturePreviewPagesExposeRepresentativeReadOnlyStates(t *testing.T) {
+	directory := t.TempDir()
+	statePath := filepath.Join(directory, "state.db")
+	state, err := store.Open(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer state.Close()
+	if err := state.ConfigureSecretKey(make([]byte, 32)); err != nil {
+		t.Fatal(err)
+	}
+	owner, err := seed(context.Background(), state, statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := state.CreateSession(context.Background(), owner.ID, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	panel, err := web.New(config.Config{StatePath: statePath, DataRoot: directory, SiteRoot: filepath.Join(directory, "sites")}, state, sampleBroker{}, slog.Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := readOnly(panel.Handler(), token)
+
+	tests := []struct {
+		path string
+		want []string
+	}{
+		{path: "/sites/northstar/wordpress/debug", want: []string{"Debug mode", "Enabled", "sample log entry for visual review"}},
+		{path: "/sites/northstar/wordpress/search-replace", want: []string{"Search and replace", "Offsite backups", "Preview changes"}},
+		{path: "/sites/northstar-staging/backups", want: []string{"Backup history", "Running", "Queued", "Success", "Failed", "No longer retained", "Restore point ready"}},
+		{path: "/account/security?username=saved", want: []string{"owner@example.com", "Username updated.", `action="/account/username"`}},
+	}
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, test.path, nil))
+			if response.Code != http.StatusOK {
+				t.Fatalf("GET %s = %d: %s", test.path, response.Code, response.Body.String())
+			}
+			for _, want := range test.want {
+				if !strings.Contains(response.Body.String(), want) {
+					t.Errorf("GET %s did not include %q", test.path, want)
+				}
+			}
+		})
 	}
 }

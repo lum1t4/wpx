@@ -16,10 +16,16 @@ import (
 )
 
 type fakeProvisioner struct {
-	sites        []model.Site
-	dnsProviders []model.DNSProvider
-	wildcards    []bool
-	err          error
+	sites                []model.Site
+	dnsProviders         []model.DNSProvider
+	wildcards            []bool
+	err                  error
+	backupCalls          []string
+	backupErrors         []error
+	backupResult         broker.BackupSiteResult
+	searchReplaceCalls   []string
+	searchReplaceErrors  []error
+	searchReplaceResults []broker.WordPressSearchReplaceResult
 }
 
 type fakeDNS struct{}
@@ -61,8 +67,33 @@ func (f *fakeProvisioner) InitBackup(context.Context, model.BackupTarget, string
 	return f.err
 }
 
-func (f *fakeProvisioner) BackupSite(context.Context, model.Site, model.BackupTarget, model.BackupRetention, string) (broker.BackupSiteResult, error) {
-	return broker.BackupSiteResult{SnapshotID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, f.err
+func (f *fakeProvisioner) BackupSite(_ context.Context, _ model.Site, _ model.BackupTarget, _ model.BackupRetention, idempotencyKey string) (broker.BackupSiteResult, error) {
+	f.backupCalls = append(f.backupCalls, idempotencyKey)
+	result := f.backupResult
+	if result.SnapshotID == "" {
+		result.SnapshotID = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	}
+	if len(f.backupErrors) > 0 {
+		err := f.backupErrors[0]
+		f.backupErrors = f.backupErrors[1:]
+		return result, err
+	}
+	return result, f.err
+}
+
+func (f *fakeProvisioner) SearchReplaceWordPress(_ context.Context, _ model.Site, _ model.BackupTarget, _ model.WordPressSearchReplace, _ bool, idempotencyKey string) (broker.WordPressSearchReplaceResult, error) {
+	f.searchReplaceCalls = append(f.searchReplaceCalls, idempotencyKey)
+	result := broker.WordPressSearchReplaceResult{RecoverySnapshotID: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}
+	if len(f.searchReplaceResults) > 0 {
+		result = f.searchReplaceResults[0]
+		f.searchReplaceResults = f.searchReplaceResults[1:]
+	}
+	if len(f.searchReplaceErrors) > 0 {
+		err := f.searchReplaceErrors[0]
+		f.searchReplaceErrors = f.searchReplaceErrors[1:]
+		return result, err
+	}
+	return result, f.err
 }
 
 func (f *fakeProvisioner) RestoreSite(context.Context, model.Site, model.BackupTarget, string, string) (string, error) {
@@ -320,6 +351,220 @@ func TestWorkerRecordsSiteBackupSnapshot(t *testing.T) {
 	restoreJob, err := state.Job(ctx, restoreJobID)
 	if err != nil || restoreJob.Status != "succeeded" || !strings.Contains(restoreJob.ResultJSON, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb") {
 		t.Fatalf("restore job=%#v err=%v", restoreJob, err)
+	}
+}
+
+func TestWorkerRetriesUncertainBackupWithSameIdempotencyKey(t *testing.T) {
+	state, err := store.Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer state.Close()
+	if err := state.ConfigureSecretKey(bytes.Repeat([]byte{8}, 32)); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	owner, err := state.CreateOwner(ctx, "operator", "a-secure-test-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, _, err := state.CreateS3Target(ctx, owner, model.BackupTarget{
+		Name: "Object storage", Endpoint: "https://objects.example.com", Bucket: "backups",
+		Region: "us-east-1", BucketLookup: "path", AccessKey: "access", SecretKey: "secret",
+		RepositoryPassword: "a-repository-password-long-enough",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := state.CreateSite(ctx, owner, model.Site{ID: "example-com", Domain: "example.com", Kind: model.Static}); err != nil {
+		t.Fatal(err)
+	}
+	provisioner := &fakeProvisioner{}
+	w := Worker{Store: state, Provisioner: provisioner, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	for _, setup := range []string{"initialize target", "provision site"} {
+		if processed, err := w.ProcessOne(ctx); err != nil || !processed {
+			t.Fatalf("%s: processed=%v err=%v", setup, processed, err)
+		}
+	}
+	jobID, err := state.EnqueueSiteBackup(ctx, owner, "example-com", target.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := state.Job(ctx, jobID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	provisioner.backupErrors = []error{broker.ErrOutcomeUnknown, nil}
+	if processed, err := w.ProcessOne(ctx); err == nil || processed {
+		t.Fatalf("lost reply: processed=%v err=%v", processed, err)
+	}
+	retry, err := state.Job(ctx, jobID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retry.Status != "queued" || retry.ID != before.ID || retry.IdempotencyKey != before.IdempotencyKey {
+		t.Fatalf("retry changed backup identity or state: before=%#v retry=%#v", before, retry)
+	}
+	if snapshots, err := state.ListSiteSnapshots(ctx, "example-com"); err != nil || len(snapshots) != 0 {
+		t.Fatalf("snapshots after uncertain result=%#v err=%v", snapshots, err)
+	}
+	if processed, err := w.ProcessOne(ctx); err != nil || !processed {
+		t.Fatalf("reconcile backup: processed=%v err=%v", processed, err)
+	}
+	finished, err := state.Job(ctx, jobID)
+	if err != nil || finished.Status != "succeeded" {
+		t.Fatalf("finished job=%#v err=%v", finished, err)
+	}
+	if len(provisioner.backupCalls) != 2 || provisioner.backupCalls[0] != before.IdempotencyKey || provisioner.backupCalls[1] != before.IdempotencyKey {
+		t.Fatalf("backup idempotency keys=%q want two calls with %q", provisioner.backupCalls, before.IdempotencyKey)
+	}
+	if snapshots, err := state.ListSiteSnapshots(ctx, "example-com"); err != nil || len(snapshots) != 1 {
+		t.Fatalf("recorded snapshots=%#v err=%v", snapshots, err)
+	}
+}
+
+func TestWorkerRejectsInvalidBackupSnapshotID(t *testing.T) {
+	state, err := store.Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer state.Close()
+	if err := state.ConfigureSecretKey(bytes.Repeat([]byte{9}, 32)); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	owner, err := state.CreateOwner(ctx, "operator", "a-secure-test-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, _, err := state.CreateS3Target(ctx, owner, model.BackupTarget{
+		Name: "Object storage", Endpoint: "https://objects.example.com", Bucket: "backups",
+		Region: "us-east-1", BucketLookup: "path", AccessKey: "access", SecretKey: "secret",
+		RepositoryPassword: "a-repository-password-long-enough",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := state.CreateSite(ctx, owner, model.Site{ID: "example-com", Domain: "example.com", Kind: model.Static}); err != nil {
+		t.Fatal(err)
+	}
+	provisioner := &fakeProvisioner{backupResult: broker.BackupSiteResult{SnapshotID: "not-a-restic-snapshot"}}
+	w := Worker{Store: state, Provisioner: provisioner, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	for range 2 {
+		if processed, err := w.ProcessOne(ctx); err != nil || !processed {
+			t.Fatalf("setup: processed=%v err=%v", processed, err)
+		}
+	}
+	jobID, err := state.EnqueueSiteBackup(ctx, owner, "example-com", target.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if processed, err := w.ProcessOne(ctx); err != nil || !processed {
+		t.Fatalf("invalid result: processed=%v err=%v", processed, err)
+	}
+	job, err := state.Job(ctx, jobID)
+	if err != nil || job.Status != "failed" || !strings.Contains(job.Error, "snapshot ID is invalid") {
+		t.Fatalf("job=%#v err=%v", job, err)
+	}
+	if snapshots, err := state.ListSiteSnapshots(ctx, "example-com"); err != nil || len(snapshots) != 0 {
+		t.Fatalf("snapshots=%#v err=%v", snapshots, err)
+	}
+}
+
+func TestWorkerReconcilesUncertainSearchReplaceAndTerminatesKnownFailure(t *testing.T) {
+	state, err := store.Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer state.Close()
+	if err := state.ConfigureSecretKey(bytes.Repeat([]byte{10}, 32)); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	owner, err := state.CreateOwner(ctx, "operator", "a-secure-test-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := state.CreateSite(ctx, owner, model.Site{ID: "example-com", Domain: "example.com", Kind: model.WordPress, PHPVersion: "8.4"}); err != nil {
+		t.Fatal(err)
+	}
+	target, _, err := state.CreateS3Target(ctx, owner, model.BackupTarget{
+		Name: "Object storage", Endpoint: "https://objects.example.com", Bucket: "backups",
+		Region: "us-east-1", BucketLookup: "path", AccessKey: "access", SecretKey: "secret",
+		RepositoryPassword: "a-repository-password-long-enough",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	provisioner := &fakeProvisioner{}
+	w := Worker{Store: state, Provisioner: provisioner, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	for range 2 {
+		if processed, err := w.ProcessOne(ctx); err != nil || !processed {
+			t.Fatalf("setup: processed=%v err=%v", processed, err)
+		}
+	}
+	change := model.WordPressSearchReplace{Search: "private-old.example", Replace: "private-new.example"}
+	preview := broker.WordPressSearchReplaceResult{}
+	token, err := state.CreateWordPressSearchReplacePreview(ctx, owner, "example-com", target.ID, change, preview)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobID, err := state.EnqueueWordPressSearchReplace(ctx, owner, "example-com", target.ID, change, token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := state.Job(ctx, jobID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	provisioner.searchReplaceErrors = []error{broker.ErrOutcomeUnknown, nil}
+	if processed, err := w.ProcessOne(ctx); err == nil || processed {
+		t.Fatalf("lost reply: processed=%v err=%v", processed, err)
+	}
+	retry, err := state.Job(ctx, jobID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retry.Status != "queued" || retry.ID != before.ID || retry.IdempotencyKey != before.IdempotencyKey || retry.PayloadJSON != before.PayloadJSON || retry.PayloadJSON == "{}" {
+		t.Fatalf("retry did not preserve durable encrypted job: before=%#v retry=%#v", before, retry)
+	}
+	if processed, err := w.ProcessOne(ctx); err != nil || !processed {
+		t.Fatalf("reconcile: processed=%v err=%v", processed, err)
+	}
+	finished, err := state.Job(ctx, jobID)
+	if err != nil || finished.Status != "succeeded" || finished.PayloadJSON != "{}" {
+		t.Fatalf("finished job=%#v err=%v", finished, err)
+	}
+	if len(provisioner.searchReplaceCalls) != 2 || provisioner.searchReplaceCalls[0] != before.IdempotencyKey || provisioner.searchReplaceCalls[1] != before.IdempotencyKey {
+		t.Fatalf("search and replace keys=%q want repeated %q", provisioner.searchReplaceCalls, before.IdempotencyKey)
+	}
+	snapshots, err := state.ListSiteSnapshots(ctx, "example-com")
+	if err != nil || len(snapshots) != 1 || snapshots[0].ResticSnapshotID != "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" {
+		t.Fatalf("reconciled snapshots=%#v err=%v", snapshots, err)
+	}
+
+	// A confirmed host failure is terminal while still retaining its recovery
+	// snapshot for the operator.
+	token, err = state.CreateWordPressSearchReplacePreview(ctx, owner, "example-com", target.ID, change, preview)
+	if err != nil {
+		t.Fatal(err)
+	}
+	failedJobID, err := state.EnqueueWordPressSearchReplace(ctx, owner, "example-com", target.ID, change, token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	provisioner.searchReplaceResults = []broker.WordPressSearchReplaceResult{{RecoverySnapshotID: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}}
+	provisioner.searchReplaceErrors = []error{errors.New("database replacement failed")}
+	if processed, err := w.ProcessOne(ctx); err != nil || !processed {
+		t.Fatalf("known failure: processed=%v err=%v", processed, err)
+	}
+	failed, err := state.Job(ctx, failedJobID)
+	if err != nil || failed.Status != "failed" || failed.PayloadJSON != "{}" || failed.Error != "database replacement failed" {
+		t.Fatalf("failed job=%#v err=%v", failed, err)
+	}
+	snapshots, err = state.ListSiteSnapshots(ctx, "example-com")
+	if err != nil || len(snapshots) != 2 {
+		t.Fatalf("snapshots after known failure=%#v err=%v", snapshots, err)
 	}
 }
 

@@ -1,0 +1,64 @@
+{{define "wordpress_search_replace.html"}}
+{{template "shell-start" .}}
+<header class="mb-7">
+  <p class="mb-2 break-all text-sm text-zinc-500 dark:text-zinc-400">{{.Site.Domain}}</p>
+  <div class="flex items-center gap-2">
+    <h1 class="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100" data-i18n="search_and_replace">Search and replace</h1>
+    <span class="group relative inline-flex">
+      <button class="inline-flex size-7 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 dark:focus-visible:outline-zinc-100" type="button" aria-describedby="search-replace-scope">{{template "icon-info"}}<span class="sr-only"><span data-i18n="wordpress">WordPress</span> <span data-i18n="search">Search</span></span></button>
+      <span id="search-replace-scope" role="tooltip" class="pointer-events-none invisible absolute right-0 top-9 z-10 w-64 rounded-md bg-zinc-950 px-3 py-2 text-xs font-normal leading-5 text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 dark:bg-zinc-100 dark:text-zinc-900" data-i18n="wp_search_scope">Only this site's WordPress tables are searched. GUID columns are skipped.</span>
+    </span>
+  </div>
+</header>
+{{if .Error}}<div class="mb-6 max-w-4xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200" role="alert">{{.Error}}</div>{{end}}
+{{if .Message}}<div class="mb-6 max-w-4xl rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300" role="status">{{.Message}}</div>{{end}}
+
+<form class="max-w-4xl overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900" method="post" action="/sites/{{.Site.ID}}/wordpress/search-replace/preview">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <div class="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
+    <label class="grid min-w-0 gap-2 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+      <span data-i18n="find">Find</span>
+      <input class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm font-normal text-zinc-950 shadow-sm outline-none placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-zinc-500 dark:focus:ring-zinc-800" name="search" value="{{index .Form "search"}}" maxlength="1024" required autocomplete="off" spellcheck="false">
+    </label>
+    <label class="grid min-w-0 gap-2 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+      <span data-i18n="replace_with">Replace with</span>
+      <input class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm font-normal text-zinc-950 shadow-sm outline-none placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-zinc-500 dark:focus:ring-zinc-800" name="replace" value="{{index .Form "replace"}}" maxlength="1024" autocomplete="off" spellcheck="false">
+    </label>
+    <label class="grid gap-2 text-sm font-medium text-zinc-800 dark:text-zinc-200 sm:col-span-2 sm:max-w-md">
+      <span data-i18n="recovery_storage">Recovery storage</span>
+      <select class="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-normal text-zinc-950 shadow-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-zinc-500 dark:focus:ring-zinc-800" name="target_id" required>
+        <option value="" data-i18n="select_storage">Select storage</option>
+        {{range .BackupTargets}}{{if eq .Status "active"}}<option value="{{.ID}}" {{if eq .ID (index $.Form "target_id")}}selected{{end}}>{{.Name}}</option>{{end}}{{end}}
+      </select>
+    </label>
+  </div>
+  <div class="flex justify-end border-t border-zinc-200 bg-zinc-50 px-5 py-4 dark:border-zinc-800 dark:bg-zinc-950 sm:px-6">
+    <button class="inline-flex min-h-9 items-center justify-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:focus-visible:outline-zinc-100" type="submit" data-i18n="preview_changes">Preview changes</button>
+  </div>
+
+  {{if .WordPressSearchReplace}}
+  <section class="border-t border-zinc-200 p-5 dark:border-zinc-800 sm:p-6" aria-labelledby="preview-heading">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div><h2 id="preview-heading" class="text-base font-semibold text-zinc-950 dark:text-zinc-100" data-i18n="dry_run_preview">Dry-run preview</h2><p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">No database values were changed.</p></div>
+      <div class="grid grid-cols-2 gap-3 text-right">
+        <div class="rounded-md bg-zinc-100 px-3 py-2 dark:bg-zinc-800"><p class="text-lg font-semibold tabular-nums">{{.WordPressSearchReplace.Tables}}</p><p class="text-xs text-zinc-500 dark:text-zinc-400" data-i18n="tables_scanned">Tables scanned</p></div>
+        <div class="rounded-md bg-zinc-100 px-3 py-2 dark:bg-zinc-800"><p class="text-lg font-semibold tabular-nums">{{.WordPressSearchReplace.Replacements}}</p><p class="text-xs text-zinc-500 dark:text-zinc-400" data-i18n="matches_in_preview">Matches in preview</p></div>
+      </div>
+    </div>
+    {{if .WordPressSearchReplace.TableResults}}
+    <div class="mt-5 overflow-x-auto rounded-md border border-zinc-200 dark:border-zinc-800">
+      <table class="w-full min-w-96 text-left text-sm"><thead class="bg-zinc-50 text-xs text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400"><tr><th class="px-4 py-2.5 font-medium">Table</th><th class="px-4 py-2.5 text-right font-medium" data-i18n="matches_in_preview">Matches in preview</th></tr></thead><tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">{{range .WordPressSearchReplace.TableResults}}<tr><td class="px-4 py-2.5 font-mono text-xs text-zinc-700 dark:text-zinc-300">{{.Name}}</td><td class="px-4 py-2.5 text-right tabular-nums">{{.Replacements}}</td></tr>{{end}}</tbody></table>
+    </div>
+    {{end}}
+    {{if gt .WordPressSearchReplace.Replacements 0}}
+    <input type="hidden" name="preview_token" value="{{.WordPressSearchReplacePreviewToken}}">
+    <div class="mt-5 flex flex-col items-start justify-between gap-4 border-t border-zinc-200 pt-5 dark:border-zinc-800 sm:flex-row sm:items-center">
+      <label class="flex max-w-xl items-start gap-3 text-sm leading-5 text-zinc-700 dark:text-zinc-300"><input class="mt-0.5 size-4 shrink-0 rounded border-zinc-300 text-zinc-950 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-950" type="checkbox" name="confirm" value="yes"><span>Create a recovery backup before applying these database changes.</span></label>
+      <button class="inline-flex min-h-9 w-full shrink-0 items-center justify-center rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white dark:focus-visible:outline-zinc-100 sm:w-auto" type="submit" formaction="/sites/{{.Site.ID}}/wordpress/search-replace/apply" data-i18n="back_up_and_apply">Back up and apply</button>
+    </div>
+    {{else}}<p class="mt-5 text-sm text-zinc-500 dark:text-zinc-400" data-i18n="no_replacements_found">No replacements found.</p>{{end}}
+  </section>
+  {{end}}
+</form>
+{{template "shell-end" .}}
+{{end}}

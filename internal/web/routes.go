@@ -20,14 +20,17 @@ func (s *Server) Handler() http.Handler {
 	s.registerFileManagerRoutes(mux)
 	s.registerFleetRoutes(mux)
 	s.registerCronRoutes(mux)
+	s.registerWordPressDebugRoutes(mux)
+	s.registerWordPressSearchReplaceRoutes(mux)
 	s.RegisterSiteAccessRoutes(mux)
 	s.registerSecurityRoutes(mux)
 	s.registerOperatorAlertRoutes(mux)
+	s.registerUsernameRoutes(mux)
 	staticFS, err := fs.Sub(templateFiles, "static")
 	if err != nil {
 		panic("embedded static filesystem is invalid: " + err.Error())
 	}
-	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(staticFS))))
+	mux.Handle("GET /assets/", http.StripPrefix("/assets/", staticAssetHandler(staticFS)))
 	mux.HandleFunc("GET /healthz", s.health)
 	mux.HandleFunc("GET /setup", s.setupPage)
 	mux.HandleFunc("POST /setup", s.setupSubmit)

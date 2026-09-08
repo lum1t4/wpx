@@ -11,9 +11,41 @@ import (
 // TOTP enrollment must survive a mistyped code without enabling authentication.
 
 func (s *Server) securityPage(w http.ResponseWriter, r *http.Request, user store.User) {
-	data := pageData{Title: "Account settings", User: &user, CSRF: s.ensureCSRF(w, r)}
+	message := ""
+	if r.URL.Query().Get("username") == "saved" {
+		message = "Username updated."
+	}
+	data := pageData{Title: "Account settings", User: &user, CSRF: s.ensureCSRF(w, r), Message: message}
 	s.pendingTOTP(r, user, &data)
 	s.render(w, "security.html", data)
+}
+
+func (s *Server) registerUsernameRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /account/username", s.requireSession(s.changeUsername))
+	mux.HandleFunc("POST /users/{id}/username", s.requireSession(s.requireCapability(rbac.ManageUsers, s.renameUser)))
+}
+
+func (s *Server) changeUsername(w http.ResponseWriter, r *http.Request, user store.User) {
+	if !s.validCSRF(r) {
+		http.Error(w, "invalid request token", http.StatusForbidden)
+		return
+	}
+	data := pageData{Title: "Account settings", User: &user, CSRF: s.ensureCSRF(w, r), Form: map[string]string{"username": r.FormValue("username")}}
+	if _, err := s.store.Authenticate(r.Context(), user.Username, r.FormValue("current_password")); err != nil {
+		data.Error = "The current password is incorrect."
+		s.pendingTOTP(r, user, &data)
+		s.renderStatus(w, "security.html", http.StatusBadRequest, data)
+		return
+	}
+	updated, err := s.store.ChangeUsername(r.Context(), user, user.ID, r.FormValue("username"))
+	if err != nil {
+		data.Error = err.Error()
+		s.pendingTOTP(r, user, &data)
+		s.renderStatus(w, "security.html", http.StatusBadRequest, data)
+		return
+	}
+	user.Username = updated.Username
+	http.Redirect(w, r, "/account/security?username=saved", http.StatusSeeOther)
 }
 
 func (s *Server) pendingTOTP(r *http.Request, user store.User, data *pageData) {

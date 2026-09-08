@@ -79,6 +79,7 @@ func run(listen string) error {
 		_ = server.Shutdown(shutdown)
 	}()
 	fmt.Printf("WPX preview: http://%s — sample data, read-only; Ctrl+C removes the temporary state.\n", listen)
+	fmt.Printf("Feature previews:\n  http://%s/sites/northstar/wordpress/debug\n  http://%s/sites/northstar/wordpress/search-replace\n  http://%s/sites/northstar-staging/backups\n  http://%s/account/security?username=saved\n", listen, listen, listen, listen)
 	if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
@@ -86,7 +87,7 @@ func run(listen string) error {
 }
 
 func seed(ctx context.Context, state *store.Store, path string) (store.User, error) {
-	owner, err := state.CreateOwner(ctx, "alex", rand.Text())
+	owner, err := state.CreateOwner(ctx, "owner@example.com", rand.Text())
 	if err != nil {
 		return owner, err
 	}
@@ -137,8 +138,29 @@ func seed(ctx context.Context, state *store.Store, path string) (store.User, err
 	if _, err := db.ExecContext(ctx, "UPDATE jobs SET status='succeeded',phase='complete',progress=100,finished_at=updated_at WHERE target_id=?", database.ID); err != nil {
 		return owner, err
 	}
-	_, err = db.ExecContext(ctx, "INSERT INTO backup_snapshots(id,site_id,target_id,restic_snapshot_id,created_at) VALUES(?,?,?,?,?)", "snapshot-preview", "northstar", target.ID, strings.Repeat("a", 64), time.Now().UTC().Add(-time.Hour).Format(time.RFC3339))
-	return owner, err
+	now := time.Now().UTC()
+	retainedSnapshot := strings.Repeat("a", 64)
+	if _, err := db.ExecContext(ctx, "INSERT INTO backup_snapshots(id,site_id,target_id,restic_snapshot_id,created_at) VALUES(?,?,?,?,?)", "snapshot-preview", "northstar-staging", target.ID, retainedSnapshot, now.Add(-time.Hour).Format(time.RFC3339)); err != nil {
+		return owner, err
+	}
+	backupRuns := []struct {
+		id, status, phase, error, key, payload, result string
+		progress                                       int
+		initiator                                      any
+		created, started, finished                     any
+	}{
+		{id: "backup-running", status: "running", phase: "Uploading encrypted files", progress: 68, initiator: nil, key: "backup.schedule:preview-running", payload: fmt.Sprintf(`{"target_id":%q,"schedule_id":"preview-daily","scheduled_for":%q}`, target.ID, now.Add(-4*time.Minute).Format(time.RFC3339)), result: `{}`, created: now.Add(-4 * time.Minute).Format(time.RFC3339), started: now.Add(-3*time.Minute - 40*time.Second).Format(time.RFC3339), finished: nil},
+		{id: "backup-queued", status: "queued", phase: "waiting", progress: 0, initiator: owner.ID, key: "site.backup:northstar-staging:preview-queued", payload: fmt.Sprintf(`{"target_id":%q}`, target.ID), result: `{}`, created: now.Add(-8 * time.Minute).Format(time.RFC3339), started: nil, finished: nil},
+		{id: "backup-success", status: "succeeded", phase: "complete", progress: 100, initiator: owner.ID, key: "site.backup:northstar-staging:preview-success", payload: fmt.Sprintf(`{"target_id":%q}`, target.ID), result: fmt.Sprintf(`{"snapshot_id":%q}`, retainedSnapshot), created: now.Add(-65 * time.Minute).Format(time.RFC3339), started: now.Add(-64*time.Minute - 48*time.Second).Format(time.RFC3339), finished: now.Add(-63 * time.Minute).Format(time.RFC3339)},
+		{id: "backup-expired", status: "succeeded", phase: "complete", progress: 100, initiator: nil, key: "backup.schedule:preview-expired", payload: fmt.Sprintf(`{"target_id":%q,"schedule_id":"preview-daily","scheduled_for":%q}`, target.ID, now.Add(-25*time.Hour).Format(time.RFC3339)), result: fmt.Sprintf(`{"snapshot_id":%q}`, strings.Repeat("b", 64)), created: now.Add(-25 * time.Hour).Format(time.RFC3339), started: now.Add(-25*time.Hour + 15*time.Second).Format(time.RFC3339), finished: now.Add(-25*time.Hour + 2*time.Minute).Format(time.RFC3339)},
+		{id: "backup-failed", status: "failed", phase: "upload", progress: 41, error: "Sample storage connection interrupted.", initiator: owner.ID, key: "site.backup:northstar-staging:preview-failed", payload: fmt.Sprintf(`{"target_id":%q}`, target.ID), result: `{}`, created: now.Add(-49 * time.Hour).Format(time.RFC3339), started: now.Add(-49*time.Hour + 12*time.Second).Format(time.RFC3339), finished: now.Add(-49*time.Hour + 47*time.Second).Format(time.RFC3339)},
+	}
+	for _, run := range backupRuns {
+		if _, err := db.ExecContext(ctx, `INSERT INTO jobs(id,kind,target_type,target_id,status,phase,progress,error,initiator_id,idempotency_key,payload_json,result_json,created_at,updated_at,finished_at,started_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, run.id, "site.backup", "site", "northstar-staging", run.status, run.phase, run.progress, run.error, run.initiator, run.key, run.payload, run.result, run.created, run.created, run.finished, run.started); err != nil {
+			return owner, err
+		}
+	}
+	return owner, nil
 }
 
 func readOnly(next http.Handler, token string) http.Handler {
@@ -182,7 +204,14 @@ func (sampleBroker) Call(_ context.Context, operation broker.Operation, _ string
 	case broker.OpSiteObservability:
 		*result.(*broker.SiteObservabilityResult) = broker.SiteObservabilityResult{DiskBytes: 342884352, FileCount: 8421, AccessLog: []string{`192.0.2.10 - - [06/Sep/2026:10:42:08 +0000] "GET / HTTP/1.1" 200 28431`, `192.0.2.11 - - [06/Sep/2026:10:42:12 +0000] "GET /about/ HTTP/1.1" 200 12310`}}
 	case broker.OpWordPressHealth:
-		*result.(*broker.WordPressHealthResult) = broker.WordPressHealthResult{Checks: []broker.WordPressHealthCheck{{Name: "Database connection", Status: "passed"}, {Name: "Front page", Status: "passed"}}}
+		*result.(*broker.WordPressHealthResult) = broker.WordPressHealthResult{Checks: []broker.WordPressHealthCheck{{Name: "WordPress boots with active plugins and theme", Status: "healthy"}, {Name: "Core files match WordPress.org", Status: "healthy"}, {Name: "Database tables pass checks", Status: "healthy"}}}
+	case broker.OpWordPressDebugStatus:
+		*result.(*model.WordPressDebugStatus) = model.WordPressDebugStatus{Enabled: true, Known: true, Managed: true, LogExists: true, LogSize: 428, LogModifiedAt: "2026-09-08T09:42:18Z"}
+	case broker.OpWordPressDebugRead:
+		content := "[08-Sep-2026 09:41:52 UTC] Preview notice: a deprecated theme hook was called.\n[08-Sep-2026 09:42:18 UTC] Preview warning: sample log entry for visual review.\n"
+		*result.(*model.WordPressDebugLog) = model.WordPressDebugLog{Content: content, Size: int64(len(content))}
+	case broker.OpWordPressSearchReplace:
+		*result.(*broker.WordPressSearchReplaceResult) = broker.WordPressSearchReplaceResult{Tables: 12, Replacements: 37, TableResults: []broker.WordPressSearchReplaceTableResult{{Name: "wp_options", Replacements: 21}, {Name: "wp_posts", Replacements: 16}}}
 	case broker.OpInspectStaging:
 		*result.(*broker.StagingInspection) = broker.StagingInspection{Files: []broker.StagingFileChange{{Path: "wp-content/themes/twentytwentyfive/style.css", Status: "modified", Bytes: 2014}}, Tables: []string{"wp_posts", "wp_options"}}
 	default:

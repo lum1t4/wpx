@@ -49,7 +49,7 @@ type brokerCaller interface {
 
 func New(cfg config.Config, state *store.Store, privileged brokerCaller, logger *slog.Logger) (*Server, error) {
 	tmpl, err := template.New("wpx").Funcs(template.FuncMap{
-		"bytes": humanBytes, "jobLabel": jobLabel,
+		"bytes": humanBytes, "jobLabel": jobLabel, "asset": assetURL, "backupTime": backupHistoryTime,
 		"siteStatus": siteStatusLabel,
 		"assigned":   userAssignedSite, "selectedSite": selectedSite,
 	}).ParseFS(templateFiles, "templates/*.html")

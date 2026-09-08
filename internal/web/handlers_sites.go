@@ -230,6 +230,11 @@ func (s *Server) sitePage(w http.ResponseWriter, r *http.Request, user store.Use
 				http.Error(w, "could not load backup schedules", http.StatusInternalServerError)
 				return
 			}
+			data.BackupRuns, err = s.store.ListSiteBackupRuns(r.Context(), site.ID, 50)
+			if err != nil {
+				http.Error(w, "could not load backup history", http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 	if section == "wordpress" && data.CanManageWordPress && site.Status == "active" && s.broker != nil {

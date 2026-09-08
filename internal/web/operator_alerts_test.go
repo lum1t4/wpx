@@ -53,7 +53,7 @@ func TestOperatorAlertsUsesProgressiveDeliveryAndGranularRows(t *testing.T) {
 	requireNavigationStatus(t, response, http.StatusOK)
 	body := response.Body.String()
 	for _, expected := range []string{
-		`src="/assets/alerts.js"`, `name="channels_version" value="1"`, `data-alert-master`,
+		`src="/assets/alerts.js?v=`, `name="channels_version" value="1"`, `data-alert-master`,
 		`data-alert-channel="smtp"`, `data-alert-channel="slack"`, `data-alert-channel="telegram"`,
 		`name="smtp_enabled"`, `name="slack_enabled"`, `name="slack_webhook_url"`,
 		`name="telegram_enabled"`, `name="telegram_bot_token"`, `name="telegram_chat_id"`,

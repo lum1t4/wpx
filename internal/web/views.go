@@ -17,6 +17,8 @@ func canViewSiteSection(user store.User, site model.Site, section string) bool {
 		return rbac.Allows(user.Role, rbac.ViewSite)
 	case "wordpress":
 		return site.Kind == model.WordPress && rbac.Allows(user.Role, rbac.ManageWordPress)
+	case "wordpress_debug", "wordpress_search_replace":
+		return site.Kind == model.WordPress && site.Status == "active" && rbac.Allows(user.Role, rbac.ManageWordPress)
 	case "staging":
 		return site.Kind == model.WordPress && rbac.Allows(user.Role, rbac.DeploySite)
 	case "backups":
@@ -78,6 +80,10 @@ func preparePageData(name string, data *pageData) {
 				data.Section = "observability"
 			case "wordpress_health.html":
 				data.Section = "wordpress"
+			case "wordpress_debug.html":
+				data.Section = "wordpress_debug"
+			case "wordpress_search_replace.html":
+				data.Section = "wordpress_search_replace"
 			case "staging_created.html", "staging_deploy.html":
 				data.Section = "staging"
 			case "site_cron.html":

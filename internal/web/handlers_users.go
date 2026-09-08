@@ -86,6 +86,43 @@ func (s *Server) updateUserAccess(w http.ResponseWriter, r *http.Request, actor 
 	http.Redirect(w, r, "/users", http.StatusSeeOther)
 }
 
+func (s *Server) renameUser(w http.ResponseWriter, r *http.Request, actor store.User) {
+	if !s.validCSRF(r) {
+		http.Error(w, "invalid request token", http.StatusForbidden)
+		return
+	}
+	target, err := s.store.User(r.Context(), r.PathValue("id"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if target.Role == rbac.Owner || target.ID == actor.ID || (actor.Role == rbac.Administrator && target.Role == rbac.Administrator) {
+		http.Error(w, "permission denied", http.StatusForbidden)
+		return
+	}
+	if _, err := s.store.Authenticate(r.Context(), actor.Username, r.FormValue("current_password")); err != nil {
+		sites, loadErr := s.store.ListSites(r.Context())
+		if loadErr != nil {
+			http.Error(w, "could not load sites", http.StatusInternalServerError)
+			return
+		}
+		target.Username = r.FormValue("username")
+		s.renderStatus(w, "user_edit.html", http.StatusBadRequest, pageData{Title: "Edit user", User: &actor, CSRF: s.ensureCSRF(w, r), Sites: sites, SelectedUser: &target, CanManageUsers: true, Error: "The current password is incorrect."})
+		return
+	}
+	if _, err := s.store.ChangeUsername(r.Context(), actor, r.PathValue("id"), r.FormValue("username")); err != nil {
+		target.Username = r.FormValue("username")
+		sites, loadErr := s.store.ListSites(r.Context())
+		if loadErr != nil {
+			http.Error(w, "could not load sites", http.StatusInternalServerError)
+			return
+		}
+		s.renderStatus(w, "user_edit.html", http.StatusBadRequest, pageData{Title: "Edit user", User: &actor, CSRF: s.ensureCSRF(w, r), Sites: sites, SelectedUser: &target, CanManageUsers: true, Error: err.Error()})
+		return
+	}
+	http.Redirect(w, r, "/users/"+r.PathValue("id"), http.StatusSeeOther)
+}
+
 func (s *Server) setUserStatus(w http.ResponseWriter, r *http.Request, actor store.User) {
 	if !s.validCSRF(r) {
 		http.Error(w, "invalid request token", http.StatusForbidden)

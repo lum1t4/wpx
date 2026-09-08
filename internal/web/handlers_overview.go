@@ -78,5 +78,11 @@ func (s *Server) observabilityPage(w http.ResponseWriter, r *http.Request, user 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if r.URL.Query().Get("download") == "csv" {
+		if err := writeRequestLogsCSV(w, requestLogs.Rows); err != nil {
+			http.Error(w, "could not create request log export", http.StatusInternalServerError)
+		}
+		return
+	}
 	s.render(w, "observability.html", pageData{Title: "Logs · " + site.Domain, User: &user, CSRF: s.ensureCSRF(w, r), Site: &site, CanViewLogs: true, Observability: &result, RequestLogs: &requestLogs})
 }

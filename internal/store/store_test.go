@@ -261,3 +261,67 @@ func TestPasswordChangeRevokesSessionsAndKeepsNewCredential(t *testing.T) {
 		t.Fatalf("new password did not authenticate: %v", err)
 	}
 }
+
+func TestEmailUsernameNormalizesAuthenticationAndRenameKeepsIdentity(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner, err := s.CreateOwner(ctx, "Owner@Example.COM", "a-secure-test-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if owner.Username != "owner@example.com" {
+		t.Fatalf("owner username = %q", owner.Username)
+	}
+	if authenticated, err := s.Authenticate(ctx, " OWNER@EXAMPLE.COM ", "a-secure-test-password"); err != nil || authenticated.ID != owner.ID {
+		t.Fatalf("normalized email login failed: user=%#v err=%v", authenticated, err)
+	}
+	user, err := s.CreateUser(ctx, owner, "legacy-user", "another-secure-password", rbac.Collaborator, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if authenticated, err := s.Authenticate(ctx, " LEGACY-USER ", "another-secure-password"); err != nil || authenticated.ID != user.ID {
+		t.Fatalf("legacy username no longer authenticated: user=%#v err=%v", authenticated, err)
+	}
+	updated, err := s.ChangeUsername(ctx, owner, user.ID, "Person@Example.COM")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.ID != user.ID || updated.Username != "person@example.com" {
+		t.Fatalf("rename changed identity or normalization: %#v", updated)
+	}
+	if _, err := s.Authenticate(ctx, "legacy-user", "another-secure-password"); err == nil {
+		t.Fatal("old username still authenticated")
+	}
+	if authenticated, err := s.Authenticate(ctx, "PERSON@example.com", "another-secure-password"); err != nil || authenticated.ID != user.ID {
+		t.Fatalf("renamed email did not authenticate: user=%#v err=%v", authenticated, err)
+	}
+	if _, err := s.ChangeUsername(ctx, owner, user.ID, "OWNER@example.com"); err == nil {
+		t.Fatal("case-insensitive duplicate email was accepted")
+	}
+}
+
+func TestUsernameRenameAuthorizationProtectsPrivilegedAccounts(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	owner, err := s.CreateOwner(ctx, "owner", "a-secure-test-password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	administrator, err := s.CreateUser(ctx, owner, "administrator", "another-secure-password", rbac.Administrator, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	collaborator, err := s.CreateUser(ctx, owner, "collaborator", "another-secure-password", rbac.Collaborator, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ChangeUsername(ctx, collaborator, administrator.ID, "renamed-admin"); err == nil {
+		t.Fatal("collaborator renamed another account")
+	}
+	if _, err := s.ChangeUsername(ctx, administrator, owner.ID, "renamed-owner"); err == nil {
+		t.Fatal("administrator renamed owner")
+	}
+	if _, err := s.ChangeUsername(ctx, administrator, collaborator.ID, "renamed-collaborator"); err != nil {
+		t.Fatalf("administrator could not rename collaborator: %v", err)
+	}
+}

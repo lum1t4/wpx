@@ -124,6 +124,85 @@ domain change does not rename the site's directory, Unix account, or database.
 5. Use Activity to inspect failures. Retrying a failed site provisioning or
    lifecycle action preserves its site record instead of creating another site.
 
+## WordPress debugging and search and replace
+
+For an active or disabled WordPress site, open WordPress → Debug to enable the
+managed debug configuration. WPX keeps `WP_DEBUG_DISPLAY` off and writes to
+`SITE_ROOT/SITE_ID/tmp/wordpress-debug.log`, outside the public directory. The
+page shows at most the newest 256 KiB. Clear the log from the same page when it
+is no longer needed, then disable debug mode after diagnosis. WPX refuses
+ambiguous, duplicate, partial or otherwise unmanaged debug definitions rather
+than rewriting configuration it cannot identify safely.
+
+Plugin inventory and plugin deactivation skip ordinary plugins and the active
+theme. This lets the panel list and deactivate a plugin whose bootstrap is
+broken. Drop-ins, must-use plugins and network-active plugins remain visible but
+do not receive unsupported activation controls. A malformed inventory response
+still fails the inventory read; WPX does not infer activation state.
+
+Use WordPress → Search and replace only for literal values in this site's
+WordPress tables. Choose an active backup target and run Preview first. The
+preview is an estimate: live writes can change the database before apply. It is
+valid for 15 minutes, can be used once, and is bound to the current user, site,
+backup target and exact search/replacement values. Changing any of them requires
+a new preview.
+
+Apply creates a remote recovery snapshot before the database mutation. WPX
+searches tables with the site's WordPress prefix and skips GUID columns. Search
+and replacement values must be valid UTF-8, differ, contain no control
+characters, not begin with a hyphen, and each be at most 1,024 bytes. Discovery
+accepts at most 10,000 table names and 1 MiB of bounded table-list output.
+After apply, WPX invalidates only the site's managed Redis namespace. Existing
+public pages in the shared Nginx FastCGI cache cannot currently be purged by
+site and may remain visible until their configured 10-minute TTL expires.
+
+If apply reports that the change may be partial, do not submit it again. Record
+the recovery snapshot identifier from the failure, restore that snapshot from
+Backups, verify the site, and only then create a new preview. The local operation
+journal deliberately refuses to replay an operation that reached its mutation
+boundary; deleting that journal is not a recovery procedure.
+
+## Backup run history
+
+The site's Backups page shows the newest 50 durable backup runs, including
+scheduled and manual work, start/finish timing, progress, result and target.
+Successful means that the run completed; “restore point ready” separately means
+the corresponding snapshot is still present. Retention may remove a snapshot,
+so an older successful row can correctly show that it is no longer retained.
+Use Activity for the full job record and failure context.
+
+## Sign-in names and managed-user renames
+
+A sign-in name may be a username or email address and is matched without case
+sensitivity. Change your own under Account settings by entering the new value
+and your current password. An owner or administrator can rename a user they are
+allowed to manage, also with current-password confirmation. Renaming preserves
+the user's internal identity, role, grants and password. It does not transfer
+ownership or expand access.
+
+## Filter and export request logs
+
+Open a site's Logs & usage page to filter the newest 200 parsed Nginx requests.
+IP accepts one exact IPv4 or IPv6 address. Status accepts a code from 100–599, a
+family such as `4xx`, or Errors. Method is a valid HTTP token; path is a
+case-sensitive substring of at most 256 characters on one line. Malformed and
+oversized source lines are skipped rather than shown as trusted request data.
+
+Copy uses the rows currently displayed. Download exports the same filtered rows
+as `request-logs.csv`, sends it with `no-store` and `nosniff`, and prefixes cells
+that spreadsheet applications could interpret as formulas. Both operations are
+limited to the recent in-memory view; they are not a full access-log archive.
+
+## Browser navigation and embedded assets
+
+Site navigation identifies the current domain and groups WordPress-only tools
+under WordPress. The domain is display data, not a translated label. Static CSS
+and JavaScript URLs include a digest of their embedded contents. A matching URL
+is immutable; an old or absent digest is revalidated and serves the current
+embedded file. This keeps Firefox navigation from combining markup from a new
+binary with cached assets from another build. If a tab predates an upgrade,
+reload it once rather than clearing server state or changing file permissions.
+
 One-click WordPress login uses HTTPS when the site's SSL is active and HTTP
 otherwise. Activate SSL before using administrator login over a public network.
 

@@ -166,6 +166,8 @@ func TestSiteAndServerNavigationStaySeparate(t *testing.T) {
 		"/sites",
 		"/sites/navigation-site",
 		"/sites/navigation-site/access",
+		"/sites/navigation-site/wordpress/search-replace",
+		"/sites/navigation-site/wordpress/debug",
 		"/sites/navigation-site/cron",
 		"/sites/navigation-site/ftp",
 	} {
@@ -173,8 +175,56 @@ func TestSiteAndServerNavigationStaySeparate(t *testing.T) {
 			t.Errorf("site sidebar is missing %q", want)
 		}
 	}
+	siteAside := navigationAside(t, siteResponse.Body.String())
+	if !strings.Contains(siteAside, `data-site-identity`) || !strings.Contains(siteAside, `title="navigation.example.com"`) {
+		t.Error("site sidebar is missing the grouped site identity")
+	}
+	if strings.Count(siteResponse.Body.String(), `data-site-identity`) != 2 {
+		t.Error("grouped site identity is not rendered in both desktop and mobile navigation")
+	}
+	for _, href := range []string{
+		"/sites/navigation-site",
+		"/sites/navigation-site/access",
+		"/sites/navigation-site/wordpress",
+		"/sites/navigation-site/wordpress/search-replace",
+		"/sites/navigation-site/wordpress/debug",
+		"/sites/navigation-site/staging",
+		"/sites/navigation-site/backups",
+		"/sites/navigation-site/files",
+		"/sites/navigation-site/databases",
+		"/sites/navigation-site/dns",
+		"/sites/navigation-site/security",
+		"/sites/navigation-site/cron",
+		"/sites/navigation-site/ftp",
+		"/sites/navigation-site/observability",
+		"/sites/navigation-site/settings",
+	} {
+		link := regexp.MustCompile(`(?s)<a href="` + regexp.QuoteMeta(href) + `"[^>]*>(.*?)</a>`).FindStringSubmatch(siteAside)
+		if len(link) != 2 || !strings.Contains(link[1], "<svg") {
+			t.Errorf("site sidebar link %q is missing its icon", href)
+		}
+	}
 	if siteLinks["/sites/navigation-site/runtime"] {
 		t.Error("WordPress site sidebar exposes reverse-proxy runtime settings")
+	}
+	pending := model.Site{ID: "pending-wordpress", Domain: "pending.example.com", Kind: model.WordPress, PHPVersion: "8.4"}
+	if _, err := server.store.CreateSite(context.Background(), owner, pending); err != nil {
+		t.Fatal(err)
+	}
+	pendingResponse := navigationRequest(t, server, owner, http.MethodGet, "/sites/pending-wordpress", nil)
+	requireNavigationStatus(t, pendingResponse, http.StatusOK)
+	pendingLinks := navigationAsideLinks(t, pendingResponse.Body.String())
+	for _, href := range []string{"/sites/pending-wordpress/wordpress/search-replace", "/sites/pending-wordpress/wordpress/debug"} {
+		if pendingLinks[href] {
+			t.Errorf("inactive WordPress site sidebar exposes %q", href)
+		}
+	}
+	pendingJob, found, err := server.store.ClaimNextJob(context.Background())
+	if err != nil || !found || pendingJob.TargetID != pending.ID {
+		t.Fatalf("claim pending WordPress fixture: found=%t target=%q error=%v", found, pendingJob.TargetID, err)
+	}
+	if err := server.store.FinishJob(context.Background(), pendingJob, "{}", nil); err != nil {
+		t.Fatal(err)
 	}
 
 	navigationSite(t, server, owner, model.Site{ID: "proxy-site", Domain: "proxy.example.com", Kind: model.ReverseProxy, Upstream: "http://127.0.0.1:3000"})
@@ -182,6 +232,10 @@ func TestSiteAndServerNavigationStaySeparate(t *testing.T) {
 	requireNavigationStatus(t, proxyResponse, http.StatusOK)
 	if !navigationAsideLinks(t, proxyResponse.Body.String())["/sites/proxy-site/runtime"] {
 		t.Error("reverse-proxy site sidebar is missing runtime settings")
+	}
+	runtimeLink := regexp.MustCompile(`(?s)<a href="/sites/proxy-site/runtime"[^>]*>(.*?)</a>`).FindStringSubmatch(navigationAside(t, proxyResponse.Body.String()))
+	if len(runtimeLink) != 2 || !strings.Contains(runtimeLink[1], "<svg") {
+		t.Error("reverse-proxy runtime link is missing its icon")
 	}
 	for _, serverTool := range []string{"/", "/jobs", "/monitoring", "/wordpress", "/databases", "/backups/targets", "/dns/providers", "/hosting", "/alerts", "/users"} {
 		if siteLinks[serverTool] {
@@ -206,6 +260,8 @@ func TestSiteAndServerNavigationStaySeparate(t *testing.T) {
 		}
 	}
 	for name, body := range map[string]string{"site": siteResponse.Body.String(), "server": serverResponse.Body.String()} {
+		shell, _, _ := strings.Cut(body, `<main id="main-content"`)
+		requireIntrinsicSVGDimensions(t, name+" shared shell", shell)
 		if !strings.Contains(body, `href="/account/security"`) {
 			t.Errorf("%s page account menu does not link to account settings", name)
 		}
@@ -214,6 +270,23 @@ func TestSiteAndServerNavigationStaySeparate(t *testing.T) {
 			t.Errorf("%s page is missing the accessible account trigger", name)
 		} else if strings.Contains(trigger[1], owner.Username) {
 			t.Errorf("%s page account trigger includes the username", name)
+		}
+		opening := regexp.MustCompile(`<summary[^>]*aria-label="Account settings"[^>]*>`).FindString(body)
+		if !strings.Contains(opening, "rounded-full") {
+			t.Errorf("%s page account trigger is not round", name)
+		}
+	}
+}
+
+func requireIntrinsicSVGDimensions(t *testing.T, name, fragment string) {
+	t.Helper()
+	tags := regexp.MustCompile(`<svg\b[^>]*>`).FindAllString(fragment, -1)
+	if len(tags) == 0 {
+		t.Fatalf("%s contains no SVG icons", name)
+	}
+	for _, tag := range tags {
+		if !strings.Contains(tag, ` width="`) || !strings.Contains(tag, ` height="`) {
+			t.Errorf("%s contains an SVG without intrinsic dimensions: %s", name, tag)
 		}
 	}
 }
@@ -226,7 +299,7 @@ func TestAccountSettingsContainPreferences(t *testing.T) {
 
 	for _, want := range []string{
 		`<meta name="color-scheme" content="light dark">`,
-		`<script src="/assets/theme.js"></script>`,
+		`<script src="/assets/theme.js?v=`,
 		`action="/language"`,
 		`name="next" value="/account/security"`,
 		`name="appearance" value="system" data-theme-choice checked`,

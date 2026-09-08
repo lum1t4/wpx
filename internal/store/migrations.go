@@ -255,6 +255,8 @@ var migrations = []string{
 	CronMigration,
 	SiteAccessMigration,
 	HostingMigration,
+	BackupHistoryMigration,
+	WordPressSearchReplacePreviewSchema,
 }
 
 func (s *Store) migrate(ctx context.Context) error {

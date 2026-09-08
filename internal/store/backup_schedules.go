@@ -106,9 +106,11 @@ func (s *Store) EnqueueDueBackups(ctx context.Context) (int, error) {
 	for _, schedule := range due {
 		jobID := mustID("job_")
 		payloadBytes, err := json.Marshal(struct {
-			TargetID  string                `json:"target_id"`
-			Retention model.BackupRetention `json:"retention"`
-		}{TargetID: schedule.targetID, Retention: schedule.retention})
+			TargetID     string                `json:"target_id"`
+			Retention    model.BackupRetention `json:"retention"`
+			ScheduleID   string                `json:"schedule_id"`
+			ScheduledFor string                `json:"scheduled_for"`
+		}{TargetID: schedule.targetID, Retention: schedule.retention, ScheduleID: schedule.id, ScheduledFor: schedule.nextRun})
 		if err != nil {
 			return 0, err
 		}

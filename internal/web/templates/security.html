@@ -1,9 +1,9 @@
 {{define "security.html"}}
 {{template "shell-start" .}}
-<div class="max-w-3xl">
+<div class="min-w-0 max-w-full lg:max-w-3xl">
   <header>
     <h1 class="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100" data-i18n="account_settings">Account settings</h1>
-    <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{{.User.Username}}</p>
+    <p class="mt-2 break-all text-sm text-zinc-500 dark:text-zinc-400">{{.User.Username}}</p>
   </header>
 
   {{if .Error}}
@@ -12,6 +12,16 @@
   {{if .Message}}
   <div class="mt-6 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200" role="status">{{.Message}}</div>
   {{end}}
+
+  <section class="mt-8 min-w-0 max-w-full overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900" aria-labelledby="account-identity-title">
+    <div class="border-b border-zinc-200 dark:border-zinc-800 px-5 py-4 sm:px-6"><h2 id="account-identity-title" class="text-base font-semibold text-zinc-950 dark:text-zinc-100" data-i18n="sign_in_name">Sign-in name</h2></div>
+    <form class="grid gap-5 p-5 sm:grid-cols-2 sm:p-6" method="post" action="/account/username">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <label class="min-w-0"><span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300" data-i18n="username_or_email">Username or email</span><input class="w-full min-w-0 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400" name="username" value="{{if .Form}}{{index .Form "username"}}{{else}}{{.User.Username}}{{end}}" maxlength="254" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+      <label class="min-w-0"><span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300" data-i18n="current_password">Current password</span><input class="w-full min-w-0 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400" type="password" name="current_password" autocomplete="current-password" required></label>
+      <div class="sm:col-span-2"><button class="inline-flex min-h-9 items-center justify-center rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" type="submit" data-i18n="update_sign_in_name">Update sign-in name</button></div>
+    </form>
+  </section>
 
   <section class="mt-8" aria-labelledby="preferences-title">
     <h2 id="preferences-title" class="text-lg font-semibold text-zinc-950 dark:text-zinc-100" data-i18n="preferences">Preferences</h2>

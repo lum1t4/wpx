@@ -54,6 +54,6 @@
     {{if .EditingFile}}<section class="min-w-0 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5"><div class="flex flex-wrap items-center justify-between gap-3"><h2 class="min-w-0 break-all font-mono text-sm font-medium">{{.FilePath}}</h2><a class="text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100" href="/sites/{{.Site.ID}}/files?path={{urlquery .DirectoryPath}}" data-i18n="close">Close</a></div><form class="mt-4" method="post" action="/sites/{{.Site.ID}}/files"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="path" value="{{.FilePath}}"><label for="file-content" class="sr-only">Contents of {{.FilePath}}</label><textarea id="file-content" class="min-h-[32rem] w-full resize-y rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4 font-mono text-sm leading-6 text-zinc-900 dark:text-zinc-100" name="content" spellcheck="false" autocapitalize="off" wrap="off">{{.FileContent}}</textarea><div class="mt-4 flex flex-wrap items-center justify-between gap-4"><p class="max-w-lg text-xs leading-5 text-zinc-500 dark:text-zinc-400">Maximum file size: 1 MiB.</p><button class="shrink-0 rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white" data-i18n="save">Save</button></div></form></section>{{end}}
   </div>
 </div>
-<script src="/assets/files.js" defer></script>
+<script src="{{asset "files.js"}}" defer></script>
 {{template "shell-end" .}}
 {{end}}

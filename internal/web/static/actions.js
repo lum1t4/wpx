@@ -56,19 +56,42 @@
     if (generation !== pageGeneration) return;
     const response = await fetch(url, { headers: { "X-WPX-Action": "refresh" }, signal });
     if (generation !== pageGeneration) return;
+    if (response.redirected) {
+      window.location.assign(response.url);
+      return;
+    }
     if (!response.ok) {
       window.location.assign(url);
       return;
     }
-    const next = new DOMParser().parseFromString(await response.text(), "text/html").querySelector("#main-content");
+    const parsed = new DOMParser().parseFromString(await response.text(), "text/html");
+    const next = parsed.querySelector("#main-content");
     const current = document.querySelector("#main-content");
     if (generation !== pageGeneration) return;
     if (!next || !current) {
       window.location.assign(url);
       return;
     }
+
+    const assetURLs = (scope, selector) => Array.from(scope.querySelectorAll(selector), (element) => new URL(element.getAttribute("href") || element.getAttribute("src"), document.baseURI).href);
+    const currentStyles = assetURLs(document, 'link[rel="stylesheet"][href]');
+    const nextStyles = assetURLs(parsed, 'link[rel="stylesheet"][href]');
+    const currentScripts = assetURLs(document.head, "script[src]");
+    const nextScripts = assetURLs(parsed.head, "script[src]");
+    const sameAssets = (left, right) => left.length === right.length && left.every((value, index) => value === right[index]);
+    const stylesLoaded = Array.from(document.querySelectorAll('link[rel="stylesheet"][href]')).every((link) => link.sheet);
+    // Scripts inserted with parsed markup do not execute. Pages with their own
+    // initializer therefore use a normal navigation so their controls cannot
+    // be replaced with inert copies.
+    const hasPageScripts = Boolean(document.body.querySelector("script") || parsed.body.querySelector("script"));
+    if (!stylesLoaded || hasPageScripts || !sameAssets(currentStyles, nextStyles) || !sameAssets(currentScripts, nextScripts)) {
+      window.location.assign(url);
+      return;
+    }
+
     current.replaceWith(next);
     history.replaceState(null, "", url);
+    next.dispatchEvent(new CustomEvent("wpx:content-updated", { bubbles: true }));
     if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches && typeof next.animate === "function") {
       next.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: "ease-out" });
     }

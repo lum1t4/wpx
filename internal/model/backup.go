@@ -45,6 +45,28 @@ type BackupSnapshot struct {
 	CreatedAt        string `json:"created_at"`
 }
 
+// BackupRun is the site-facing view of one durable backup job. A restore point
+// is available only when the completed result still exists after retention.
+type BackupRun struct {
+	JobID                 string `json:"job_id"`
+	SiteID                string `json:"site_id"`
+	TargetID              string `json:"target_id"`
+	TargetName            string `json:"target_name"`
+	Source                string `json:"source"`
+	ScheduledFor          string `json:"scheduled_for,omitempty"`
+	Status                string `json:"status"`
+	Phase                 string `json:"phase,omitempty"`
+	Progress              int    `json:"progress"`
+	QueuedAt              string `json:"queued_at"`
+	StartedAt             string `json:"started_at,omitempty"`
+	FinishedAt            string `json:"finished_at,omitempty"`
+	Duration              string `json:"duration,omitempty"`
+	SnapshotID            string `json:"snapshot_id,omitempty"`
+	RecoverySnapshotID    string `json:"recovery_snapshot_id,omitempty"`
+	RestorePointAvailable bool   `json:"restore_point_available"`
+	FailureSummary        string `json:"failure_summary,omitempty"`
+}
+
 type BackupSchedule struct {
 	ID                      string          `json:"id"`
 	SiteID                  string          `json:"site_id"`

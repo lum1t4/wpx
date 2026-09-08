@@ -1,6 +1,6 @@
 {{define "users.html"}}
 {{template "shell-start" .}}
-<div class="max-w-6xl">
+<div class="min-w-0 max-w-full lg:max-w-6xl">
   <header>
     <p class="text-sm text-zinc-500 dark:text-zinc-400" data-i18n="server">Server</p>
     <h1 class="mt-1 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100" data-i18n="users">Users</h1>
@@ -11,17 +11,17 @@
   <div class="mt-6 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-700 dark:text-red-300" role="alert">{{.Error}}</div>
   {{end}}
 
-  <section class="mt-8 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900" aria-labelledby="users-title">
+  <section class="mt-8 min-w-0 max-w-full overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900" aria-labelledby="users-title">
     <div class="border-b border-zinc-200 dark:border-zinc-800 px-5 py-4">
       <h2 id="users-title" class="text-base font-semibold text-zinc-950 dark:text-zinc-100">Panel accounts</h2>
       <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Disabling an account signs it out immediately and prevents further sign-ins.</p>
     </div>
-    <div class="overflow-x-auto">
+    <div class="max-w-full overflow-x-auto contain-paint">
       <table class="w-full min-w-[720px] text-left text-sm">
         <thead class="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-xs font-medium text-zinc-500 dark:text-zinc-400">
           <tr>
             <th scope="col" class="px-5 py-3 font-medium" data-i18n="username">Username</th>
-            <th scope="col" class="px-5 py-3 font-medium">Role</th>
+            <th scope="col" class="px-5 py-3 font-medium" data-i18n="role">Role</th>
             <th scope="col" class="px-5 py-3 font-medium">Site access</th>
             <th scope="col" class="px-5 py-3 font-medium">Two-factor</th>
             <th scope="col" class="px-5 py-3 font-medium" data-i18n="status">Status</th>
@@ -73,28 +73,23 @@
     </div>
   </section>
 
-  <details class="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"{{if .Error}} open{{end}}>
+  <details class="mt-6 min-w-0 max-w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"{{if .Error}} open{{end}}>
     <summary class="cursor-pointer px-5 py-4 text-sm font-semibold text-zinc-950 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400">Create user</summary>
     <div class="border-t border-zinc-200 dark:border-zinc-800 p-5 sm:p-6">
       <p class="text-sm leading-6 text-zinc-500 dark:text-zinc-400">Create a panel account, choose a role, and assign the sites they need.</p>
       <form class="mt-6 grid gap-5 md:grid-cols-2" method="post" action="/users">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
         <label>
-          <span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300" data-i18n="username">Username</span>
-          <input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400" name="username" value="{{index .Form "username"}}" autocomplete="username" spellcheck="false" required>
+          <span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300" data-i18n="username_or_email">Username or email</span>
+          <input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400" name="username" value="{{index .Form "username"}}" maxlength="254" autocomplete="username" autocapitalize="none" spellcheck="false" required>
         </label>
-        <label>
-          <span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Role</span>
-          <select class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400" name="role" aria-describedby="role-description">
-            {{if eq .User.Role "owner"}}<option value="administrator"{{if eq (index .Form "role") "administrator"}} selected{{end}}>Administrator</option>{{end}}
-            <option value="collaborator"{{if or (eq (index .Form "role") "collaborator") (eq (index .Form "role") "")}} selected{{end}}>Collaborator</option>
-            <option value="customer"{{if eq (index .Form "role") "customer"}} selected{{end}}>Customer</option>
+        <div>
+          <div class="mb-2 flex items-center gap-2"><label for="new-user-role" class="text-sm font-medium text-zinc-700 dark:text-zinc-300" data-i18n="role">Role</label><span class="group relative"><button class="flex size-5 cursor-help items-center justify-center rounded-full border border-zinc-300 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400" type="button" aria-labelledby="new-user-role-help-label" aria-describedby="role-description"><span aria-hidden="true">?</span><span id="new-user-role-help-label" class="sr-only" data-i18n="role_permissions">Role permissions</span></button><span id="role-description" role="tooltip" class="invisible absolute left-0 z-10 mt-2 block w-72 max-w-[calc(100vw-3rem)] rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3 text-xs leading-5 text-zinc-600 dark:text-zinc-300 shadow-lg group-hover:visible group-focus-within:visible">{{if eq .User.Role "owner"}}<span class="block" data-i18n="administrator_permissions">Administrator: server, users, and all sites.</span>{{end}}<span class="block" data-i18n="collaborator_permissions">Collaborator: manages assigned sites.</span><span class="block" data-i18n="customer_permissions">Customer: backups, logs, and WordPress for assigned sites.</span></span></span></div>
+          <select id="new-user-role" class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400" name="role" aria-describedby="role-description">
+            {{if eq .User.Role "owner"}}<option value="administrator"{{if eq (index .Form "role") "administrator"}} selected{{end}} data-i18n="administrator">Administrator</option>{{end}}
+            <option value="collaborator"{{if or (eq (index .Form "role") "collaborator") (eq (index .Form "role") "")}} selected{{end}} data-i18n="collaborator">Collaborator</option>
+            <option value="customer"{{if eq (index .Form "role") "customer"}} selected{{end}} data-i18n="customer">Customer</option>
           </select>
-        </label>
-        <div id="role-description" class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4 text-sm leading-6 text-zinc-600 dark:text-zinc-300 md:col-span-2">
-          {{if eq .User.Role "owner"}}<p><span class="font-medium text-zinc-800 dark:text-zinc-200">Administrator</span> — manages the server, users, and every site.</p>{{end}}
-          <p><span class="font-medium text-zinc-800 dark:text-zinc-200">Collaborator</span> — manages assigned sites, including files, deployments, DNS, and WordPress.</p>
-          <p><span class="font-medium text-zinc-800 dark:text-zinc-200">Customer</span> — views assigned sites, manages backups, reads logs, and signs in to WordPress.</p>
         </div>
         <label>
           <span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300" data-i18n="password">Password</span>

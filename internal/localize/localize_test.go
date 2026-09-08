@@ -82,6 +82,36 @@ func TestAppearanceAndLogVocabularyIsLocalized(t *testing.T) {
 	}
 }
 
+func TestAlpha18FeatureVocabularyIsLocalized(t *testing.T) {
+	for _, option := range Supported() {
+		for _, key := range alpha18Keys {
+			if got := strings.TrimSpace(catalog[option.Tag][key]); got == "" {
+				t.Errorf("locale %q has no %q translation", option.Tag, key)
+			}
+		}
+	}
+
+	tests := []struct {
+		locale Locale
+		key    string
+		want   string
+	}{
+		{locale: "it", key: "request_logs", want: "Log delle richieste"},
+		{locale: "it", key: "matches_in_preview", want: "Corrispondenze nell’anteprima"},
+		{locale: "ar", key: "running", want: "قيد التشغيل"},
+		{locale: "es", key: "matches_in_preview", want: "Coincidencias en la vista previa"},
+		{locale: "de", key: "copy_requests", want: "Anfragen kopieren"},
+		{locale: "ja", key: "running", want: "実行中"},
+		{locale: "zh-CN", key: "no_backup_runs_yet", want: "暂无备份运行记录"},
+		{locale: "zh-TW", key: "matches_in_preview", want: "預覽中的相符項目"},
+	}
+	for _, test := range tests {
+		if got := T(test.locale, test.key); got != test.want {
+			t.Errorf("T(%q, %q) = %q, want %q", test.locale, test.key, got, test.want)
+		}
+	}
+}
+
 func TestResolveCookieThenLanguageHeader(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header.Set("Accept-Language", "fr-CA;q=0.9,en;q=0.8")

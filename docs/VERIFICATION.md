@@ -4,6 +4,48 @@ This record separates automated coverage, development previews, and real host
 observations. Results apply to the candidate and environment described here;
 they are not a claim that every supported workflow has been exercised live.
 
+## 2026-09-08: plugin recovery and WordPress operations
+
+The live `ds2.mitadev.com` incident was a PHP fatal error in
+`ai-provider-for-openai` 1.1.0: its provider referenced a missing
+`ListModelsApiBasedProviderAvailability` class. Only that plugin was deactivated;
+its files were retained and Redis remained active. Trusted public site and
+WordPress login requests then returned 200. The original activation list is kept
+privately under `/var/lib/wpx/recovery/incident-20260908T072124Z`.
+
+Alpha.18 adds private WordPress debug controls, preview-bound search and replace,
+backup run history, email sign-in names and rename controls, request-log exports,
+site navigation refinements, and asset loading safeguards. Local full Go tests,
+vet, JavaScript syntax, generated CSS, direct Tailwind policy, formatting and diff
+checks passed. Security review covered authorization, CSRF, exact one-use preview
+binding, encrypted operands, private logs, confined/linted configuration writes,
+and recovery snapshot retention after partial failures. Uncertain transport
+retries preserve the original job key; an interrupted database apply is never
+blindly repeated or automatically restored over newer writes.
+
+A disposable native Ubuntu 24.04 ARM64 container used PHP 8.3.6, MariaDB
+10.11.14 and the repository-pinned, checksum-verified WP-CLI 2.12.0. Real dry-run
+and apply counts were 3/3, and empty replacement counts were 2/2. PHP serialized
+values remained valid, GUIDs stayed unchanged, prefixed plugin tables changed,
+and an unrelated table stayed untouched. Discovery returned horizontal CSV;
+the final implementation uses a single aggregate-count search command. Real
+pinned-FD PHP lint accepted valid enabled/disabled debug configurations and
+rejected an invalid configuration. These checks do not exercise remote Restic
+delivery, large databases, power-loss interruption, or arbitrary plugin behavior.
+The disposable container was removed.
+
+Actual Firefox 141 checked light/dark desktop and 390px previews. Log path/error
+filters, modal submission/Escape/focus return and CSV download worked. Native
+clipboard writing reported success; clipboard readback was unavailable to the
+test driver. Repeated navigation loaded styled pages without script errors.
+Delayed CSS produced a blank wait before styled rendering, so the original
+user-reported flash was not reproduced. Fingerprinted assets, safe partial-page
+fallbacks, and intrinsic icon dimensions address known stale-asset and unstyled
+SVG failure modes without claiming that the original trigger was identified.
+The final Firefox mobile pass confirmed 390px document width, independent table
+scrolling, and an in-viewport keyboard-focused role tooltip. Paint containment
+on the table scrollers fixed Gecko's propagation of their overflow to the page.
+
 ## 2026-09-08: appearance, notification channels, and security dependencies
 
 The alpha.17 candidate adds light/dark/system appearance, account preferences,

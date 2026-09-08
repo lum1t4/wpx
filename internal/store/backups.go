@@ -187,6 +187,24 @@ func (s *Store) EnqueueSiteBackup(ctx context.Context, actor User, siteID, targe
 	return jobID, nil
 }
 
+// RetryBackupJob returns a backup with an uncertain broker outcome to the queue.
+// The existing job and idempotency key are retained so the provisioner can
+// reconcile a completed remote snapshot instead of creating another one.
+func (s *Store) RetryBackupJob(ctx context.Context, jobID, detail string) error {
+	result, err := s.db.ExecContext(ctx, `UPDATE jobs SET status='queued',phase='waiting',error=?,updated_at=? WHERE id=? AND kind='site.backup' AND status='running'`, detail, s.now().UTC().Format(time.RFC3339Nano), jobID)
+	if err != nil {
+		return err
+	}
+	changed, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if changed != 1 {
+		return errors.New("backup job is not awaiting broker confirmation")
+	}
+	return nil
+}
+
 func (s *Store) ListSiteSnapshots(ctx context.Context, siteID string) ([]model.BackupSnapshot, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT id,site_id,target_id,restic_snapshot_id,created_at FROM backup_snapshots WHERE site_id=? ORDER BY created_at DESC`, siteID)
 	if err != nil {

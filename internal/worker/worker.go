@@ -328,11 +328,15 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 		var backupResult broker.BackupSiteResult
 		backupResult, operationErr = w.Provisioner.BackupSite(ctx, site, target, payload.Retention, job.IdempotencyKey)
 		if operationErr == nil {
-			encoded, err := json.Marshal(backupResult)
-			if err != nil {
-				operationErr = err
+			if !model.ValidResticSnapshotID(backupResult.SnapshotID) {
+				operationErr = errors.New("backup result snapshot ID is invalid")
 			} else {
-				resultJSON = string(encoded)
+				encoded, err := json.Marshal(backupResult)
+				if err != nil {
+					operationErr = err
+				} else {
+					resultJSON = string(encoded)
+				}
 			}
 		}
 	case "site.restore":
@@ -465,6 +469,8 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 		if operationErr == nil {
 			operationErr = w.Provisioner.ApplyPerformance(ctx, site, job.IdempotencyKey)
 		}
+	case "wordpress.search_replace":
+		resultJSON, operationErr = w.processWordPressSearchReplace(ctx, job)
 	case "wordpress.update":
 		var payload struct {
 			TargetID string                `json:"target_id"`
@@ -542,15 +548,19 @@ func (w *Worker) ProcessOne(ctx context.Context) (bool, error) {
 	default:
 		operationErr = fmt.Errorf("unsupported job kind %q", job.Kind)
 	}
-	if (job.Kind == "site.php_version" || job.Kind == "site.domain_change" || job.Kind == "site.delete" || job.Kind == "site.access_apply" || job.Kind == "site.cron_apply" || job.Kind == "site.wordpress_cron_apply" || job.Kind == "wordpress.security_apply" || job.Kind == "wordpress.security_install" || strings.HasPrefix(job.Kind, "hosting.")) && (errors.Is(operationErr, broker.ErrOutcomeUnknown) || errors.Is(operationErr, broker.ErrUnavailable)) {
+	if (job.Kind == "site.backup" || job.Kind == "site.php_version" || job.Kind == "site.domain_change" || job.Kind == "site.delete" || job.Kind == "site.access_apply" || job.Kind == "site.cron_apply" || job.Kind == "site.wordpress_cron_apply" || job.Kind == "wordpress.search_replace" || job.Kind == "wordpress.security_apply" || job.Kind == "wordpress.security_install" || strings.HasPrefix(job.Kind, "hosting.")) && (errors.Is(operationErr, broker.ErrOutcomeUnknown) || errors.Is(operationErr, broker.ErrUnavailable)) {
 		detail := "Waiting for broker confirmation: " + operationErr.Error()
 		var retryErr error
-		if job.Kind == "site.php_version" {
+		if job.Kind == "site.backup" {
+			retryErr = w.Store.RetryBackupJob(ctx, job.ID, detail)
+		} else if job.Kind == "site.php_version" {
 			retryErr = w.Store.RetryPHPVersionChange(ctx, job.ID, detail)
 		} else if job.Kind == "site.cron_apply" || job.Kind == "site.wordpress_cron_apply" {
 			retryErr = w.Store.RetryCronJob(ctx, job.ID, detail)
 		} else if job.Kind == "site.access_apply" {
 			retryErr = w.Store.RetrySiteAccessJob(ctx, job.ID, detail)
+		} else if job.Kind == "wordpress.search_replace" {
+			retryErr = w.Store.RetryWordPressSearchReplaceJob(ctx, job.ID, detail)
 		} else if job.Kind == "wordpress.security_apply" || job.Kind == "wordpress.security_install" {
 			retryErr = w.Store.RetrySecurityJob(ctx, job.ID, detail)
 		} else if strings.HasPrefix(job.Kind, "hosting.") {

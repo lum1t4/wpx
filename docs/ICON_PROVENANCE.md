@@ -19,9 +19,9 @@ fixed pixel dimensions, adds its fixed `size-4 shrink-0` classes and
 Lucide is licensed under ISC, with some icons derived from Feather under MIT.
 The complete upstream notice is retained in [LUCIDE.txt](licenses/LUCIDE.txt).
 
-The embedded Lucide names are: `activity`, `archive`, `bell`, `chevron-down`,
+The embedded Lucide names are: `activity`, `archive`, `bell`, `circle-help`, `chevron-down`,
 `chevron-left`, `clipboard`, `clock`, `copy`, `database`, `download`,
-`ellipsis`, `folder`, `globe`, `hard-drive`, `info`, `layout-dashboard`,
+`ellipsis`, `filter`, `folder`, `globe`, `hard-drive`, `info`, `layout-dashboard`,
 `log-out`, `monitor`, `monitor-cog`, `moon`, `panels-top-left`, `pencil`,
 `plus`, `refresh-cw`, `scissors`, `search`, `server`, `settings`, `shield`,
 `sun`, `trash-2`, `upload`, `user`, `users`, and `x`.

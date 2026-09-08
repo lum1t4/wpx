@@ -179,6 +179,7 @@ func (s *Server) dispatch(request Request) Response {
 	for _, dispatch := range []func(Request) (Response, bool){
 		s.dispatchFileManager, s.dispatchSecurity, s.dispatchCron,
 		s.dispatchSiteAccess, s.dispatchOperatorAlerts, s.dispatchHosting,
+		s.dispatchWordPressDebug, s.dispatchWordPressSearchReplace,
 	} {
 		if response, handled := dispatch(request); handled {
 			return response

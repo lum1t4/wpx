@@ -166,7 +166,7 @@ func TestFleetPageUsesFullWidthTabbedInventoryAndInlineSelections(t *testing.T) 
 		`name="update" value="fleet-web-one|akismet"`,
 		`data-fleet-selection`,
 		`data-fleet-clear`,
-		`src="/assets/fleet.js"`,
+		`src="/assets/fleet.js?v=`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("fleet page is missing %q: %s", want, body)

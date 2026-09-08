@@ -1,6 +1,6 @@
 {{template "shell-start" .}}
 {{$a := .OperatorAlerts}}{{$s := $a.Settings}}
-<script src="/assets/alerts.js" defer></script>
+<script src="{{asset "alerts.js"}}" defer></script>
 
 <div class="flex flex-wrap items-center justify-between gap-4">
   <div class="flex items-center gap-3">

@@ -9,12 +9,18 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/lum1t4/wpx/internal/broker"
 	"github.com/lum1t4/wpx/internal/model"
 )
 
 var pluginSlugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,99}$`)
+
+// The interactive broker client allows 15 seconds. Finish or cancel before its
+// response deadline so callers do not see an unknown outcome while WP-CLI keeps
+// mutating the site in the background.
+const wordpressCommandTimeout = 12 * time.Second
 
 // WP-CLI uses a string update status for ordinary plugins, but boolean false
 // for drop-ins such as Redis's object-cache.php. Normalize that external shape
@@ -48,7 +54,7 @@ func (h *Host) Inventory(ctx context.Context, site model.Site) (broker.WordPress
 	if err != nil {
 		return broker.WordPressInventoryResult{}, err
 	}
-	themeOutput, err := h.runWordPressOutput(ctx, site, "theme", "list", "--skip-update-check", "--format=json", "--fields=name,status,version,update,update_version")
+	themeOutput, err := h.runWordPressWithoutExtensions(ctx, site, "theme", "list", "--skip-update-check", "--format=json", "--fields=name,status,version,update,update_version")
 	if err != nil {
 		return broker.WordPressInventoryResult{}, err
 	}
@@ -63,7 +69,7 @@ func (h *Host) Inventory(ctx context.Context, site model.Site) (broker.WordPress
 			Update: string(item.Update), UpdateVersion: item.UpdateVersion,
 		})
 	}
-	versionOutput, err := h.runWordPressOutput(ctx, site, "core", "version")
+	versionOutput, err := h.runWordPressWithoutExtensions(ctx, site, "core", "version")
 	if err != nil {
 		return broker.WordPressInventoryResult{}, err
 	}
@@ -72,7 +78,7 @@ func (h *Host) Inventory(ctx context.Context, site model.Site) (broker.WordPress
 		return broker.WordPressInventoryResult{}, errors.New("WP-CLI returned an invalid core version")
 	}
 	result := broker.WordPressInventoryResult{CoreVersion: version, Plugins: plugins, Themes: themes}
-	updateOutput, err := h.runWordPressOutput(ctx, site, "core", "check-update", "--format=json")
+	updateOutput, err := h.runWordPressWithoutExtensions(ctx, site, "core", "check-update", "--format=json")
 	if err == nil {
 		var updates []struct {
 			Version string `json:"version"`
@@ -89,9 +95,9 @@ func (h *Host) Health(ctx context.Context, site model.Site) broker.WordPressHeal
 		name string
 		args []string
 	}{
-		{name: "WordPress loads", args: []string{"core", "is-installed"}},
-		{name: "Core files match WordPress.org", args: []string{"core", "verify-checksums"}},
-		{name: "Database tables pass checks", args: []string{"db", "check"}},
+		{name: "WordPress boots with active plugins and theme", args: []string{"core", "is-installed"}},
+		{name: "Core files match WordPress.org", args: []string{"--skip-plugins", "--skip-themes", "core", "verify-checksums"}},
+		{name: "Database tables pass checks", args: []string{"--skip-plugins", "--skip-themes", "db", "check"}},
 	}
 	result := broker.WordPressHealthResult{Checks: make([]broker.WordPressHealthCheck, 0, len(commands))}
 	for _, check := range commands {
@@ -105,7 +111,10 @@ func (h *Host) Health(ctx context.Context, site model.Site) broker.WordPressHeal
 }
 
 func (h *Host) Plugins(ctx context.Context, site model.Site) ([]broker.WordPressPlugin, error) {
-	output, err := h.runWordPressOutput(ctx, site, "plugin", "list", "--skip-update-check", "--format=json", "--fields=name,status,version,update,update_version")
+	// Listing reads activation state from WordPress without loading ordinary
+	// plugins or the active theme. A broken extension therefore remains visible
+	// in the panel and can still be selected for recovery.
+	output, err := h.runWordPressWithoutExtensions(ctx, site, "plugin", "list", "--skip-update-check", "--format=json", "--fields=name,status,version,update,update_version")
 	if err != nil {
 		return nil, err
 	}
@@ -127,12 +136,22 @@ func (h *Host) SetPlugin(ctx context.Context, site model.Site, plugin string, ac
 	if !pluginSlugPattern.MatchString(plugin) {
 		return errors.New("invalid plugin slug")
 	}
-	action := "deactivate"
 	if active {
-		action = "activate"
+		_, err := h.runWordPressOutput(ctx, site, "plugin", "activate", plugin)
+		return err
 	}
-	_, err := h.runWordPressOutput(ctx, site, "plugin", action, plugin)
+	// Recovery cannot bootstrap the plugin it is trying to deactivate. Skip all
+	// ordinary plugins as well as the theme so a second broken extension cannot
+	// strand the site. WordPress still reads and updates the active_plugins option.
+	_, err := h.runWordPressWithoutExtensions(ctx, site, "plugin", "deactivate", plugin)
 	return err
+}
+
+func (h *Host) runWordPressWithoutExtensions(ctx context.Context, site model.Site, args ...string) ([]byte, error) {
+	safeArgs := make([]string, 0, len(args)+2)
+	safeArgs = append(safeArgs, "--skip-plugins", "--skip-themes")
+	safeArgs = append(safeArgs, args...)
+	return h.runWordPressOutput(ctx, site, safeArgs...)
 }
 
 func (h *Host) runWordPressOutput(ctx context.Context, site model.Site, args ...string) ([]byte, error) {
@@ -141,6 +160,8 @@ func (h *Host) runWordPressOutput(ctx context.Context, site model.Site, args ...
 	// across all of its independent reads.
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	commandCtx, cancel := context.WithTimeout(ctx, wordpressCommandTimeout)
+	defer cancel()
 
 	if err := model.ValidateSite(site); err != nil || site.Kind != model.WordPress {
 		return nil, errors.New("operation requires a valid WordPress site")
@@ -164,10 +185,10 @@ func (h *Host) runWordPressOutput(ctx context.Context, site model.Site, args ...
 			return nil, fmt.Errorf("WordPress operation requires a real directory at %s", directory)
 		}
 	}
-	identity, err := h.Identities.Ensure(ctx, site, siteDir)
+	identity, err := h.Identities.Ensure(commandCtx, site, siteDir)
 	if err != nil {
 		return nil, err
 	}
 	base := []string{"--user", identity.Name, "--", "/usr/bin/php" + site.PHPVersion, "/usr/local/lib/wpx/wp-cli.phar", "--path=" + publicDir, "--no-color"}
-	return h.Output.Output(ctx, "/usr/sbin/runuser", append(base, args...)...)
+	return h.Output.Output(commandCtx, "/usr/sbin/runuser", append(base, args...)...)
 }

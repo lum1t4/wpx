@@ -70,6 +70,14 @@ func (c Client) Call(ctx context.Context, operation Operation, idempotencyKey st
 		return fmt.Errorf("%w: response does not match request", ErrOutcomeUnknown)
 	}
 	if !response.OK {
+		// Search and replace creates its recovery snapshot before applying the
+		// database change. A confirmed failure can therefore carry a valid
+		// recovery snapshot that the durable worker must retain.
+		if operation == OpWordPressSearchReplace && result != nil && len(response.Result) != 0 {
+			if err := json.Unmarshal(response.Result, result); err != nil {
+				return fmt.Errorf("%w: decode WordPress search and replace recovery result: %w", ErrOutcomeUnknown, err)
+			}
+		}
 		if operation == OpChangeDomain && len(response.Result) != 0 {
 			restored, err := decodeDomainRecovery(response.Result)
 			if err != nil {

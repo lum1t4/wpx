@@ -107,6 +107,31 @@ type User struct {
 }
 
 var usernamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{2,63}$`)
+var emailLocalPattern = regexp.MustCompile(`^[a-z0-9.!#$%&'*+/=?^_{|}~-]+$`)
+var emailDomainPattern = regexp.MustCompile(`^[a-z0-9.-]+$`)
+
+func normalizeUsername(value string) (string, error) {
+	username := strings.ToLower(strings.TrimSpace(value))
+	if !strings.Contains(username, "@") {
+		if !usernamePattern.MatchString(username) {
+			return "", errors.New("username must be 3-64 letters, numbers, dots, underscores, or hyphens, or a valid email address")
+		}
+		return username, nil
+	}
+	if len(username) > 254 || strings.Count(username, "@") != 1 {
+		return "", errors.New("enter a valid email address")
+	}
+	local, domain, _ := strings.Cut(username, "@")
+	if len(local) == 0 || len(local) > 64 || !emailLocalPattern.MatchString(local) || strings.HasPrefix(local, ".") || strings.HasSuffix(local, ".") || strings.Contains(local, "..") || len(domain) == 0 || !emailDomainPattern.MatchString(domain) {
+		return "", errors.New("enter a valid email address")
+	}
+	for _, label := range strings.Split(domain, ".") {
+		if len(label) == 0 || len(label) > 63 || strings.HasPrefix(label, "-") || strings.HasSuffix(label, "-") {
+			return "", errors.New("enter a valid email address")
+		}
+	}
+	return username, nil
+}
 
 func (s *Store) OwnerExists(ctx context.Context) (bool, error) {
 	var count int
@@ -115,7 +140,11 @@ func (s *Store) OwnerExists(ctx context.Context) (bool, error) {
 }
 
 func (s *Store) CreateOwner(ctx context.Context, username, password string) (User, error) {
-	username = strings.ToLower(strings.TrimSpace(username))
+	var err error
+	username, err = normalizeUsername(username)
+	if err != nil {
+		return User{}, err
+	}
 	if err := validateCredentials(username, password); err != nil {
 		return User{}, err
 	}
@@ -139,6 +168,12 @@ func (s *Store) CreateOwner(ctx context.Context, username, password string) (Use
 	if count != 0 {
 		return User{}, errors.New("an owner already exists")
 	}
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE username=? COLLATE NOCASE`, username).Scan(&count); err != nil {
+		return User{}, err
+	}
+	if count != 0 {
+		return User{}, errors.New("username or email is already in use")
+	}
 	now := s.now().UTC().Format(time.RFC3339Nano)
 	if _, err := tx.ExecContext(ctx, `INSERT INTO users(id,username,password_hash,role,created_at,updated_at)
 		VALUES(?,?,?,?,?,?)`, id, username, hash, rbac.Owner, now, now); err != nil {
@@ -155,8 +190,8 @@ func (s *Store) CreateOwner(ctx context.Context, username, password string) (Use
 }
 
 func validateCredentials(username, password string) error {
-	if !usernamePattern.MatchString(username) {
-		return errors.New("username must be 3-64 lowercase letters, digits, dots, underscores, or hyphens")
+	if _, err := normalizeUsername(username); err != nil {
+		return err
 	}
 	if len(password) < 12 || len(password) > 72 {
 		return errors.New("password must contain 12-72 bytes")
@@ -172,7 +207,11 @@ func validatePassword(password string) error {
 }
 
 func (s *Store) CreateUser(ctx context.Context, actor User, username, password string, role rbac.Role, siteIDs []string) (User, error) {
-	username = strings.ToLower(strings.TrimSpace(username))
+	var err error
+	username, err = normalizeUsername(username)
+	if err != nil {
+		return User{}, err
+	}
 	if err := validateCredentials(username, password); err != nil {
 		return User{}, err
 	}
@@ -199,6 +238,13 @@ func (s *Store) CreateUser(ctx context.Context, actor User, username, password s
 		return User{}, err
 	}
 	defer tx.Rollback()
+	var usernameExists int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE username=? COLLATE NOCASE`, username).Scan(&usernameExists); err != nil {
+		return User{}, err
+	}
+	if usernameExists != 0 {
+		return User{}, errors.New("username or email is already in use")
+	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO users(id,username,password_hash,role,created_at,updated_at) VALUES(?,?,?,?,?,?)`, id, username, hash, role, now, now); err != nil {
 		return User{}, fmt.Errorf("insert user: %w", err)
 	}
@@ -404,9 +450,13 @@ func mustID(prefix string) string {
 }
 
 func (s *Store) Authenticate(ctx context.Context, username, password string) (User, error) {
+	username, err := normalizeUsername(username)
+	if err != nil {
+		return User{}, errors.New("invalid credentials")
+	}
 	var user User
 	var hash []byte
-	err := s.db.QueryRowContext(ctx, `SELECT id,username,password_hash,role,disabled,totp_secret_ciphertext IS NOT NULL FROM users WHERE username=?`, username).
+	err = s.db.QueryRowContext(ctx, `SELECT id,username,password_hash,role,disabled,totp_secret_ciphertext IS NOT NULL FROM users WHERE username=? COLLATE NOCASE`, username).
 		Scan(&user.ID, &user.Username, &hash, &user.Role, &user.Disabled, &user.TOTPEnabled)
 	if err != nil || user.Disabled || bcrypt.CompareHashAndPassword(hash, []byte(password)) != nil {
 		// Callers intentionally receive the same result for unknown, disabled, and
@@ -414,6 +464,55 @@ func (s *Store) Authenticate(ctx context.Context, username, password string) (Us
 		return User{}, errors.New("invalid credentials")
 	}
 	return user, nil
+}
+
+func (s *Store) ChangeUsername(ctx context.Context, actor User, userID, requested string) (User, error) {
+	username, err := normalizeUsername(requested)
+	if err != nil {
+		return User{}, err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return User{}, err
+	}
+	defer tx.Rollback()
+	var target User
+	if err := tx.QueryRowContext(ctx, `SELECT id,username,role,disabled,totp_secret_ciphertext IS NOT NULL FROM users WHERE id=?`, userID).Scan(&target.ID, &target.Username, &target.Role, &target.Disabled, &target.TOTPEnabled); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return User{}, errors.New("user does not exist")
+		}
+		return User{}, err
+	}
+	if actor.ID != userID {
+		if actor.Role != rbac.Owner && actor.Role != rbac.Administrator {
+			return User{}, errors.New("permission denied")
+		}
+		if target.Role == rbac.Owner || (actor.Role == rbac.Administrator && target.Role == rbac.Administrator) {
+			return User{}, errors.New("permission denied")
+		}
+	}
+	if target.Username == username {
+		return target, nil
+	}
+	var exists int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE username=? COLLATE NOCASE AND id<>?`, username, userID).Scan(&exists); err != nil {
+		return User{}, err
+	}
+	if exists != 0 {
+		return User{}, errors.New("username or email is already in use")
+	}
+	now := s.now().UTC().Format(time.RFC3339Nano)
+	if _, err := tx.ExecContext(ctx, `UPDATE users SET username=?,updated_at=? WHERE id=?`, username, now, userID); err != nil {
+		return User{}, err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_events(id,actor_id,action,target_type,target_id,result,created_at) VALUES(?,?,?,?,?,?,?)`, mustID("aud_"), actor.ID, "user.username_changed", "user", userID, "success", now); err != nil {
+		return User{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return User{}, err
+	}
+	target.Username = username
+	return target, nil
 }
 
 func (s *Store) ChangePassword(ctx context.Context, user User, password string) error {
@@ -670,8 +769,8 @@ func (s *Store) ClaimNextJob(ctx context.Context) (Job, bool, error) {
 		return Job{}, false, err
 	}
 	now := s.now().UTC().Format(time.RFC3339Nano)
-	result, err := s.db.ExecContext(ctx, `UPDATE jobs SET status='running',phase='starting',progress=1,updated_at=?
-		WHERE id=? AND status='queued'`, now, job.ID)
+	result, err := s.db.ExecContext(ctx, `UPDATE jobs SET status='running',phase='starting',progress=1,started_at=?,updated_at=?
+		WHERE id=? AND status='queued'`, now, now, job.ID)
 	if err != nil {
 		return Job{}, false, err
 	}
@@ -689,7 +788,7 @@ func (s *Store) ClaimNextJob(ctx context.Context) (Job, bool, error) {
 func (s *Store) RequeueInterruptedJobs(ctx context.Context) (int64, error) {
 	now := s.now().UTC().Format(time.RFC3339Nano)
 	result, err := s.db.ExecContext(ctx, `UPDATE jobs SET status='queued',phase='waiting',progress=0,
-		error='previous worker stopped before reporting completion',updated_at=? WHERE status='running'`, now)
+		error='previous worker stopped before reporting completion',started_at=NULL,updated_at=? WHERE status='running'`, now)
 	if err != nil {
 		return 0, err
 	}
@@ -699,6 +798,33 @@ func (s *Store) RequeueInterruptedJobs(ctx context.Context) (int64, error) {
 func (s *Store) FinishJob(ctx context.Context, job Job, resultJSON string, operationErr error) error {
 	if resultJSON == "" {
 		resultJSON = "{}"
+	}
+	var searchReplaceTargetID, searchReplaceRecoveryID string
+	if job.Kind == "wordpress.search_replace" {
+		// Read and decrypt the original job before the terminal update erases its
+		// sensitive operands. Only the target ID is retained for the restore point.
+		var err error
+		searchReplaceTargetID, _, err = s.WordPressSearchReplaceJob(job)
+		if err != nil {
+			return err
+		}
+		var output struct {
+			RecoverySnapshotID string `json:"recovery_snapshot_id"`
+		}
+		if json.Unmarshal([]byte(resultJSON), &output) != nil {
+			return errors.New("WordPress search and replace result is incomplete")
+		}
+		if output.RecoverySnapshotID != "" {
+			if !model.ValidResticSnapshotID(output.RecoverySnapshotID) {
+				if operationErr == nil {
+					return errors.New("WordPress search and replace recovery result is incomplete")
+				}
+			} else {
+				searchReplaceRecoveryID = output.RecoverySnapshotID
+			}
+		} else if operationErr == nil {
+			return errors.New("WordPress search and replace recovery result is incomplete")
+		}
 	}
 	now := s.now().UTC().Format(time.RFC3339Nano)
 	status, phase, progress, errorText, result := "succeeded", "complete", 100, "", "success"
@@ -710,7 +836,7 @@ func (s *Store) FinishJob(ctx context.Context, job Job, resultJSON string, opera
 		return err
 	}
 	defer tx.Rollback()
-	completion, err := tx.ExecContext(ctx, `UPDATE jobs SET status=?,phase=?,progress=?,error=?,result_json=?,updated_at=?,finished_at=? WHERE id=? AND status='running'`,
+	completion, err := tx.ExecContext(ctx, `UPDATE jobs SET status=?,phase=?,progress=?,error=?,result_json=?,updated_at=?,finished_at=?,payload_json=CASE WHEN kind='wordpress.search_replace' THEN '{}' ELSE payload_json END WHERE id=? AND status='running'`,
 		status, phase, progress, errorText, resultJSON, now, now, job.ID)
 	if err != nil {
 		return err
@@ -886,7 +1012,7 @@ func (s *Store) FinishJob(ctx context.Context, job Job, resultJSON string, opera
 			RetentionApplied    bool     `json:"retention_applied"`
 			RetainedSnapshotIDs []string `json:"retained_snapshot_ids"`
 		}
-		if json.Unmarshal([]byte(job.PayloadJSON), &payload) != nil || json.Unmarshal([]byte(resultJSON), &output) != nil || payload.TargetID == "" || output.SnapshotID == "" {
+		if json.Unmarshal([]byte(job.PayloadJSON), &payload) != nil || json.Unmarshal([]byte(resultJSON), &output) != nil || payload.TargetID == "" || !model.ValidResticSnapshotID(output.SnapshotID) {
 			return errors.New("backup job result is incomplete")
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO backup_snapshots(id,site_id,target_id,restic_snapshot_id,created_at) VALUES(?,?,?,?,?)`, mustID("snp_"), job.TargetID, payload.TargetID, output.SnapshotID, now); err != nil {
@@ -937,6 +1063,11 @@ func (s *Store) FinishJob(ctx context.Context, job Job, resultJSON string, opera
 			return errors.New("staging deployment recovery result is incomplete")
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO backup_snapshots(id,site_id,target_id,restic_snapshot_id,created_at) VALUES(?,?,?,?,?)`, mustID("snp_"), job.TargetID, payload.TargetID, output.RecoverySnapshotID, now); err != nil {
+			return err
+		}
+	}
+	if job.Kind == "wordpress.search_replace" && searchReplaceRecoveryID != "" {
+		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO backup_snapshots(id,site_id,target_id,restic_snapshot_id,created_at) VALUES(?,?,?,?,?)`, mustID("snp_"), job.TargetID, searchReplaceTargetID, searchReplaceRecoveryID, now); err != nil {
 			return err
 		}
 	}
