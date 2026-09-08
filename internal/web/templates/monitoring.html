@@ -3,20 +3,20 @@
 <div class="mb-8 flex flex-wrap items-start justify-between gap-4">
   <div>
     <h1 class="text-2xl font-semibold tracking-tight" data-i18n="monitoring">Monitoring</h1>
-    <p class="mt-2 text-sm text-zinc-500">Resource usage across this server, including all sites and services.</p>
+    <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Resource usage across this server, including all sites and services.</p>
   </div>
   <div class="flex flex-wrap items-center gap-2">
     {{if $metrics.AutoRefresh}}
-    <a href="/monitoring?refresh=off" class="inline-flex items-center justify-center rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-zinc-900">Pause refresh</a>
+    <a href="/monitoring?refresh=off" class="inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100">Pause refresh</a>
     {{else}}
-    <a href="/monitoring" class="inline-flex items-center justify-center rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-zinc-900">Resume refresh</a>
+    <a href="/monitoring" class="inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100">Resume refresh</a>
     {{end}}
-    <a href="/monitoring{{if not $metrics.AutoRefresh}}?refresh=off{{end}}" class="inline-flex items-center justify-center rounded-md bg-zinc-950 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900">Refresh now</a>
+    <a href="/monitoring{{if not $metrics.AutoRefresh}}?refresh=off{{end}}" class="inline-flex items-center justify-center rounded-md bg-zinc-950 dark:bg-zinc-100 px-3 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100">Refresh now</a>
   </div>
 </div>
 
 {{if $metrics.Error}}
-<div role="alert" class="mb-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+<div role="alert" class="mb-6 rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 p-4 text-sm text-amber-950 dark:text-amber-100">
   <p class="font-medium">Latest resource sample unavailable{{if $metrics.AttemptedAt}} · {{$metrics.AttemptedAt}}{{end}}</p>
   <p class="mt-1 break-words">{{$metrics.Error}}</p>
   {{if $metrics.Available}}<p class="mt-2">Values below are the last successful reading, not live data.</p>{{end}}
@@ -24,80 +24,80 @@
 {{end}}
 
 {{if $metrics.Available}}
-<div class="mb-5 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
+<div class="mb-5 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
   <p>Last successful sample: <time datetime="{{$metrics.UpdatedISO}}">{{$metrics.UpdatedAt}}</time></p>
   <p>{{if $metrics.AutoRefresh}}Page refreshes every 10 seconds{{else}}Page refresh paused · collection continues{{end}}</p>
 </div>
 
 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-  <section aria-labelledby="cpu-heading" class="rounded-lg border border-zinc-200 p-5">
-    <h2 id="cpu-heading" class="text-sm font-medium text-zinc-500">CPU usage</h2>
+  <section aria-labelledby="cpu-heading" class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-5">
+    <h2 id="cpu-heading" class="text-sm font-medium text-zinc-500 dark:text-zinc-400">CPU usage</h2>
     {{if $metrics.CPUReady}}<p class="mt-3 text-3xl font-semibold tracking-tight tabular-nums">{{$metrics.CPU}}</p>{{else}}<p class="mt-3 text-xl font-semibold">Waiting for interval</p>{{end}}
-    <p class="mt-2 text-xs text-zinc-500">Across {{$metrics.CPUCount}} logical CPUs · interval average</p>
+    <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Across {{$metrics.CPUCount}} logical CPUs · interval average</p>
   </section>
-  <section aria-labelledby="memory-heading" class="rounded-lg border border-zinc-200 p-5">
-    <h2 id="memory-heading" class="text-sm font-medium text-zinc-500">Memory in use</h2>
+  <section aria-labelledby="memory-heading" class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-5">
+    <h2 id="memory-heading" class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Memory in use</h2>
     <p class="mt-3 text-3xl font-semibold tracking-tight tabular-nums">{{$metrics.Memory}}</p>
-    <p class="mt-2 text-xs text-zinc-500">Of {{$metrics.MemoryTotal}} · excludes reclaimable memory</p>
+    <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Of {{$metrics.MemoryTotal}} · excludes reclaimable memory</p>
   </section>
-  <section aria-labelledby="load-heading" class="rounded-lg border border-zinc-200 p-5">
-    <h2 id="load-heading" class="text-sm font-medium text-zinc-500">Load average</h2>
+  <section aria-labelledby="load-heading" class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-5">
+    <h2 id="load-heading" class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Load average</h2>
     <p class="mt-3 text-xl font-semibold tracking-tight tabular-nums">{{$metrics.Load}}</p>
-    <p class="mt-2 text-xs text-zinc-500">1 / 5 / 15 minutes · not a percentage</p>
+    <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">1 / 5 / 15 minutes · not a percentage</p>
   </section>
-  <section aria-labelledby="uptime-heading" class="rounded-lg border border-zinc-200 p-5">
-    <h2 id="uptime-heading" class="text-sm font-medium text-zinc-500">Server uptime</h2>
+  <section aria-labelledby="uptime-heading" class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-5">
+    <h2 id="uptime-heading" class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Server uptime</h2>
     <p class="mt-3 text-xl font-semibold tracking-tight tabular-nums">{{$metrics.Uptime}}</p>
-    <p class="mt-2 text-xs text-zinc-500">Swap: {{$metrics.Swap}} used of {{$metrics.SwapTotal}}</p>
+    <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Swap: {{$metrics.Swap}} used of {{$metrics.SwapTotal}}</p>
   </section>
 </div>
 
 <div class="mt-8 flex flex-wrap items-end justify-between gap-2">
-  <div><h2 class="text-base font-semibold">Recent usage</h2><p class="mt-1 text-sm text-zinc-500">Up to the last hour, since this panel process started.</p></div>
-  <p class="text-xs text-zinc-500">10-second samples · gaps mean unavailable data</p>
+  <div><h2 class="text-base font-semibold">Recent usage</h2><p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Up to the last hour, since this panel process started.</p></div>
+  <p class="text-xs text-zinc-500 dark:text-zinc-400">10-second samples · gaps mean unavailable data</p>
 </div>
 <div class="mt-4 grid gap-4 xl:grid-cols-2">
-  <section class="min-w-0 rounded-lg border border-zinc-200 p-5" aria-labelledby="cpu-chart-heading">
-    <div class="flex items-center justify-between gap-3"><h3 id="cpu-chart-heading" class="text-sm font-medium" data-i18n="cpu">CPU</h3><span class="text-xs text-zinc-500">0–100%</span></div>
+  <section class="min-w-0 rounded-lg border border-zinc-200 dark:border-zinc-800 p-5" aria-labelledby="cpu-chart-heading">
+    <div class="flex items-center justify-between gap-3"><h3 id="cpu-chart-heading" class="text-sm font-medium" data-i18n="cpu">CPU</h3><span class="text-xs text-zinc-500 dark:text-zinc-400">0–100%</span></div>
     <svg viewBox="0 0 600 140" preserveAspectRatio="none" class="mt-5 h-36 w-full" role="img" aria-label="CPU usage history, from 0 to 100 percent">
       <path d="M8 8H592M8 70H592M8 132H592" fill="none" stroke="currentColor" class="text-zinc-100"/>
-      <path d="{{$metrics.CPUPath}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="text-zinc-900"/>
+      <path d="{{$metrics.CPUPath}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="text-zinc-900 dark:text-zinc-100"/>
     </svg>
-    <div class="mt-2 flex justify-between gap-2 text-xs tabular-nums text-zinc-400"><span>{{$metrics.RangeStart}}</span><span>{{$metrics.RangeEnd}}</span></div>
+    <div class="mt-2 flex justify-between gap-2 text-xs tabular-nums text-zinc-400 dark:text-zinc-400"><span>{{$metrics.RangeStart}}</span><span>{{$metrics.RangeEnd}}</span></div>
   </section>
-  <section class="min-w-0 rounded-lg border border-zinc-200 p-5" aria-labelledby="memory-chart-heading">
-    <div class="flex items-center justify-between gap-3"><h3 id="memory-chart-heading" class="text-sm font-medium" data-i18n="memory">Memory</h3><span class="text-xs text-zinc-500">0–100%</span></div>
+  <section class="min-w-0 rounded-lg border border-zinc-200 dark:border-zinc-800 p-5" aria-labelledby="memory-chart-heading">
+    <div class="flex items-center justify-between gap-3"><h3 id="memory-chart-heading" class="text-sm font-medium" data-i18n="memory">Memory</h3><span class="text-xs text-zinc-500 dark:text-zinc-400">0–100%</span></div>
     <svg viewBox="0 0 600 140" preserveAspectRatio="none" class="mt-5 h-36 w-full" role="img" aria-label="Memory usage history, from 0 to 100 percent">
       <path d="M8 8H592M8 70H592M8 132H592" fill="none" stroke="currentColor" class="text-zinc-100"/>
-      <path d="{{$metrics.MemoryPath}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="text-zinc-900"/>
+      <path d="{{$metrics.MemoryPath}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="text-zinc-900 dark:text-zinc-100"/>
     </svg>
-    <div class="mt-2 flex justify-between gap-2 text-xs tabular-nums text-zinc-400"><span>{{$metrics.RangeStart}}</span><span>{{$metrics.RangeEnd}}</span></div>
+    <div class="mt-2 flex justify-between gap-2 text-xs tabular-nums text-zinc-400 dark:text-zinc-400"><span>{{$metrics.RangeStart}}</span><span>{{$metrics.RangeEnd}}</span></div>
   </section>
-  <section class="min-w-0 rounded-lg border border-zinc-200 p-5 xl:col-span-2" aria-labelledby="network-chart-heading">
+  <section class="min-w-0 rounded-lg border border-zinc-200 dark:border-zinc-800 p-5 xl:col-span-2" aria-labelledby="network-chart-heading">
     <div class="flex flex-wrap items-start justify-between gap-3">
-      <div><h3 id="network-chart-heading" class="text-sm font-medium">Network traffic</h3><p class="mt-1 text-xs text-zinc-500">All non-loopback interfaces combined. Virtual interfaces may count traffic more than once.</p></div>
-      {{if $metrics.NetworkReady}}<p class="text-sm tabular-nums"><span class="font-medium">↓ {{$metrics.Receive}}</span><span class="ml-4 text-zinc-500">↑ {{$metrics.Send}}</span></p>{{else}}<p class="text-sm text-zinc-500">Waiting for a stable interval</p>{{end}}
+      <div><h3 id="network-chart-heading" class="text-sm font-medium">Network traffic</h3><p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">All non-loopback interfaces combined. Virtual interfaces may count traffic more than once.</p></div>
+      {{if $metrics.NetworkReady}}<p class="text-sm tabular-nums"><span class="font-medium">↓ {{$metrics.Receive}}</span><span class="ml-4 text-zinc-500 dark:text-zinc-400">↑ {{$metrics.Send}}</span></p>{{else}}<p class="text-sm text-zinc-500 dark:text-zinc-400">Waiting for a stable interval</p>{{end}}
     </div>
-    <p class="mt-4 text-xs text-zinc-500">Chart scale: 0–{{$metrics.NetworkPeak}} · solid: received · dashed: sent</p>
+    <p class="mt-4 text-xs text-zinc-500 dark:text-zinc-400">Chart scale: 0–{{$metrics.NetworkPeak}} · solid: received · dashed: sent</p>
     <svg viewBox="0 0 600 140" preserveAspectRatio="none" class="mt-3 h-40 w-full" role="img" aria-label="Network receive and send rates over time; the vertical scale is {{$metrics.NetworkPeak}}">
       <path d="M8 8H592M8 70H592M8 132H592" fill="none" stroke="currentColor" class="text-zinc-100"/>
-      <path d="{{$metrics.ReceivePath}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="text-zinc-900"/>
-      <path d="{{$metrics.SendPath}}" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round" stroke-linecap="round" class="text-zinc-400"/>
+      <path d="{{$metrics.ReceivePath}}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" class="text-zinc-900 dark:text-zinc-100"/>
+      <path d="{{$metrics.SendPath}}" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round" stroke-linecap="round" class="text-zinc-400 dark:text-zinc-400"/>
     </svg>
-    <div class="mt-2 flex justify-between gap-2 text-xs tabular-nums text-zinc-400"><span>{{$metrics.RangeStart}}</span><span>{{$metrics.RangeEnd}}</span></div>
+    <div class="mt-2 flex justify-between gap-2 text-xs tabular-nums text-zinc-400 dark:text-zinc-400"><span>{{$metrics.RangeStart}}</span><span>{{$metrics.RangeEnd}}</span></div>
   </section>
 </div>
 
 <section class="mt-8" aria-labelledby="disk-heading">
   <h2 id="disk-heading" class="text-base font-semibold">Filesystem usage</h2>
-  <p class="mt-1 text-sm text-zinc-500">Capacity of the filesystem containing each path, not the size of that directory. Paths may share the same disk.</p>
-  <div class="mt-4 divide-y divide-zinc-200 rounded-lg border border-zinc-200">
+  <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Capacity of the filesystem containing each path, not the size of that directory. Paths may share the same disk.</p>
+  <div class="mt-4 divide-y divide-zinc-200 dark:divide-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-800">
     {{range $metrics.Disks}}
     <div class="p-5">
-      <div class="flex flex-wrap items-center justify-between gap-2"><h3 class="break-all font-mono text-sm font-medium">{{.Path}}</h3>{{if not .Error}}<p class="text-sm tabular-nums">{{.Used}} / {{.Total}} <span class="ml-2 text-zinc-500">{{printf "%.1f" .Percent}}%</span></p>{{end}}</div>
-      {{if .Error}}<p class="mt-2 break-words text-sm text-amber-700">Usage unavailable: {{.Error}}</p>{{else}}
-      <svg viewBox="0 0 100 4" preserveAspectRatio="none" class="mt-3 h-1.5 w-full overflow-hidden rounded-full" role="img" aria-label="{{printf "%.1f" .Percent}} percent of {{.Path}} filesystem used"><rect width="100" height="4" fill="currentColor" class="text-zinc-100"/><rect width="{{printf "%.1f" .Percent}}" height="4" fill="currentColor" class="text-zinc-900"/></svg>
-      <p class="mt-2 text-xs text-zinc-500">{{.Available}} available to applications, excluding reserved blocks.</p>
+      <div class="flex flex-wrap items-center justify-between gap-2"><h3 class="break-all font-mono text-sm font-medium">{{.Path}}</h3>{{if not .Error}}<p class="text-sm tabular-nums">{{.Used}} / {{.Total}} <span class="ml-2 text-zinc-500 dark:text-zinc-400">{{printf "%.1f" .Percent}}%</span></p>{{end}}</div>
+      {{if .Error}}<p class="mt-2 break-words text-sm text-amber-700 dark:text-amber-300">Usage unavailable: {{.Error}}</p>{{else}}
+      <svg viewBox="0 0 100 4" preserveAspectRatio="none" class="mt-3 h-1.5 w-full overflow-hidden rounded-full" role="img" aria-label="{{printf "%.1f" .Percent}} percent of {{.Path}} filesystem used"><rect width="100" height="4" fill="currentColor" class="text-zinc-100"/><rect width="{{printf "%.1f" .Percent}}" height="4" fill="currentColor" class="text-zinc-900 dark:text-zinc-100"/></svg>
+      <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{{.Available}} available to applications, excluding reserved blocks.</p>
       {{end}}
     </div>
     {{end}}
@@ -105,5 +105,5 @@
 </section>
 {{end}}
 
-<p class="mt-8 max-w-3xl text-xs leading-5 text-zinc-500">Read locally from Linux kernel counters every 10 seconds. Up to one hour is kept in memory only and is cleared when WPX restarts. Nothing is sent remotely. This is server-wide monitoring, not per-site accounting or long-term storage.</p>
+<p class="mt-8 max-w-3xl text-xs leading-5 text-zinc-500 dark:text-zinc-400">Read locally from Linux kernel counters every 10 seconds. Up to one hour is kept in memory only and is cleared when WPX restarts. Nothing is sent remotely. This is server-wide monitoring, not per-site accounting or long-term storage.</p>
 {{template "shell-end" .}}

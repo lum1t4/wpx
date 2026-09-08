@@ -35,6 +35,13 @@ type fleetUpdateOutcome struct {
 	Status string
 }
 
+type fleetSummaryView struct {
+	Sites         int
+	CoreUpdates   int
+	PluginUpdates int
+	ThemeUpdates  int
+}
+
 func (s *Server) registerFleetRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /wordpress", s.requireSession(s.wordpressFleetPage))
 	mux.HandleFunc("POST /wordpress/plugins/update", s.requireSession(s.updateWordPressFleetPlugins))
@@ -116,7 +123,23 @@ func (s *Server) wordpressFleetData(w http.ResponseWriter, r *http.Request, user
 		}(index)
 	}
 	wait.Wait()
-	return pageData{Title: "WordPress", User: &user, CSRF: s.ensureCSRF(w, r), CanManageWordPress: canManage, BackupTargets: targets, FleetSites: views}, nil
+	summary := fleetSummaryView{Sites: len(views)}
+	for _, view := range views {
+		if view.Inventory.CoreUpdateVersion != "" {
+			summary.CoreUpdates++
+		}
+		for _, plugin := range view.Inventory.Plugins {
+			if plugin.Update == "available" {
+				summary.PluginUpdates++
+			}
+		}
+		for _, theme := range view.Inventory.Themes {
+			if theme.Update == "available" {
+				summary.ThemeUpdates++
+			}
+		}
+	}
+	return pageData{Title: "WordPress", User: &user, CSRF: s.ensureCSRF(w, r), CanManageWordPress: canManage, BackupTargets: targets, FleetSites: views, FleetSummary: summary}, nil
 }
 
 func (s *Server) updateWordPressFleetPlugins(w http.ResponseWriter, r *http.Request, user store.User) {

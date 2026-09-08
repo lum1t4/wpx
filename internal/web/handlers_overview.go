@@ -58,6 +58,12 @@ func (s *Server) observabilityPage(w http.ResponseWriter, r *http.Request, user 
 	if !ok {
 		return
 	}
+	requestLogs, err := requestLogView(r, nil)
+	if err != nil {
+		empty := broker.SiteObservabilityResult{}
+		s.renderStatus(w, "observability.html", http.StatusBadRequest, pageData{Title: "Logs · " + site.Domain, User: &user, CSRF: s.ensureCSRF(w, r), Site: &site, CanViewLogs: true, Observability: &empty, RequestLogs: &requestLogs})
+		return
+	}
 	if s.broker == nil {
 		http.Error(w, "site observability is unavailable", http.StatusServiceUnavailable)
 		return
@@ -67,5 +73,10 @@ func (s *Server) observabilityPage(w http.ResponseWriter, r *http.Request, user 
 		http.Error(w, "could not load local site data", http.StatusBadGateway)
 		return
 	}
-	s.render(w, "observability.html", pageData{Title: "Logs · " + site.Domain, User: &user, CSRF: s.ensureCSRF(w, r), Site: &site, CanViewLogs: true, Observability: &result})
+	requestLogs, err = requestLogView(r, result.AccessLog)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	s.render(w, "observability.html", pageData{Title: "Logs · " + site.Domain, User: &user, CSRF: s.ensureCSRF(w, r), Site: &site, CanViewLogs: true, Observability: &result, RequestLogs: &requestLogs})
 }

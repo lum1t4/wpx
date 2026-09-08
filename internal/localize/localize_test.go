@@ -47,6 +47,41 @@ func TestFileManagerVocabularyIsLocalized(t *testing.T) {
 	}
 }
 
+func TestAppearanceAndLogVocabularyIsLocalized(t *testing.T) {
+	for _, option := range Supported() {
+		for _, key := range commonKeys {
+			if got := catalog[option.Tag][key]; strings.TrimSpace(got) == "" {
+				t.Errorf("locale %q has no %q translation", option.Tag, key)
+			}
+		}
+	}
+
+	tests := []struct {
+		locale Locale
+		key    string
+		want   string
+	}{
+		{locale: "it", key: "appearance", want: "Aspetto"},
+		{locale: "de", key: "system", want: "System"},
+		{locale: "ar", key: "dark", want: "داكن"},
+		{locale: "ja", key: "all_requests", want: "すべてのリクエスト"},
+		{locale: "pt-BR", key: "apply_filters", want: "Aplicar filtros"},
+		{locale: "zh-TW", key: "schedule", want: "排程"},
+		{locale: "it", key: "account_settings", want: "Impostazioni account"},
+		{locale: "ar", key: "account_settings", want: "إعدادات الحساب"},
+		{locale: "ja", key: "account_settings", want: "アカウント設定"},
+		{locale: "fr", key: "account", want: "Compte"},
+		{locale: "es", key: "settings", want: "Ajustes"},
+		{locale: "it", key: "slack", want: "Slack"},
+		{locale: "zh-CN", key: "telegram", want: "Telegram"},
+	}
+	for _, test := range tests {
+		if got := T(test.locale, test.key); got != test.want {
+			t.Errorf("T(%q, %q) = %q, want %q", test.locale, test.key, got, test.want)
+		}
+	}
+}
+
 func TestResolveCookieThenLanguageHeader(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header.Set("Accept-Language", "fr-CA;q=0.9,en;q=0.8")

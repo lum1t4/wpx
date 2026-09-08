@@ -105,9 +105,13 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	if err := runner.run(ctx, "/usr/bin/apt-get", "update"); err != nil {
 		return Result{}, err
 	}
-	packages := []string{"ca-certificates", "certbot", "cron", "curl", "gunicorn", "logrotate", "nginx", "mariadb-server", "redis-server", "nftables", "fail2ban", "rsync", "software-properties-common", "unzip", "python3", "python3-certbot-dns-cloudflare", "python3-certbot-dns-route53", "python3-venv"}
-	args := append([]string{"install", "-y", "--no-install-recommends"}, packages...)
-	if err := runner.run(ctx, "/usr/bin/apt-get", args...); err != nil {
+	if err := validateExistingFail2ban(ctx, runner.run); err != nil {
+		return Result{}, err
+	}
+	if err := installDefaultPackages(ctx, runner.run); err != nil {
+		return Result{}, err
+	}
+	if err := validateSecurityDependencies(ctx, runner.run); err != nil {
 		return Result{}, err
 	}
 	if err := installNginxFastCGICache(); err != nil {
@@ -201,8 +205,11 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	// Package post-install scripts usually start these services, but WPX makes
 	// the desired boot state explicit. WordPress performance defaults must not
 	// depend on whether a particular cloud image suppresses service startup.
-	if err := runner.run(ctx, "/usr/bin/systemctl", "enable", "--now", "nginx.service", "mariadb.service", "redis-server.service", "certbot.timer", "fail2ban.service", "cron.service"); err != nil {
+	if err := runner.run(ctx, "/usr/bin/systemctl", append([]string{"enable", "--now"}, defaultEnabledServices()...)...); err != nil {
 		return Result{}, err
+	}
+	if err := runner.run(ctx, "/usr/bin/systemctl", "is-active", "--quiet", "fail2ban.service"); err != nil {
+		return Result{}, fmt.Errorf("Fail2ban did not become ready: %w", err)
 	}
 	if err := runner.run(ctx, "/usr/bin/systemctl", "enable", "wpx-broker.service", "wpx.service"); err != nil {
 		return Result{}, err
@@ -217,6 +224,75 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		fmt.Fprintln(opts.Output, "Existing access settings are preserved. If an owner already exists, sign in normally; the bootstrap token cannot reopen setup.")
 	}
 	return Result{PanelURL: installationPanelAddress(cfg, existingConfig), BootstrapToken: token}, nil
+}
+
+func defaultPackageNames() []string {
+	return []string{"ca-certificates", "certbot", "cron", "curl", "gunicorn", "logrotate", "nginx", "mariadb-server", "redis-server", "nftables", "fail2ban", "rsync", "software-properties-common", "unzip", "python3", "python3-certbot-dns-cloudflare", "python3-certbot-dns-route53", "python3-venv"}
+}
+
+func packageNamesExcept(packages []string, omitted string) []string {
+	result := make([]string, 0, len(packages))
+	for _, name := range packages {
+		if name != omitted {
+			result = append(result, name)
+		}
+	}
+	return result
+}
+
+func installDefaultPackages(ctx context.Context, run func(context.Context, string, ...string) error) error {
+	// Installing nftables supplies Fail2ban's action without enabling the
+	// host-wide nftables.service. --no-upgrade also keeps a resumed installation
+	// from restarting an operator-enabled service and loading its ruleset.
+	if err := run(ctx, "/usr/bin/apt-get", "install", "-y", "--no-install-recommends", "--no-upgrade", "nftables"); err != nil {
+		return err
+	}
+	if err := run(ctx, "/usr/bin/apt-get", "-o", "Dpkg::Options::=--force-confold", "install", "-y", "--no-install-recommends", "fail2ban"); err != nil {
+		return err
+	}
+	packages := packageNamesExcept(packageNamesExcept(defaultPackageNames(), "nftables"), "fail2ban")
+	args := append([]string{"install", "-y", "--no-install-recommends"}, packages...)
+	return run(ctx, "/usr/bin/apt-get", args...)
+}
+
+func defaultEnabledServices() []string {
+	// nftables.service is intentionally absent. Its stock configuration owns
+	// the host-wide ruleset and starts with "flush ruleset"; Fail2ban invokes
+	// the packaged nft binary directly for its own tables and chains.
+	return []string{"nginx.service", "mariadb.service", "redis-server.service", "certbot.timer", "fail2ban.service", "cron.service"}
+}
+
+func validateSecurityDependencies(ctx context.Context, run func(context.Context, string, ...string) error) error {
+	for _, command := range []struct {
+		executable string
+		args       []string
+	}{
+		{"/usr/bin/test", []string{"-x", "/usr/sbin/nft"}},
+		{"/usr/bin/test", []string{"-r", "/etc/fail2ban/action.d/nftables.conf"}},
+		{"/usr/bin/fail2ban-client", []string{"-t"}},
+	} {
+		if err := run(ctx, command.executable, command.args...); err != nil {
+			return fmt.Errorf("validate security dependency %s: %w", filepath.Base(command.executable), err)
+		}
+	}
+	return nil
+}
+
+func validateExistingFail2ban(ctx context.Context, run func(context.Context, string, ...string) error) error {
+	info, err := os.Stat("/usr/bin/fail2ban-client")
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("inspect existing fail2ban-client: %w", err)
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0111 == 0 {
+		return errors.New("existing fail2ban-client is not an executable regular file")
+	}
+	if err := run(ctx, "/usr/bin/fail2ban-client", "-t"); err != nil {
+		return fmt.Errorf("validate existing Fail2ban configuration before package upgrade: %w", err)
+	}
+	return nil
 }
 
 func installationConfig(path, statePath string, disableUpdateChecks bool) (config.Config, string, bool, error) {

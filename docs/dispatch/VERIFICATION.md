@@ -1,8 +1,9 @@
 # Integration verification — 2026-09-08
 
-This change was integrated in the local WPX checkout. No production deployment,
-release publication, remote package installation, or real SMTP delivery was
-performed.
+This section records pre-release integration checks in the local WPX checkout.
+Release publication and subsequent VPS upgrades are recorded in
+[the deployment verification record](../VERIFICATION.md). No real SMTP delivery
+was performed during these integration checks.
 
 ## Automated checks
 

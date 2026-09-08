@@ -1,7 +1,8 @@
 {{define "head"}}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
+  <meta name="color-scheme" content="light dark">
+  <script src="/assets/theme.js"></script>
   <link rel="stylesheet" href="/assets/app.css">
   <script src="/assets/actions.js" defer></script>
   {{if .ActiveJobs}}<meta http-equiv="refresh" content="5">{{end}}
@@ -17,111 +18,95 @@
 
 {{define "server-nav"}}
   <nav aria-label="Server" class="space-y-1">
-    <a href="/" {{if eq .NavSection "overview"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .NavSection "overview"}}bg-zinc-100 text-zinc-950{{else}}text-zinc-600{{end}}">
+    <a href="/" {{if eq .NavSection "overview"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .NavSection "overview"}}bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}">
       <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
       <span data-i18n="overview">Overview</span>
     </a>
-    <a href="/sites" {{if and (eq .NavSection "sites") (not .Site)}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .NavSection "sites"}}bg-zinc-100 text-zinc-950{{else}}text-zinc-600{{end}}">
+    <a href="/sites" {{if and (eq .NavSection "sites") (not .Site)}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .NavSection "sites"}}bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}">
       <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg>
       <span data-i18n="sites">Sites</span>
     </a>
-    <a href="/wordpress" {{if eq .NavSection "wordpress"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .NavSection "wordpress"}}bg-zinc-100 text-zinc-950{{else}}text-zinc-600{{end}}">
-      <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m7.5 8 3 9 1.5-4.5L13.5 17l3-9M6.5 8h3M14.5 8h3"/></svg>
+    <a href="/wordpress" {{if eq .NavSection "wordpress"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .NavSection "wordpress"}}bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}">
+      {{template "icon-wordpress"}}
       <span data-i18n="wordpress">WordPress</span>
     </a>
-    <a href="/jobs" {{if eq .NavSection "activity"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .NavSection "activity"}}bg-zinc-100 text-zinc-950{{else}}text-zinc-600{{end}}">
+    <a href="/jobs" {{if eq .NavSection "activity"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .NavSection "activity"}}bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}">
       <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
       <span data-i18n="activity">Activity</span>
     </a>
     {{if .CanManageServer}}
-    <a href="/monitoring" {{if eq .NavSection "monitoring"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .NavSection "monitoring"}}bg-zinc-100 text-zinc-950{{else}}text-zinc-600{{end}}">
+    <a href="/monitoring" {{if eq .NavSection "monitoring"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .NavSection "monitoring"}}bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}">
       <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4M6 11h3l2-4 3 7 2-3h2"/></svg>
       <span data-i18n="monitoring">Monitoring</span>
     </a>
     {{end}}
   </nav>
   {{if or .CanManageServer .CanManageUsers}}
-  <div class="my-5 border-t border-zinc-200"></div>
-  <p class="mb-2 px-3 text-xs font-medium text-zinc-500"><span data-i18n="settings">Settings</span></p>
+  <div class="my-5 border-t border-zinc-200 dark:border-zinc-800"></div>
+  <p class="mb-2 px-3 text-xs font-medium text-zinc-500 dark:text-zinc-400"><span data-i18n="settings">Settings</span></p>
   <nav aria-label="Server settings" class="space-y-1">
     {{if .CanManageServer}}
-    <a href="/databases" {{if eq .NavSection "databases"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .NavSection "databases"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}">
+    <a href="/databases" {{if eq .NavSection "databases"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .NavSection "databases"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}">
       <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg>
       <span data-i18n="databases">Databases</span>
     </a>
-    <a href="/backups/targets" {{if eq .NavSection "storage"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .NavSection "storage"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}">
-      <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 4 16 4 16 0V5M4 12v7c0 4 16 4 16 0v-7"/></svg>
+    <a href="/backups/targets" {{if eq .NavSection "storage"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .NavSection "storage"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}">
+      {{template "icon-hard-drive"}}
       <span data-i18n="storage">Storage</span>
     </a>
-    <a href="/dns/providers" {{if eq .NavSection "dns"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .NavSection "dns"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}">
+    <a href="/dns/providers" {{if eq .NavSection "dns"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .NavSection "dns"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}">
       <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>
       <span data-i18n="dns">DNS</span>
     </a>
-    <a href="/hosting" {{if eq .NavSection "hosting"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .NavSection "hosting"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}">
+    <a href="/hosting" {{if eq .NavSection "hosting"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .NavSection "hosting"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}">
       <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01M17 7h1M17 17h1"/></svg>
       <span data-i18n="hosting">Hosting</span>
     </a>
-    <a href="/alerts" {{if eq .NavSection "alerts"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .NavSection "alerts"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}">
+    <a href="/alerts" {{if eq .NavSection "alerts"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .NavSection "alerts"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}">
       <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
       <span data-i18n="alerts">Alerts</span>
     </a>
     {{end}}
     {{if .CanManageUsers}}
-    <a href="/users" {{if eq .NavSection "users"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .NavSection "users"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}">
+    <a href="/users" {{if eq .NavSection "users"}}aria-current="page"{{end}} class="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .NavSection "users"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}">
       <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M17 5a3 3 0 0 1 0 6M21 21v-3a6 6 0 0 0-3-5"/></svg>
       <span data-i18n="users">Users</span>
     </a>
     {{end}}
   </nav>
   {{end}}
-  {{if .Languages}}
-  <form method="get" action="/language" class="mt-5 border-t border-zinc-200 px-3 pt-4">
-    <input type="hidden" name="next" value="{{.CurrentPath}}">
-    <label for="language" class="mb-2 block text-xs font-medium text-zinc-500"><span data-i18n="language">Language</span></label>
-    <div class="flex gap-2">
-      <select id="language" name="lang" class="min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-sm text-zinc-700 focus-visible:outline-2 focus-visible:outline-zinc-900">
-        {{range .Languages}}<option value="{{.Tag}}" {{if eq .Tag $.Locale}}selected{{end}}>{{.NativeName}}</option>{{end}}
-      </select>
-      <button type="submit" class="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900"><span data-i18n="apply">Apply</span></button>
-    </div>
-  </form>
-  {{end}}
 {{end}}
 
 {{define "site-nav"}}
-  <a href="/sites" class="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-zinc-900">
+  <a href="/sites" class="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-300 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-950 dark:hover:text-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100">
     <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
     <span data-i18n="view_all_sites">All sites</span>
   </a>
-  <div class="my-4 border-t border-zinc-200"></div>
+  <div class="my-4 border-t border-zinc-200 dark:border-zinc-800"></div>
   <div class="mb-2 px-3">
-    <p class="text-xs font-medium text-zinc-500"><span data-i18n="site_tools">Site tools</span></p>
-    <p class="mt-1 truncate text-sm font-semibold text-zinc-900" title="{{.Site.Domain}}">{{.Site.Domain}}</p>
+    <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400"><span data-i18n="site_tools">Site tools</span></p>
+    <p class="mt-1 truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100" title="{{.Site.Domain}}">{{.Site.Domain}}</p>
   </div>
   <nav aria-label="Site tools" class="space-y-0.5">
-    <a href="/sites/{{.Site.ID}}" {{if eq .Section "overview"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "overview"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}"><span data-i18n="overview">Overview</span></a>
-    {{if .CanManageSites}}<a href="/sites/{{.Site.ID}}/access" {{if eq .Section "access"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "access"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}"><span data-i18n="access">Access</span></a>{{end}}
-    {{if and (eq .Site.Kind "wordpress") .CanManageWordPress}}<a href="/sites/{{.Site.ID}}/wordpress" {{if eq .Section "wordpress"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "wordpress"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}"><span data-i18n="wordpress">WordPress</span></a>{{end}}
-    {{if and (eq .Site.Kind "wordpress") .CanDeploySite}}<a href="/sites/{{.Site.ID}}/staging" {{if eq .Section "staging"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "staging"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}"><span data-i18n="staging">Staging</span></a>{{end}}
-    {{if .CanManageBackups}}<a href="/sites/{{.Site.ID}}/backups" {{if eq .Section "backups"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "backups"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}"><span data-i18n="backups">Backups</span></a>{{end}}
-    {{if .CanManageFiles}}<a href="/sites/{{.Site.ID}}/files" {{if eq .Section "files"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "files"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}"><span data-i18n="files">Files</span></a>{{end}}
-    {{if .CanManageDatabases}}<a href="/sites/{{.Site.ID}}/databases" {{if eq .Section "databases"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "databases"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}">Databases</a>{{end}}
-    {{if .CanManageDNS}}<a href="/sites/{{.Site.ID}}/dns" {{if eq .Section "dns"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "dns"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}"><span data-i18n="dns">DNS</span></a>{{end}}
-    {{if .CanManageTLS}}<a href="/sites/{{.Site.ID}}/security" {{if eq .Section "security"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "security"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}"><span data-i18n="security">Security</span></a>{{end}}
-    {{if .CanManageCron}}<a href="/sites/{{.Site.ID}}/cron" {{if eq .Section "cron"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "cron"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}"><span data-i18n="cron">Cron</span></a>{{end}}
-    {{if and .CanManageSites (eq .Site.Kind "reverse_proxy")}}<a href="/sites/{{.Site.ID}}/runtime" {{if eq .Section "runtime"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "runtime"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}"><span data-i18n="runtime">Runtime</span></a>{{end}}
-    {{if .CanManageSites}}<a href="/sites/{{.Site.ID}}/ftp" {{if eq .Section "ftp"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "ftp"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}"><span data-i18n="ftp">FTP</span></a>{{end}}
-    {{if .CanViewLogs}}<a href="/sites/{{.Site.ID}}/observability" {{if eq .Section "observability"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "observability"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}"><span data-i18n="logs">Logs</span></a>{{end}}
-    {{if .CanManageSites}}<a href="/sites/{{.Site.ID}}/settings" {{if eq .Section "settings"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .Section "settings"}}bg-zinc-100 font-medium text-zinc-950{{else}}text-zinc-600{{end}}"><span data-i18n="settings">Settings</span></a>{{end}}
+    <a href="/sites/{{.Site.ID}}" {{if eq .Section "overview"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .Section "overview"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}"><span data-i18n="overview">Overview</span></a>
+    {{if .CanManageSites}}<a href="/sites/{{.Site.ID}}/access" {{if eq .Section "access"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .Section "access"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}"><span data-i18n="access">Access</span></a>{{end}}
+    {{if and (eq .Site.Kind "wordpress") .CanManageWordPress}}<a href="/sites/{{.Site.ID}}/wordpress" {{if eq .Section "wordpress"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .Section "wordpress"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}"><span data-i18n="wordpress">WordPress</span></a>{{end}}
+    {{if and (eq .Site.Kind "wordpress") .CanDeploySite}}<a href="/sites/{{.Site.ID}}/staging" {{if eq .Section "staging"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .Section "staging"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}"><span data-i18n="staging">Staging</span></a>{{end}}
+    {{if .CanManageBackups}}<a href="/sites/{{.Site.ID}}/backups" {{if eq .Section "backups"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .Section "backups"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}"><span data-i18n="backups">Backups</span></a>{{end}}
+    {{if .CanManageFiles}}<a href="/sites/{{.Site.ID}}/files" {{if eq .Section "files"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .Section "files"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}"><span data-i18n="files">Files</span></a>{{end}}
+    {{if .CanManageDatabases}}<a href="/sites/{{.Site.ID}}/databases" {{if eq .Section "databases"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .Section "databases"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}">Databases</a>{{end}}
+    {{if .CanManageDNS}}<a href="/sites/{{.Site.ID}}/dns" {{if eq .Section "dns"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .Section "dns"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}"><span data-i18n="dns">DNS</span></a>{{end}}
+    {{if .CanManageTLS}}<a href="/sites/{{.Site.ID}}/security" {{if eq .Section "security"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .Section "security"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}"><span data-i18n="security">Security</span></a>{{end}}
+    {{if .CanManageCron}}<a href="/sites/{{.Site.ID}}/cron" {{if eq .Section "cron"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .Section "cron"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}"><span data-i18n="cron">Cron</span></a>{{end}}
+    {{if and .CanManageSites (eq .Site.Kind "reverse_proxy")}}<a href="/sites/{{.Site.ID}}/runtime" {{if eq .Section "runtime"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .Section "runtime"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}"><span data-i18n="runtime">Runtime</span></a>{{end}}
+    {{if .CanManageSites}}<a href="/sites/{{.Site.ID}}/ftp" {{if eq .Section "ftp"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .Section "ftp"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}"><span data-i18n="ftp">FTP</span></a>{{end}}
+    {{if .CanViewLogs}}<a href="/sites/{{.Site.ID}}/observability" {{if eq .Section "observability"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .Section "observability"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}"><span data-i18n="logs">Logs</span></a>{{end}}
+    {{if .CanManageSites}}<a href="/sites/{{.Site.ID}}/settings" {{if eq .Section "settings"}}aria-current="page"{{end}} class="block rounded-md px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 {{if eq .Section "settings"}}bg-zinc-100 dark:bg-zinc-800 font-medium text-zinc-950 dark:text-zinc-100{{else}}text-zinc-600 dark:text-zinc-300{{end}}"><span data-i18n="settings">Settings</span></a>{{end}}
   </nav>
 {{end}}
 
 {{define "nav"}}
   {{if .Site}}{{template "site-nav" .}}{{else}}{{template "server-nav" .}}{{end}}
-  <a href="/account/security" {{if eq .NavSection "account"}}aria-current="page"{{end}} class="mt-5 flex items-center gap-3 rounded-md border-t border-zinc-200 px-3 py-3 text-sm text-zinc-600 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 {{if eq .NavSection "account"}}bg-zinc-100 font-medium text-zinc-950{{end}}">
-    <svg class="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>
-    <span data-i18n="my_account">Account</span>
-  </a>
 {{end}}
 
 {{define "shell-start"}}
@@ -131,45 +116,43 @@
   {{template "head" .}}
   <title>{{.Title}} · WPX</title>
 </head>
-<body class="min-h-screen bg-white font-sans text-zinc-950 antialiased">
-  <a href="#main-content" class="sr-only fixed left-4 top-4 z-50 rounded-md bg-zinc-950 px-4 py-2 text-sm text-white focus:not-sr-only"><span data-i18n="skip_to_content">Skip to content</span></a>
-  <aside class="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-zinc-200 bg-zinc-50/70 lg:flex">
-    <a class="flex h-16 shrink-0 items-center gap-2.5 border-b border-zinc-200 px-6 text-zinc-950 focus-visible:outline-2 focus-visible:outline-zinc-900" href="{{if .Site}}/sites/{{.Site.ID}}{{else}}/{{end}}" aria-label="WPX overview">{{template "logo"}}</a>
+<body class="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans text-zinc-950 dark:text-zinc-100 antialiased">
+  <a href="#main-content" class="sr-only fixed left-4 top-4 z-50 rounded-md bg-zinc-950 dark:bg-zinc-100 px-4 py-2 text-sm text-white dark:text-zinc-900 focus:not-sr-only"><span data-i18n="skip_to_content">Skip to content</span></a>
+  <aside class="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900 lg:flex">
+    <a class="flex h-16 shrink-0 items-center gap-2.5 border-b border-zinc-200 dark:border-zinc-800 px-6 text-zinc-950 dark:text-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100" href="{{if .Site}}/sites/{{.Site.ID}}{{else}}/{{end}}" aria-label="WPX overview">{{template "logo"}}</a>
     <div class="min-h-0 flex-1 overflow-y-auto p-3">{{template "nav" .}}</div>
   </aside>
   <div class="lg:pl-60">
-    <header class="relative z-30 flex h-16 items-center justify-between gap-4 border-b border-zinc-200 bg-white px-5 sm:px-8">
+    <header class="relative z-30 flex h-16 items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-5 sm:px-8">
       <div class="flex min-w-0 items-center gap-3">
         <details class="lg:hidden">
-          <summary class="flex size-9 cursor-pointer list-none items-center justify-center rounded-md border border-zinc-200 text-zinc-700 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-zinc-900 [&::-webkit-details-marker]:hidden" aria-label="Open navigation">
+          <summary class="flex size-9 cursor-pointer list-none items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 [&::-webkit-details-marker]:hidden" aria-label="Open navigation">
             <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
           </summary>
-          <div class="absolute left-0 top-16 max-h-[calc(100dvh-4rem)] w-full overflow-y-auto border-b border-zinc-200 bg-white p-4 shadow-md sm:w-72 sm:border-r">{{template "nav" .}}</div>
+          <div class="absolute left-0 top-16 max-h-[calc(100dvh-4rem)] w-full overflow-y-auto border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-md sm:w-72 sm:border-r">{{template "nav" .}}</div>
         </details>
         <a href="{{if .Site}}/sites/{{.Site.ID}}{{else}}/{{end}}" class="flex items-center gap-2 lg:hidden" aria-label="WPX overview">{{template "logo"}}</a>
         <nav aria-label="Breadcrumb" class="hidden min-w-0 items-center gap-2 text-sm sm:flex">
-          <a href="/" class="text-zinc-500 hover:text-zinc-950"><span data-i18n="server">Server</span></a>
+          <a href="/" class="text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100"><span data-i18n="server">Server</span></a>
           <span class="text-zinc-300" aria-hidden="true">/</span>
           {{if .Site}}
-          <a href="/sites" class="text-zinc-500 hover:text-zinc-950"><span data-i18n="sites">Sites</span></a>
+          <a href="/sites" class="text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100"><span data-i18n="sites">Sites</span></a>
           <span class="text-zinc-300" aria-hidden="true">/</span>
-          <a href="/sites/{{.Site.ID}}" class="truncate font-medium text-zinc-900">{{.Site.Domain}}</a>
+          <a href="/sites/{{.Site.ID}}" class="truncate font-medium text-zinc-900 dark:text-zinc-100">{{.Site.Domain}}</a>
           {{else}}
-          <span class="truncate font-medium text-zinc-900">{{.Title}}</span>
+          <span class="truncate font-medium text-zinc-900 dark:text-zinc-100">{{.Title}}</span>
           {{end}}
         </nav>
       </div>
       {{if .User}}
       <details class="relative shrink-0">
-        <summary class="flex cursor-pointer list-none items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 [&::-webkit-details-marker]:hidden">
-          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>
-          <span class="max-w-28 truncate sm:max-w-44">{{.User.Username}}</span>
-          <svg class="size-3 text-zinc-400" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m3 4 3 3 3-3"/></svg>
+        <summary class="flex size-9 cursor-pointer list-none items-center justify-center rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 [&::-webkit-details-marker]:hidden" aria-label="Account settings" title="Account settings">
+          {{template "icon-user"}}
         </summary>
-        <div class="absolute right-0 top-12 w-56 rounded-md border border-zinc-200 bg-white p-1 shadow-md">
-          <div class="border-b border-zinc-100 px-3 py-2"><p class="truncate text-sm font-medium">{{.User.Username}}</p><p class="mt-0.5 text-xs capitalize text-zinc-500">{{.User.Role}}</p></div>
-          <a href="/account/security" class="mt-1 block rounded px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900">Account</a>
-          <form method="post" action="/logout"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="w-full cursor-pointer rounded px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900" type="submit"><span data-i18n="sign_out">Sign out</span></button></form>
+        <div class="absolute right-0 top-12 w-56 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-1 shadow-md">
+          <div class="border-b border-zinc-100 dark:border-zinc-800 px-3 py-2"><p class="truncate text-sm font-medium">{{.User.Username}}</p><p class="mt-0.5 text-xs capitalize text-zinc-500 dark:text-zinc-400">{{.User.Role}}</p></div>
+          <a href="/account/security" class="mt-1 flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100">{{template "icon-settings"}}<span data-i18n="account_settings">Account settings</span></a>
+          <form method="post" action="/logout"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="flex w-full cursor-pointer items-center gap-2 rounded px-3 py-2 text-left text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100" type="submit">{{template "icon-log-out"}}<span data-i18n="sign_out">Sign out</span></button></form>
         </div>
       </details>
       {{end}}
@@ -178,10 +161,10 @@
 {{end}}
 
 {{define "site-header"}}
-  <div class="mb-6 flex flex-wrap items-center gap-2 text-sm text-zinc-500">
-    <a href="/sites" class="hover:text-zinc-950">Sites</a>
+  <div class="mb-6 flex flex-wrap items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+    <a href="/sites" class="hover:text-zinc-950 dark:hover:text-zinc-100">Sites</a>
     <span aria-hidden="true">/</span>
-    <a href="/sites/{{.Site.ID}}" class="font-medium text-zinc-900 hover:underline">{{.Site.Domain}}</a>
+    <a href="/sites/{{.Site.ID}}" class="font-medium text-zinc-900 dark:text-zinc-100 hover:underline">{{.Site.Domain}}</a>
   </div>
 {{end}}
 

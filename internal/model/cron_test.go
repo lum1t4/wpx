@@ -29,3 +29,11 @@ func TestValidateCronCommandRejectsTraversalAndMultilineArguments(t *testing.T) 
 		}
 	}
 }
+
+func TestCronScheduleSummaryUsesUTCAndKnownPresets(t *testing.T) {
+	for expression, want := range map[string]string{"* * * * *": "Every minute", "*/15 * * * *": "Every 15 minutes", "0 3 1 * *": "Monthly on day 1 at 03:00 UTC", "7 2 * * *": "7 2 * * * UTC"} {
+		if got := CronScheduleSummary(expression); got != want {
+			t.Errorf("%q = %q, want %q", expression, got, want)
+		}
+	}
+}

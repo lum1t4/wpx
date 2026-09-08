@@ -1,49 +1,49 @@
 {{define "staging_deploy.html"}}
 {{template "shell-start" .}}
-<a class="text-sm text-zinc-500 hover:text-zinc-950" href="/sites/{{.Site.ID}}/staging">← {{.Site.Domain}}</a>
+<a class="text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100" href="/sites/{{.Site.ID}}/staging">← {{.Site.Domain}}</a>
 <header class="mt-4">
-  <h1 class="text-2xl font-semibold tracking-tight text-zinc-950">Deploy staging to production</h1>
-  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Review what to copy from {{.Site.Domain}} to {{.ProductionSite.Domain}}. A recovery backup is created before production changes.</p>
+  <h1 class="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">Deploy staging to production</h1>
+  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">Review what to copy from {{.Site.Domain}} to {{.ProductionSite.Domain}}. A recovery backup is created before production changes.</p>
 </header>
 
-<div class="mt-6 flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-5 py-4 text-sm">
-  <span class="min-w-0 break-all"><span class="mr-2 text-xs font-medium text-zinc-500">Staging</span>{{.Site.Domain}}</span>
-  <span class="text-zinc-400" aria-hidden="true">→</span>
-  <span class="min-w-0 break-all"><span class="mr-2 text-xs font-medium text-zinc-500">Production</span>{{.ProductionSite.Domain}}</span>
+<div class="mt-6 flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-5 py-4 text-sm">
+  <span class="min-w-0 break-all"><span class="mr-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">Staging</span>{{.Site.Domain}}</span>
+  <span class="text-zinc-400 dark:text-zinc-400" aria-hidden="true">→</span>
+  <span class="min-w-0 break-all"><span class="mr-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">Production</span>{{.ProductionSite.Domain}}</span>
 </div>
-{{if .Error}}<p role="alert" class="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{.Error}}</p>{{end}}
+{{if .Error}}<p role="alert" class="mt-6 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 p-4 text-sm text-red-700 dark:text-red-300">{{.Error}}</p>{{end}}
 {{if not .BackupTargets}}
-<p class="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">Deployment needs connected backup storage for a recovery backup. Ask your server administrator to connect storage before continuing.</p>
+<p class="mt-6 rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 p-4 text-sm leading-6 text-amber-800 dark:text-amber-200">Deployment needs connected backup storage for a recovery backup. Ask your server administrator to connect storage before continuing.</p>
 {{end}}
 
-<section class="mt-8 max-w-4xl rounded-lg border border-zinc-200 bg-white p-5 sm:p-6">
+<section class="mt-8 max-w-4xl rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 sm:p-6">
   <h2 class="text-lg font-semibold tracking-tight">Deploy selected changes</h2>
-  <p class="mt-2 text-sm leading-6 text-zinc-500">Choose files and database tables to copy. Unselected production data stays as it is.</p>
+  <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Choose files and database tables to copy. Unselected production data stays as it is.</p>
   <form class="mt-6" method="post" action="/sites/{{.Site.ID}}/staging/deploy">
     <input type="hidden" name="csrf_token" value="{{.CSRF}}">
     <input type="hidden" name="mode" value="custom">
-    <details class="rounded-md border border-zinc-200" open>
-      <summary class="cursor-pointer px-4 py-3 text-sm font-medium">Changed files <span class="ml-2 text-zinc-500">{{len .StagingInspection.Files}}</span></summary>
-      <div class="max-h-80 space-y-3 overflow-y-auto border-t border-zinc-200 p-4">
+    <details class="rounded-md border border-zinc-200 dark:border-zinc-800" open>
+      <summary class="cursor-pointer px-4 py-3 text-sm font-medium">Changed files <span class="ml-2 text-zinc-500 dark:text-zinc-400">{{len .StagingInspection.Files}}</span></summary>
+      <div class="max-h-80 space-y-3 overflow-y-auto border-t border-zinc-200 dark:border-zinc-800 p-4">
         {{range .StagingInspection.Files}}
         <label class="flex items-start gap-3 text-sm">
           <input class="mt-0.5 size-4 shrink-0 accent-zinc-900" type="checkbox" name="files" value="{{.Path}}">
-          <span class="min-w-0"><span class="break-all font-mono text-xs">{{.Path}}</span><span class="ml-2 rounded border border-zinc-200 px-1.5 py-0.5 text-xs text-zinc-500">{{.Status}}</span></span>
+          <span class="min-w-0"><span class="break-all font-mono text-xs">{{.Path}}</span><span class="ml-2 rounded border border-zinc-200 dark:border-zinc-800 px-1.5 py-0.5 text-xs text-zinc-500 dark:text-zinc-400">{{.Status}}</span></span>
         </label>
         {{else}}
-        <p class="text-sm text-zinc-500">No changed files detected.</p>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400">No changed files detected.</p>
         {{end}}
       </div>
     </details>
-    <details class="mt-4 rounded-md border border-zinc-200">
-      <summary class="cursor-pointer px-4 py-3 text-sm font-medium">Database tables <span class="ml-2 text-zinc-500">{{len .StagingInspection.Tables}}</span></summary>
-      <div class="border-t border-zinc-200 p-4">
-        <p class="mb-4 text-xs leading-5 text-zinc-500">Selected tables replace their production copies. New orders, comments, or content in those production tables will be overwritten.</p>
+    <details class="mt-4 rounded-md border border-zinc-200 dark:border-zinc-800">
+      <summary class="cursor-pointer px-4 py-3 text-sm font-medium">Database tables <span class="ml-2 text-zinc-500 dark:text-zinc-400">{{len .StagingInspection.Tables}}</span></summary>
+      <div class="border-t border-zinc-200 dark:border-zinc-800 p-4">
+        <p class="mb-4 text-xs leading-5 text-zinc-500 dark:text-zinc-400">Selected tables replace their production copies. New orders, comments, or content in those production tables will be overwritten.</p>
         <div class="grid max-h-80 gap-3 overflow-y-auto sm:grid-cols-2">
           {{range .StagingInspection.Tables}}
           <label class="flex items-start gap-3 text-sm"><input class="mt-0.5 size-4 shrink-0 accent-zinc-900" type="checkbox" name="tables" value="{{.}}"><span class="break-all font-mono text-xs">{{.}}</span></label>
           {{else}}
-          <p class="text-sm text-zinc-500">No WordPress tables found.</p>
+          <p class="text-sm text-zinc-500 dark:text-zinc-400">No WordPress tables found.</p>
           {{end}}
         </div>
       </div>
@@ -51,36 +51,36 @@
     <div class="mt-6 grid gap-5 sm:grid-cols-2">
       <label>
         <span class="mb-2 block text-sm font-medium">Recovery backup storage</span>
-        <select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="target_id" required>
+        <select class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="target_id" required>
           <option value="">Choose storage</option>
           {{range .BackupTargets}}{{if eq .Status "active"}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}
         </select>
       </label>
-      <label><span class="mb-2 block text-sm font-medium">Confirm production domain</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="confirmation" placeholder="{{.ProductionSite.Domain}}" autocomplete="off" required><span class="mt-2 block text-xs text-zinc-500">Type the domain exactly to confirm this deployment.</span></label>
+      <label><span class="mb-2 block text-sm font-medium">Confirm production domain</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="confirmation" placeholder="{{.ProductionSite.Domain}}" autocomplete="off" required><span class="mt-2 block text-xs text-zinc-500 dark:text-zinc-400">Type the domain exactly to confirm this deployment.</span></label>
     </div>
-    <button class="mt-6 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Deploy selected changes</button>
+    <button class="mt-6 rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white">Deploy selected changes</button>
   </form>
 </section>
 
-<details class="mt-6 max-w-4xl rounded-lg border border-zinc-200 bg-white">
-  <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-red-700">Replace the entire production site</summary>
-  <div class="border-t border-zinc-200 p-5 sm:p-6">
+<details class="mt-6 max-w-4xl rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+  <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-red-700 dark:text-red-300">Replace the entire production site</summary>
+  <div class="border-t border-zinc-200 dark:border-zinc-800 p-5 sm:p-6">
     <h2 class="text-base font-semibold">Full deployment</h2>
-    <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">Replace all production files and WordPress tables with the staging copy. Production changes made since staging was created will be overwritten, including new orders and content.</p>
+    <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">Replace all production files and WordPress tables with the staging copy. Production changes made since staging was created will be overwritten, including new orders and content.</p>
     <form class="mt-5" method="post" action="/sites/{{.Site.ID}}/staging/deploy">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
       <input type="hidden" name="mode" value="full">
       <div class="grid gap-5 sm:grid-cols-2">
         <label>
           <span class="mb-2 block text-sm font-medium">Recovery backup storage</span>
-          <select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="target_id" required>
+          <select class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="target_id" required>
             <option value="">Choose storage</option>
             {{range .BackupTargets}}{{if eq .Status "active"}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}
           </select>
         </label>
-        <label><span class="mb-2 block text-sm font-medium">Confirm production domain</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="confirmation" placeholder="{{.ProductionSite.Domain}}" autocomplete="off" required></label>
+        <label><span class="mb-2 block text-sm font-medium">Confirm production domain</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="confirmation" placeholder="{{.ProductionSite.Domain}}" autocomplete="off" required></label>
       </div>
-      <button class="mt-6 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">Replace all production content</button>
+      <button class="mt-6 rounded-md bg-red-600 dark:bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 dark:hover:bg-red-500">Replace all production content</button>
     </form>
   </div>
 </details>

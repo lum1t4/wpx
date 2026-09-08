@@ -1,66 +1,84 @@
 {{define "fleet.html"}}
 {{template "shell-start" .}}
-  {{$hasRecoveryStorage := false}}{{range .BackupTargets}}{{if eq .Status "active"}}{{$hasRecoveryStorage = true}}{{end}}{{end}}
-  {{$hasFleetUpdates := false}}{{range .FleetSites}}{{if .CanManage}}{{range .Inventory.Plugins}}{{if eq .Update "available"}}{{$hasFleetUpdates = true}}{{end}}{{end}}{{end}}{{end}}
-  <header class="flex flex-wrap items-end justify-between gap-4">
-    <div>
-      <h1 class="text-2xl font-semibold tracking-tight">WordPress</h1>
-      <p class="mt-1.5 max-w-2xl text-sm leading-6 text-zinc-500">Core, plugin, and theme updates across your WordPress sites.</p>
+{{$hasRecoveryStorage := false}}{{range .BackupTargets}}{{if eq .Status "active"}}{{$hasRecoveryStorage = true}}{{end}}{{end}}
+<div data-fleet-page>
+  <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div class="flex min-w-0 items-center gap-3">
+      <span class="flex size-9 shrink-0 items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-700 dark:text-zinc-300" aria-hidden="true">{{template "icon-wordpress"}}</span>
+      <div class="min-w-0"><h1 class="text-2xl font-semibold tracking-tight">WordPress fleet</h1><p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Software inventory and updates across your sites.</p></div>
     </div>
-    <a class="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-950 shadow-sm hover:bg-zinc-50" href="/jobs">View activity</a>
+    <a class="inline-flex h-9 items-center justify-center gap-2 self-start rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 shadow-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 sm:self-auto" href="/wordpress"><span class="size-4" aria-hidden="true">{{template "icon-refresh-cw"}}</span>Refresh</a>
   </header>
 
-  {{if .Message}}<div role="status" class="mt-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{.Message}}</div>{{end}}
-  {{if .FleetOutcomes}}
-  <section class="mt-6 overflow-hidden rounded-lg border border-zinc-200 bg-white" aria-labelledby="fleet-outcomes-heading">
-    <div class="border-b border-zinc-200 px-5 py-4"><h2 id="fleet-outcomes-heading" class="text-base font-semibold text-zinc-950">Batch results</h2></div>
-    <div class="overflow-x-auto"><table class="w-full min-w-[560px] text-left text-sm"><thead class="border-b border-zinc-200 bg-zinc-50 text-xs text-zinc-500"><tr><th scope="col" class="px-5 py-3 font-medium">Site</th><th scope="col" class="px-5 py-3 font-medium">Plugin</th><th scope="col" class="px-5 py-3 font-medium">Status</th><th scope="col" class="px-5 py-3 font-medium">Activity</th></tr></thead><tbody class="divide-y divide-zinc-200">{{range .FleetOutcomes}}<tr><td class="px-5 py-3"><a class="font-medium text-zinc-950 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" href="/sites/{{.SiteID}}/wordpress">{{.Domain}}</a></td><td class="px-5 py-3 text-zinc-700">{{.Plugin}}</td><td class="px-5 py-3"><span class="inline-flex rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">{{.Status}}</span></td><td class="px-5 py-3"><a class="text-zinc-600 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" href="/jobs">View activity</a></td></tr>{{end}}</tbody></table></div>
-  </section>
-  {{end}}
+  {{if .Message}}<div role="status" class="mt-5 rounded-md border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">{{.Message}}</div>{{end}}
+  {{if .FleetOutcomes}}<section class="mt-5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4" aria-labelledby="fleet-outcomes-heading"><div class="flex flex-wrap items-center justify-between gap-3"><div><h2 id="fleet-outcomes-heading" class="text-sm font-semibold text-zinc-950 dark:text-zinc-100">Updates queued</h2><p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{len .FleetOutcomes}} plugin update{{if ne (len .FleetOutcomes) 1}}s{{end}} will run with a recovery backup.</p></div><a class="text-sm font-medium text-zinc-700 dark:text-zinc-300 underline underline-offset-4" href="/jobs">View activity</a></div></section>{{end}}
+
+  <dl class="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Sites</dt><dd class="mt-1 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">{{.FleetSummary.Sites}}</dd></div>
+    <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Core updates</dt><dd class="mt-1 text-2xl font-semibold tracking-tight {{if .FleetSummary.CoreUpdates}}text-amber-700 dark:text-amber-300{{else}}text-zinc-950 dark:text-zinc-100{{end}}">{{.FleetSummary.CoreUpdates}}</dd></div>
+    <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Plugin updates</dt><dd class="mt-1 text-2xl font-semibold tracking-tight {{if .FleetSummary.PluginUpdates}}text-amber-700 dark:text-amber-300{{else}}text-zinc-950 dark:text-zinc-100{{end}}">{{.FleetSummary.PluginUpdates}}</dd></div>
+    <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"><dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Theme updates</dt><dd class="mt-1 text-2xl font-semibold tracking-tight {{if .FleetSummary.ThemeUpdates}}text-amber-700 dark:text-amber-300{{else}}text-zinc-950 dark:text-zinc-100{{end}}">{{.FleetSummary.ThemeUpdates}}</dd></div>
+  </dl>
 
   {{if .FleetSites}}
-  <form class="mt-7" method="post" action="/wordpress/plugins/update">
-    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-    {{if .CanManageWordPress}}
-    {{if and $hasRecoveryStorage $hasFleetUpdates}}
-    <div class="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-      <label class="min-w-56 flex-1"><span class="mb-2 block text-sm font-medium text-zinc-700">Recovery storage</span><select class="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm" name="target_id" required><option value="">Select storage</option>{{range .BackupTargets}}{{if eq .Status "active"}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select></label>
-      <button class="h-10 rounded-md bg-zinc-950 px-4 text-sm font-medium text-white hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900">Back up and update selected plugins</button>
-      <p class="w-full text-xs leading-5 text-zinc-500">A recovery backup is created before each update.</p>
-    </div>
-    {{else if not $hasRecoveryStorage}}
-    <div class="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm leading-6 text-zinc-600">Connect active backup storage before running fleet updates. {{if .CanManageServer}}<a class="font-medium text-zinc-950 underline underline-offset-4" href="/backups/targets">Set up backup storage</a>{{else}}Ask a server administrator to connect storage.{{end}}</div>
-    {{else}}
-    <div class="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm leading-6 text-zinc-600">All reported plugins are current.</div>
-    {{end}}
-    {{end}}
+  <div class="mt-5 flex flex-col gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-3 sm:flex-row sm:items-center">
+    <label class="relative min-w-0 flex-1"><span class="sr-only">Search WordPress sites and components</span><svg class="pointer-events-none absolute left-3 top-2.5 size-4 text-zinc-400 dark:text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input data-fleet-search class="h-9 w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 pl-9 pr-3 text-sm placeholder:text-zinc-400 dark:placeholder:text-zinc-400 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100" type="search" placeholder="Search sites, plugins, themes"></label>
+    <label class="flex h-9 shrink-0 items-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300"><input data-fleet-updates-only class="size-4 accent-zinc-950" type="checkbox">Updates only</label>
+    {{if and .CanManageWordPress $hasRecoveryStorage .FleetSummary.PluginUpdates}}<button class="h-9 shrink-0 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100" type="button" data-fleet-select-visible>Select updates</button>{{end}}
+  </div>
 
-    <div class="mt-5 space-y-5">
+  {{if and .CanManageWordPress (not $hasRecoveryStorage) .FleetSummary.PluginUpdates}}<div class="mt-4 rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">Recovery storage is required for plugin updates. {{if .CanManageServer}}<a class="font-medium underline underline-offset-4" href="/backups/targets">Set up storage</a>{{else}}Ask a server administrator to connect storage.{{end}}</div>{{end}}
+
+  <form class="mt-4" method="post" action="/wordpress/plugins/update" data-fleet-form>
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <div class="space-y-4" data-fleet-sites>
     {{range .FleetSites}}
-      <section class="overflow-hidden rounded-lg border border-zinc-200 bg-white" aria-labelledby="fleet-site-{{.Site.ID}}">
-        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4">
-          <div><h2 id="fleet-site-{{.Site.ID}}" class="font-semibold text-zinc-950"><a class="hover:underline" href="/sites/{{.Site.ID}}/wordpress">{{.Site.Domain}}</a></h2><p class="mt-1 text-sm text-zinc-500">{{if .Inventory.CoreVersion}}WordPress {{.Inventory.CoreVersion}}{{else}}WordPress{{end}}{{if .Inventory.CoreUpdateVersion}} · <span class="font-medium text-amber-700">Core {{.Inventory.CoreUpdateVersion}} available</span>{{end}}</p></div>
-          <span class="inline-flex rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600">{{siteStatus .Site.Status}}</span>
+      {{$site := .Site}}{{$canManage := .CanManage}}{{$siteHasUpdate := false}}{{if .Inventory.CoreUpdateVersion}}{{$siteHasUpdate = true}}{{end}}{{range .Inventory.Plugins}}{{if eq .Update "available"}}{{$siteHasUpdate = true}}{{end}}{{end}}{{range .Inventory.Themes}}{{if eq .Update "available"}}{{$siteHasUpdate = true}}{{end}}{{end}}
+      <section class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900" aria-labelledby="fleet-site-{{.Site.ID}}" data-fleet-site data-site-search="{{.Site.Domain}} {{.Inventory.CoreVersion}} {{range .Inventory.Plugins}}{{.Name}} {{end}}{{range .Inventory.Themes}}{{.Name}} {{end}}" data-has-update="{{$siteHasUpdate}}">
+        <div class="flex flex-col gap-3 border-b border-zinc-200 dark:border-zinc-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div class="flex min-w-0 items-center gap-3"><span class="size-2 shrink-0 rounded-full {{if eq .Site.Status "active"}}bg-emerald-500{{else}}bg-zinc-300 dark:bg-zinc-600{{end}}" aria-hidden="true"></span><div class="min-w-0"><h2 id="fleet-site-{{.Site.ID}}" class="truncate text-sm font-semibold text-zinc-950 dark:text-zinc-100"><a class="hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100" href="/sites/{{.Site.ID}}/wordpress">{{.Site.Domain}}</a></h2><p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{{siteStatus .Site.Status}} · {{if .Inventory.CoreVersion}}WordPress {{.Inventory.CoreVersion}}{{else}}Version unavailable{{end}}</p></div></div>
+          {{if .Inventory.CoreUpdateVersion}}<span class="inline-flex w-fit rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 px-2 py-1 text-xs font-medium text-amber-800 dark:text-amber-200">Core {{.Inventory.CoreUpdateVersion}} available</span>{{else if not .LoadError}}<span class="text-xs font-medium text-emerald-700 dark:text-emerald-300">Core current</span>{{end}}
         </div>
-        {{if .LoadError}}<div role="alert" class="px-5 py-5 text-sm text-amber-800">{{.LoadError}} <a class="font-medium underline underline-offset-4" href="/wordpress">Refresh inventory</a></div>{{else}}
-        <div class="grid lg:grid-cols-2">
-          <div class="overflow-x-auto border-b border-zinc-200 lg:border-b-0 lg:border-r">
-            <h3 class="px-5 pt-4 text-sm font-semibold text-zinc-950">Plugins <span class="font-normal text-zinc-500">{{len .Inventory.Plugins}}</span></h3>
-            {{if .Inventory.Plugins}}<table class="mt-2 w-full min-w-[440px] text-left text-sm"><thead class="border-y border-zinc-200 bg-zinc-50 text-xs text-zinc-500"><tr><th scope="col" class="px-5 py-2.5 font-medium">Plugin</th><th scope="col" class="px-5 py-2.5 font-medium">Installed</th><th scope="col" class="px-5 py-2.5 font-medium">Update</th></tr></thead><tbody class="divide-y divide-zinc-200">{{range .Inventory.Plugins}}<tr><th scope="row" class="px-5 py-3 font-medium text-zinc-900">{{.Name}}</th><td class="px-5 py-3 text-zinc-600">{{.Version}}</td><td class="px-5 py-3">{{if eq .Update "available"}}<span class="text-amber-700">{{.UpdateVersion}}</span>{{else}}<span class="text-zinc-400">Current</span>{{end}}</td></tr>{{end}}</tbody></table>{{else}}<p class="px-5 py-5 text-sm text-zinc-500">No plugins reported.</p>{{end}}
+
+        {{if .LoadError}}<div role="alert" class="flex flex-wrap items-center justify-between gap-3 px-4 py-5 text-sm text-amber-800 dark:text-amber-200 sm:px-5"><span>{{.LoadError}}</span><a class="inline-flex items-center gap-1.5 font-medium underline underline-offset-4" href="/wordpress">Retry</a></div>{{else}}
+        <div data-fleet-tabs>
+          <div class="flex gap-1 border-b border-zinc-200 dark:border-zinc-800 px-4 pt-2 sm:px-5" role="tablist" aria-label="Components for {{.Site.Domain}}">
+            <button id="fleet-{{.Site.ID}}-plugins-tab" class="border-b-2 border-zinc-950 dark:border-zinc-100 px-3 py-2 text-sm font-medium text-zinc-950 dark:text-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100" type="button" role="tab" aria-selected="true" aria-controls="fleet-{{.Site.ID}}-plugins" tabindex="0" data-fleet-tab="plugins">Plugins <span class="ml-1 text-xs text-zinc-500 dark:text-zinc-400">{{len .Inventory.Plugins}}</span></button>
+            <button id="fleet-{{.Site.ID}}-themes-tab" class="border-b-2 border-transparent px-3 py-2 text-sm font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100" type="button" role="tab" aria-selected="false" aria-controls="fleet-{{.Site.ID}}-themes" tabindex="-1" data-fleet-tab="themes">Themes <span class="ml-1 text-xs text-zinc-500 dark:text-zinc-400">{{len .Inventory.Themes}}</span></button>
           </div>
-          <div class="overflow-x-auto">
-            <h3 class="px-5 pt-4 text-sm font-semibold text-zinc-950">Themes <span class="font-normal text-zinc-500">{{len .Inventory.Themes}}</span></h3>
-            {{if .Inventory.Themes}}<table class="mt-2 w-full min-w-[400px] text-left text-sm"><thead class="border-y border-zinc-200 bg-zinc-50 text-xs text-zinc-500"><tr><th scope="col" class="px-5 py-2.5 font-medium">Theme</th><th scope="col" class="px-5 py-2.5 font-medium">Installed</th><th scope="col" class="px-5 py-2.5 font-medium">Update</th></tr></thead><tbody class="divide-y divide-zinc-200">{{range .Inventory.Themes}}<tr><th scope="row" class="px-5 py-3 font-medium text-zinc-900">{{.Name}}</th><td class="px-5 py-3 text-zinc-600">{{.Version}}</td><td class="px-5 py-3">{{if eq .Update "available"}}<span class="text-amber-700">{{.UpdateVersion}}</span>{{else}}<span class="text-zinc-400">Current</span>{{end}}</td></tr>{{end}}</tbody></table>{{else}}<p class="px-5 py-5 text-sm text-zinc-500">No themes reported.</p>{{end}}
+
+          <div id="fleet-{{.Site.ID}}-plugins" role="tabpanel" aria-labelledby="fleet-{{.Site.ID}}-plugins-tab" data-fleet-panel="plugins">
+            {{if .Inventory.Plugins}}<table class="w-full table-fixed text-left text-sm"><colgroup><col><col class="w-24 sm:w-32"></colgroup><thead class="sr-only"><tr><th scope="col">Plugin and installed version</th><th scope="col">Update status</th></tr></thead><tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {{range .Inventory.Plugins}}<tr data-component-row data-has-update="{{eq .Update "available"}}"><th scope="row" class="min-w-0 px-4 py-3 font-normal sm:px-5"><div class="flex min-w-0 items-center gap-3">{{if and $canManage $hasRecoveryStorage (eq .Update "available")}}<input class="size-4 shrink-0 accent-zinc-950" type="checkbox" name="update" value="{{$site.ID}}|{{.Name}}" aria-label="Select {{.Name}} on {{$site.Domain}}" data-fleet-update>{{end}}<div class="min-w-0"><span class="block truncate font-medium text-zinc-950 dark:text-zinc-100">{{.Name}}</span><span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">Installed {{.Version}}{{if .Status}} · {{.Status}}{{end}}</span></div></div></th><td class="px-4 py-3 text-right sm:px-5">{{if eq .Update "available"}}<span class="font-medium text-amber-700 dark:text-amber-300">{{.UpdateVersion}}</span><span class="block text-xs text-zinc-500 dark:text-zinc-400">available</span>{{else}}<span class="text-xs font-medium text-emerald-700 dark:text-emerald-300">Current</span>{{end}}</td></tr>{{end}}
+            </tbody></table>{{else}}<p class="px-4 py-6 text-sm text-zinc-500 dark:text-zinc-400 sm:px-5">No plugins reported.</p>{{end}}
           </div>
-        </div>
-        {{if .CanManage}}{{$site := .Site}}{{range .Inventory.Plugins}}{{if eq .Update "available"}}<label class="flex items-center gap-3 border-t border-zinc-200 px-5 py-3 text-sm"><input class="size-4 accent-zinc-950" type="checkbox" name="update" value="{{$site.ID}}|{{.Name}}"><span><span class="font-medium text-zinc-950">Update {{.Name}}</span> <span class="text-zinc-500">on {{$site.Domain}} to {{.UpdateVersion}}</span></span></label>{{end}}{{end}}{{end}}
-        {{end}}
+
+          <div id="fleet-{{.Site.ID}}-themes" role="tabpanel" aria-labelledby="fleet-{{.Site.ID}}-themes-tab" data-fleet-panel="themes">
+            {{if .Inventory.Themes}}<table class="w-full table-fixed text-left text-sm"><colgroup><col><col class="w-24 sm:w-32"></colgroup><thead class="sr-only"><tr><th scope="col">Theme and installed version</th><th scope="col">Update status</th></tr></thead><tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {{range .Inventory.Themes}}<tr data-component-row data-has-update="{{eq .Update "available"}}"><th scope="row" class="min-w-0 px-4 py-3 font-normal sm:px-5"><span class="block truncate font-medium text-zinc-950 dark:text-zinc-100">{{.Name}}</span><span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">Installed {{.Version}}{{if .Status}} · {{.Status}}{{end}}</span></th><td class="px-4 py-3 text-right sm:px-5">{{if eq .Update "available"}}<span class="font-medium text-amber-700 dark:text-amber-300">{{.UpdateVersion}}</span><span class="block text-xs text-zinc-500 dark:text-zinc-400">available</span>{{else}}<span class="text-xs font-medium text-emerald-700 dark:text-emerald-300">Current</span>{{end}}</td></tr>{{end}}
+            </tbody></table>{{else}}<p class="px-4 py-6 text-sm text-zinc-500 dark:text-zinc-400 sm:px-5">No themes reported.</p>{{end}}
+          </div>
+        </div>{{end}}
       </section>
     {{end}}
     </div>
+
+    <p class="mt-8 hidden rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400" data-fleet-empty>No sites match these filters.</p>
+
+    {{if and .CanManageWordPress $hasRecoveryStorage .FleetSummary.PluginUpdates}}
+    <div class="sticky bottom-4 z-10 mt-5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3 shadow-lg" data-fleet-selection hidden>
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div class="min-w-0 flex-1"><p class="text-sm font-semibold text-zinc-950 dark:text-zinc-100"><span data-fleet-selection-count>0</span> <span data-i18n="selected">selected</span></p><p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">Updates run separately for each site.</p></div>
+        <button class="h-9 self-start rounded-md px-2 text-sm font-medium text-zinc-600 dark:text-zinc-300 underline underline-offset-4 hover:text-zinc-950 dark:hover:text-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100 sm:self-auto" type="button" data-fleet-clear><span data-i18n="clear_selection">Clear selection</span></button>
+        <label class="min-w-0 sm:w-64"><span class="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">Recovery storage <span class="group relative inline-flex" tabindex="0"><span class="size-3.5 text-zinc-400 dark:text-zinc-400" aria-hidden="true">{{template "icon-info"}}</span><span role="tooltip" class="pointer-events-none absolute bottom-6 right-0 hidden w-56 rounded-md bg-zinc-950 dark:bg-zinc-100 px-3 py-2 text-xs font-normal leading-5 text-white dark:text-zinc-900 shadow-lg group-hover:block group-focus:block">WPX creates a recovery backup before updating each selected site.</span></span></span><select class="h-9 w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100" name="target_id" required disabled data-fleet-storage><option value="">Select storage</option>{{range .BackupTargets}}{{if eq .Status "active"}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select></label>
+        <button class="h-9 rounded-md bg-zinc-950 dark:bg-zinc-100 px-4 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100" type="submit"><span data-i18n="update">Update</span> <span data-i18n="selected">selected</span></button>
+      </div>
+    </div>{{end}}
   </form>
   {{else}}
-  <div class="mt-7 rounded-lg border border-zinc-200 bg-zinc-50 px-5 py-10 text-center"><h2 class="font-medium text-zinc-950">No WordPress sites</h2><p class="mt-2 text-sm text-zinc-500">{{if .CanManageSites}}Create a WordPress site to get started.{{else}}No WordPress sites are assigned to you.{{end}}</p>{{if .CanManageSites}}<a class="mt-4 inline-flex rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" href="/sites/new?kind=wordpress">Create WordPress site</a>{{end}}</div>
+  <div class="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-5 py-10 text-center"><h2 class="font-medium text-zinc-950 dark:text-zinc-100">No WordPress sites</h2><p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{{if .CanManageSites}}Create a WordPress site to get started.{{else}}No WordPress sites are assigned to you.{{end}}</p>{{if .CanManageSites}}<a class="mt-4 inline-flex rounded-md bg-zinc-950 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900" href="/sites/new?kind=wordpress">Create WordPress site</a>{{end}}</div>
   {{end}}
+</div>
+<script src="/assets/fleet.js" defer></script>
 {{template "shell-end" .}}
 {{end}}

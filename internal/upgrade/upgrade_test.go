@@ -112,6 +112,123 @@ func TestUpgradeSnapshotsReplacesAndHealthChecks(t *testing.T) {
 	if !strings.Contains(commands, "systemctl stop wpx.service wpx-broker.service") || !strings.Contains(commands, "systemctl start wpx-broker.service wpx.service") {
 		t.Fatalf("service boundary missing: %s", commands)
 	}
+	securityCommands := []string{
+		"/usr/bin/apt-get update",
+		"/usr/bin/apt-get install -y --no-install-recommends --no-upgrade nftables",
+		"/usr/bin/apt-get -o Dpkg::Options::=--force-confold install -y --no-install-recommends fail2ban",
+		"/usr/bin/test -x /usr/sbin/nft",
+		"/usr/bin/test -r /etc/fail2ban/action.d/nftables.conf",
+		"/usr/bin/fail2ban-client -t",
+		"/usr/bin/systemctl enable --now fail2ban.service",
+		"/usr/bin/systemctl is-active --quiet fail2ban.service",
+	}
+	stop := strings.Index(commands, "/usr/bin/systemctl stop wpx.service wpx-broker.service")
+	for _, command := range securityCommands {
+		index := strings.Index(commands, command)
+		if index < 0 || index > stop {
+			t.Fatalf("security dependency command must complete before WPX stops: %q in\n%s", command, commands)
+		}
+	}
+	if strings.Contains(commands, "nftables.service") || strings.Contains(commands, "/etc/nftables.conf") || strings.Contains(commands, "flush ruleset") {
+		t.Fatalf("upgrade must not activate or replace the host nftables ruleset:\n%s", commands)
+	}
+}
+
+func TestReconcileSecurityDependenciesUsesFixedConservativeCommands(t *testing.T) {
+	runner := &recordingRunner{}
+	if err := reconcileSecurityDependenciesFromState(context.Background(), runner, false); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"/usr/bin/apt-get update",
+		"/usr/bin/apt-get install -y --no-install-recommends --no-upgrade nftables",
+		"/usr/bin/apt-get -o Dpkg::Options::=--force-confold install -y --no-install-recommends fail2ban",
+		"/usr/bin/test -x /usr/sbin/nft",
+		"/usr/bin/test -r /etc/fail2ban/action.d/nftables.conf",
+		"/usr/bin/fail2ban-client -t",
+		"/usr/bin/systemctl enable --now fail2ban.service",
+		"/usr/bin/systemctl is-active --quiet fail2ban.service",
+	}
+	if strings.Join(runner.calls, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("dependency commands=%q, want %q", runner.calls, want)
+	}
+	commands := strings.Join(runner.calls, "\n")
+	for _, forbidden := range []string{"nftables.service", "/etc/nftables.conf", "nft flush", "iptables", "sshd_config", "jail.local"} {
+		if strings.Contains(commands, forbidden) {
+			t.Fatalf("dependency reconciliation crossed host policy boundary %q: %s", forbidden, commands)
+		}
+	}
+}
+
+func TestExistingFail2banConfigurationIsValidatedBeforePackageUpgrade(t *testing.T) {
+	runner := &recordingRunner{fail: func(call string) error {
+		if call == "/usr/bin/fail2ban-client -t" {
+			return errors.New("invalid operator jail")
+		}
+		return nil
+	}}
+	err := reconcileSecurityDependenciesFromState(context.Background(), runner, true)
+	if err == nil || !strings.Contains(err.Error(), "fail2ban-client -t") {
+		t.Fatalf("error=%v", err)
+	}
+	want := []string{"/usr/bin/apt-get update", "/usr/bin/fail2ban-client -t"}
+	if strings.Join(runner.calls, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("invalid existing configuration reached package mutation: %v", runner.calls)
+	}
+}
+
+func TestSecurityDependencyFailureLeavesRunningUpgradeUntouched(t *testing.T) {
+	root := t.TempDir()
+	installed := filepath.Join(root, "bin", "wpx")
+	source := filepath.Join(root, "download", "wpx")
+	statePath := filepath.Join(root, "data", "state.db")
+	for _, directory := range []string{filepath.Dir(installed), filepath.Dir(source), filepath.Dir(statePath), filepath.Join(root, "sites")} {
+		if err := os.MkdirAll(directory, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(installed, []byte("old binary"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(source, []byte("new binary"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	database, err := sql.Open("sqlite", statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`CREATE TABLE proof(value TEXT)`); err != nil {
+		t.Fatal(err)
+	}
+	database.Close()
+	cfg := config.Default()
+	cfg.StatePath = statePath
+	cfg.SiteRoot = filepath.Join(root, "sites")
+	configPath := filepath.Join(root, "etc", "config.json")
+	if err := config.Save(configPath, cfg); err != nil {
+		t.Fatal(err)
+	}
+	runner := &recordingRunner{}
+	_, err = Run(context.Background(), Options{
+		Source: source, InstalledPath: installed, ConfigPath: configPath,
+		BackupRoot: filepath.Join(root, "backups"), UnitRoot: filepath.Join(root, "units"),
+		Runner: runner, EffectiveUID: func() int { return 0 },
+		ReconcilePermissions:          func(config.Config) error { return nil },
+		ReconcileSecurityDependencies: func(context.Context, Runner) error { return errors.New("invalid fail2ban configuration") },
+	})
+	if err == nil || !strings.Contains(err.Error(), "reconcile security dependencies") {
+		t.Fatalf("error=%v", err)
+	}
+	content, readErr := os.ReadFile(installed)
+	if readErr != nil || string(content) != "old binary" {
+		t.Fatalf("active binary changed: %q err=%v", content, readErr)
+	}
+	if len(runner.calls) != 0 {
+		t.Fatalf("WPX service operation ran after dependency failure: %v", runner.calls)
+	}
+	if _, statErr := os.Stat(filepath.Join(root, "backups")); !os.IsNotExist(statErr) {
+		t.Fatalf("recovery state should not be created before dependency validation: %v", statErr)
+	}
 }
 
 func TestUpgradeRollsBackBinaryStateAndUnitsAfterFailedHealthCheck(t *testing.T) {

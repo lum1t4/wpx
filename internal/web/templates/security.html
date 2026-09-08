@@ -2,112 +2,149 @@
 {{template "shell-start" .}}
 <div class="max-w-3xl">
   <header>
-    <p class="text-sm text-zinc-500" data-i18n="my_account">My account</p>
-    <h1 class="mt-1 text-2xl font-semibold tracking-tight text-zinc-950">Account security</h1>
-    <p class="mt-2 text-sm leading-6 text-zinc-500">Manage the password and two-factor authentication for your WPX account, <span class="font-medium text-zinc-700">{{.User.Username}}</span>.</p>
+    <h1 class="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100" data-i18n="account_settings">Account settings</h1>
+    <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{{.User.Username}}</p>
   </header>
 
   {{if .Error}}
-  <div class="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">{{.Error}}</div>
+  <div class="mt-6 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-700 dark:text-red-300" role="alert">{{.Error}}</div>
   {{end}}
   {{if .Message}}
-  <div class="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">{{.Message}}</div>
+  <div class="mt-6 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200" role="status">{{.Message}}</div>
   {{end}}
 
-  <section class="mt-8 rounded-lg border border-zinc-200 bg-white" aria-labelledby="authenticator-title">
-    <div class="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-200 px-5 py-4 sm:px-6">
+  <section class="mt-8" aria-labelledby="preferences-title">
+    <h2 id="preferences-title" class="text-lg font-semibold text-zinc-950 dark:text-zinc-100" data-i18n="preferences">Preferences</h2>
+    <div class="mt-3 divide-y divide-zinc-200 dark:divide-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+      {{if .Languages}}
+      <form method="get" action="/language" class="grid gap-3 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:px-6">
+        <input type="hidden" name="next" value="/account/security">
+        <label for="language">
+          <span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300" data-i18n="language">Language</span>
+          <select id="language" name="lang" class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100">
+            {{range .Languages}}<option value="{{.Tag}}" {{if eq .Tag $.Locale}}selected{{end}}>{{.NativeName}}</option>{{end}}
+          </select>
+        </label>
+        <button type="submit" class="inline-flex min-h-9 items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100"><span data-i18n="apply">Apply</span></button>
+      </form>
+      {{end}}
+      <fieldset class="p-5 sm:px-6">
+        <legend class="text-sm font-medium text-zinc-700 dark:text-zinc-300" data-i18n="appearance">Appearance</legend>
+        <div class="mt-3 grid gap-3 sm:grid-cols-3">
+          <label class="flex cursor-pointer items-center gap-3 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800">
+            <input type="radio" name="appearance" value="system" data-theme-choice checked class="size-4 accent-zinc-900">
+            {{template "icon-monitor-cog"}} <span data-i18n="system">System</span>
+          </label>
+          <label class="flex cursor-pointer items-center gap-3 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800">
+            <input type="radio" name="appearance" value="light" data-theme-choice class="size-4 accent-zinc-900">
+            {{template "icon-sun"}} <span data-i18n="light">Light</span>
+          </label>
+          <label class="flex cursor-pointer items-center gap-3 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800">
+            <input type="radio" name="appearance" value="dark" data-theme-choice class="size-4 accent-zinc-900">
+            {{template "icon-moon"}} <span data-i18n="dark">Dark</span>
+          </label>
+        </div>
+        <p class="sr-only" data-theme-status role="status" aria-live="polite"></p>
+      </fieldset>
+    </div>
+  </section>
+
+  <section class="mt-8" aria-labelledby="security-title">
+    <h2 id="security-title" class="text-lg font-semibold text-zinc-950 dark:text-zinc-100" data-i18n="security">Security</h2>
+  </section>
+
+  <section class="mt-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900" aria-labelledby="authenticator-title">
+    <div class="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 px-5 py-4 sm:px-6">
       <div>
-        <h2 id="authenticator-title" class="text-base font-semibold text-zinc-950">Two-factor authentication</h2>
-        <p class="mt-1 text-sm leading-6 text-zinc-500">Use an authenticator app to add a second step when signing in.</p>
+        <h2 id="authenticator-title" class="text-base font-semibold text-zinc-950 dark:text-zinc-100">Two-factor authentication</h2>
       </div>
       {{if .User.TOTPEnabled}}
-      <span class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700" data-i18n="enabled">Enabled</span>
+      <span class="rounded-md border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300" data-i18n="enabled">Enabled</span>
       {{else}}
-      <span class="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600">Not enabled</span>
+      <span class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-300">Not enabled</span>
       {{end}}
     </div>
     <div class="p-5 sm:p-6">
       {{if .RecoveryCodes}}
-      <h3 class="text-sm font-medium text-zinc-950">Save your recovery codes</h3>
-      <p class="mt-2 text-sm leading-6 text-zinc-500">Use a recovery code if you lose access to your authenticator. Each code works once. Store these in your password manager; they will not be shown again.</p>
-      <div class="mt-4 grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-4 font-mono text-sm text-zinc-900 sm:grid-cols-2">
+      <h3 class="text-sm font-medium text-zinc-950 dark:text-zinc-100">Save your recovery codes</h3>
+      <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Use a recovery code if you lose access to your authenticator. Each code works once. Store these in your password manager; they will not be shown again.</p>
+      <div class="mt-4 grid gap-3 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4 font-mono text-sm text-zinc-900 dark:text-zinc-100 sm:grid-cols-2">
         {{range .RecoveryCodes}}
         <code class="select-all">{{.}}</code>
         {{end}}
       </div>
-      <a class="mt-5 inline-flex min-h-9 items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" href="/account/security">I have saved my codes</a>
+      <a class="mt-5 inline-flex min-h-9 items-center justify-center rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" href="/account/security">I have saved my codes</a>
       {{else if .TOTPSecret}}
       <ol class="space-y-6">
         <li>
-          <h3 class="text-sm font-medium text-zinc-950">1. Add WPX to your authenticator</h3>
-          <p class="mt-2 text-sm leading-6 text-zinc-500">Choose manual setup in your authenticator app, paste this secret, and select time-based codes.</p>
-          <label class="mt-4 block text-sm font-medium text-zinc-700" for="totp-secret">Setup secret</label>
-          <input id="totp-secret" class="mt-2 w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400" readonly value="{{.TOTPSecret}}" spellcheck="false">
+          <h3 class="text-sm font-medium text-zinc-950 dark:text-zinc-100">1. Add WPX to your authenticator</h3>
+          <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Choose manual setup in your authenticator app, paste this secret, and select time-based codes.</p>
+          <label class="mt-4 block text-sm font-medium text-zinc-700 dark:text-zinc-300" for="totp-secret">Setup secret</label>
+          <input id="totp-secret" class="mt-2 w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400" readonly value="{{.TOTPSecret}}" spellcheck="false">
           <details class="mt-3">
-            <summary class="cursor-pointer text-sm font-medium text-zinc-600 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400">Show setup URI</summary>
-            <p class="mt-2 break-all rounded-md border border-zinc-200 bg-zinc-50 p-3 font-mono text-xs leading-5 text-zinc-600">{{.TOTPUri}}</p>
+            <summary class="cursor-pointer text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400">Show setup URI</summary>
+            <p class="mt-2 break-all rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-3 font-mono text-xs leading-5 text-zinc-600 dark:text-zinc-300">{{.TOTPUri}}</p>
           </details>
         </li>
         <li>
-          <h3 class="text-sm font-medium text-zinc-950">2. Verify your authenticator</h3>
+          <h3 class="text-sm font-medium text-zinc-950 dark:text-zinc-100">2. Verify your authenticator</h3>
           <form class="mt-3" method="post" action="/account/totp/confirm">
             <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-            <label for="totp-code" class="block text-sm text-zinc-600">Enter the six-digit code shown in your app.</label>
+            <label for="totp-code" class="block text-sm text-zinc-600 dark:text-zinc-300">Enter the six-digit code shown in your app.</label>
             <div class="mt-2 flex flex-wrap items-center gap-3">
-              <input id="totp-code" class="w-40 rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm tracking-widest text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" placeholder="123456" required>
-              <button class="inline-flex min-h-9 items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" type="submit">Enable two-factor authentication</button>
+              <input id="totp-code" class="w-40 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm tracking-widest text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" placeholder="123456" required>
+              <button class="inline-flex min-h-9 items-center justify-center rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" type="submit">Enable two-factor authentication</button>
             </div>
           </form>
         </li>
       </ol>
       {{else if .User.TOTPEnabled}}
-      <p class="text-sm leading-6 text-zinc-600">Your authenticator is required after your password when you sign in. Keep your recovery codes somewhere safe.</p>
-      <details class="mt-5 rounded-md border border-zinc-200">
-        <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400">Turn off two-factor authentication</summary>
-        <div class="border-t border-zinc-200 p-4">
-          <p class="text-sm leading-6 text-zinc-500">Your account will use only a password to sign in. All existing recovery codes will stop working.</p>
+      <p class="text-sm leading-6 text-zinc-600 dark:text-zinc-300">Keep your recovery codes somewhere safe.</p>
+      <details class="mt-5 rounded-md border border-zinc-200 dark:border-zinc-800">
+        <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400">Turn off two-factor authentication</summary>
+        <div class="border-t border-zinc-200 dark:border-zinc-800 p-4">
+          <p class="text-sm leading-6 text-zinc-500 dark:text-zinc-400">Your account will use only a password to sign in. All existing recovery codes will stop working.</p>
           <form class="mt-4" method="post" action="/account/totp/disable">
             <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-            <label for="disable-totp-password" class="block text-sm font-medium text-zinc-700">Confirm your current password</label>
-            <input id="disable-totp-password" class="mt-2 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:max-w-sm" type="password" name="password" autocomplete="current-password" required>
+            <label for="disable-totp-password" class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Confirm your current password</label>
+            <input id="disable-totp-password" class="mt-2 w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:max-w-sm" type="password" name="password" autocomplete="current-password" required>
             <div class="mt-4">
-              <button class="inline-flex min-h-9 items-center justify-center rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2" type="submit">Turn off two-factor authentication</button>
+              <button class="inline-flex min-h-9 items-center justify-center rounded-md bg-red-600 dark:bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 dark:hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2" type="submit">Turn off two-factor authentication</button>
             </div>
           </form>
         </div>
       </details>
       {{else}}
-      <p class="text-sm leading-6 text-zinc-600">Connect an authenticator app, then save the recovery codes for your account.</p>
       <form class="mt-4" method="post" action="/account/totp/begin">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-        <button class="inline-flex min-h-9 items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" type="submit">Set up authenticator</button>
+        <button class="inline-flex min-h-9 items-center justify-center rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" type="submit">Set up authenticator</button>
       </form>
       {{end}}
     </div>
   </section>
 
-  <section class="mt-6 rounded-lg border border-zinc-200 bg-white" aria-labelledby="password-title">
-    <div class="border-b border-zinc-200 px-5 py-4 sm:px-6">
-      <h2 id="password-title" class="text-base font-semibold text-zinc-950">Change password</h2>
-      <p class="mt-1 text-sm leading-6 text-zinc-500">Changing your password signs you out on all devices. Your two-factor authentication settings stay the same.</p>
+  <section class="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900" aria-labelledby="password-title">
+    <div class="border-b border-zinc-200 dark:border-zinc-800 px-5 py-4 sm:px-6">
+      <h2 id="password-title" class="text-base font-semibold text-zinc-950 dark:text-zinc-100">Change password</h2>
+      <p class="mt-1 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Changing your password signs you out on all devices. Your two-factor authentication settings stay the same.</p>
     </div>
     <form class="grid gap-5 p-5 sm:grid-cols-2 sm:p-6" method="post" action="/account/password">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
       <label class="sm:col-span-2">
-        <span class="mb-2 block text-sm font-medium text-zinc-700">Current password</span>
-        <input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400" type="password" name="current_password" autocomplete="current-password" required>
+        <span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Current password</span>
+        <input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400" type="password" name="current_password" autocomplete="current-password" required>
       </label>
       <label>
-        <span class="mb-2 block text-sm font-medium text-zinc-700">New password</span>
-        <input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400" type="password" name="password" minlength="12" maxlength="72" autocomplete="new-password" aria-describedby="password-length" required>
-        <span id="password-length" class="mt-2 block text-xs text-zinc-500">Use at least 12 characters.</span>
+        <span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">New password</span>
+        <input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400" type="password" name="password" minlength="12" maxlength="72" autocomplete="new-password" aria-describedby="password-length" required>
+        <span id="password-length" class="mt-2 block text-xs text-zinc-500 dark:text-zinc-400">Use at least 12 characters.</span>
       </label>
       <label>
-        <span class="mb-2 block text-sm font-medium text-zinc-700">Confirm new password</span>
-        <input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400" type="password" name="password_confirm" minlength="12" maxlength="72" autocomplete="new-password" required>
+        <span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Confirm new password</span>
+        <input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400" type="password" name="password_confirm" minlength="12" maxlength="72" autocomplete="new-password" required>
       </label>
       <div class="sm:col-span-2">
-        <button class="inline-flex min-h-9 items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" type="submit">Change password and sign out</button>
+        <button class="inline-flex min-h-9 items-center justify-center rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" type="submit">Change password and sign out</button>
       </div>
     </form>
   </section>

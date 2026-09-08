@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +22,8 @@ func TestOperatorAlertSettingsEncryptSecretsAndPersistState(t *testing.T) {
 	settings := model.DefaultOperatorAlertSettings()
 	settings.Enabled = true
 	settings.SMTP = model.SMTPConfig{Host: "smtp.example.com", Port: 465, Transport: model.SMTPTLS, Username: "user", Password: "mail-secret", From: "alerts@example.com", To: "ops@example.com"}
+	settings.Slack = model.SlackAlertConfig{Enabled: true, WebhookURL: "https://hooks.slack.com/services/T000/B000/slack-secret"}
+	settings.Telegram = model.TelegramAlertConfig{Enabled: true, BotToken: "123456789:abcdefghijklmnopqrstuvwxyzABCDEFGHI", ChatID: "-100123456789"}
 	if err := s.SaveOperatorAlertSettings(context.Background(), owner, settings); err != nil {
 		t.Fatal(err)
 	}
@@ -28,11 +31,11 @@ func TestOperatorAlertSettingsEncryptSecretsAndPersistState(t *testing.T) {
 	if err := s.db.QueryRow(`SELECT config_ciphertext FROM operator_alert_settings WHERE id=1`).Scan(&raw); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(raw), "mail-secret") {
-		t.Fatal("SMTP password stored in plaintext")
+	if strings.Contains(string(raw), "mail-secret") || strings.Contains(string(raw), "slack-secret") || strings.Contains(string(raw), "abcdefghijklmnopqrstuvwxyzABCDEFGHI") {
+		t.Fatal("alert channel credential stored in plaintext")
 	}
 	loaded, err := s.OperatorAlertSettings(context.Background())
-	if err != nil || loaded.SMTP.Password != "mail-secret" {
+	if err != nil || loaded.SMTP.Password != "mail-secret" || loaded.Slack.WebhookURL != settings.Slack.WebhookURL || loaded.Telegram.BotToken != settings.Telegram.BotToken {
 		t.Fatalf("load settings: %#v %v", loaded, err)
 	}
 	now := time.Now().UTC().Truncate(time.Second)
@@ -43,5 +46,38 @@ func TestOperatorAlertSettingsEncryptSecretsAndPersistState(t *testing.T) {
 	got, err := s.OperatorAlertState(context.Background(), "cpu")
 	if err != nil || !got.Active || got.BadSamples != 3 || !got.LastSentAt.Equal(now) || got.LastFingerprint != "event" {
 		t.Fatalf("state = %#v, %v", got, err)
+	}
+}
+
+func TestOperatorAlertSettingsLegacyJSONKeepsSMTPEnabled(t *testing.T) {
+	s := openTestStore(t)
+	if err := s.ConfigureSecretKey([]byte(strings.Repeat("l", 32))); err != nil {
+		t.Fatal(err)
+	}
+	settings := model.DefaultOperatorAlertSettings()
+	settings.SMTP = model.SMTPConfig{Host: "smtp.example.com", Port: 587, Transport: model.SMTPSTARTTLS, From: "alerts@example.com", To: "ops@example.com"}
+	raw, err := json.Marshal(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var legacy map[string]any
+	if err := json.Unmarshal(raw, &legacy); err != nil {
+		t.Fatal(err)
+	}
+	delete(legacy, "smtp_enabled")
+	raw, _ = json.Marshal(legacy)
+	ciphertext, err := s.encrypt(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`INSERT INTO operator_alert_settings(id,config_ciphertext,updated_at) VALUES(1,?,?)`, ciphertext, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := s.OperatorAlertSettings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !loaded.SMTPEnabled {
+		t.Fatal("legacy SMTP channel was disabled")
 	}
 }

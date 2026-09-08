@@ -67,6 +67,69 @@ func TestCronCustomScheduleRequiresFiveStrictFields(t *testing.T) {
 	}
 }
 
+func TestCronPresetExpressions(t *testing.T) {
+	wants := map[string]string{"every_minute": "* * * * *", "every_15_minutes": "*/15 * * * *", "hourly": "0 * * * *", "daily": "0 3 * * *", "weekly": "0 3 * * 0", "monthly": "0 3 1 * *", "weekdays": "0 3 * * 1-5"}
+	for preset, want := range wants {
+		r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(url.Values{"preset": {preset}}.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		_ = r.ParseForm()
+		got, err := cronFormExpression(r)
+		if err != nil || got != want {
+			t.Errorf("%s = %q, %v; want %q", preset, got, err, want)
+		}
+	}
+}
+
+func TestCronPageRendersCompactTaskSummaryAndAccessibleDialog(t *testing.T) {
+	server, owner, _ := navigationServer(t)
+	navigationSite(t, server, owner, model.Site{ID: "cron-site", Domain: "cron.example.com", Kind: model.Static})
+	schedule, err := server.store.CreateCronSchedule(context.Background(), owner, model.CronSchedule{SiteID: "cron-site", Name: "Queue worker", Expression: "*/15 * * * *", Command: []string{"php", "artisan", "queue:work"}, Enabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	job, found, err := server.store.ClaimNextJob(context.Background())
+	if err != nil || !found {
+		t.Fatal(err)
+	}
+	if err := server.store.FinishJob(context.Background(), job, "{}", nil); err != nil {
+		t.Fatal(err)
+	}
+	response := navigationRequest(t, server, owner, http.MethodGet, "/sites/cron-site/cron", nil)
+	body := response.Body.String()
+	for _, want := range []string{schedule.Name, "Every 15 minutes", "data-cron-dialog", "aria-labelledby=\"cron-dialog-title\"", "/assets/cron.js", "every_minute", "every_15_minutes", "weekdays", "custom", "Schedule times use UTC"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("page missing %q", want)
+		}
+	}
+}
+
+func TestCronValidationReopensDialogWithSafeInput(t *testing.T) {
+	server, owner, _ := navigationServer(t)
+	navigationSite(t, server, owner, model.Site{ID: "cron-site", Domain: "cron.example.com", Kind: model.Static})
+	form := url.Values{"name": {"Retained task"}, "preset": {"custom"}, "schedule_expression": {"invalid"}, "executable": {"php"}, "arguments": {"artisan\nschedule:run"}, "enabled": {"yes"}}
+	response := navigationRequest(t, server, owner, http.MethodPost, "/sites/cron-site/cron", form)
+	body := response.Body.String()
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d", response.Code)
+	}
+	for _, want := range []string{"data-open-on-load", "value=\"Retained task\"", "value=\"php\"", "artisan\nschedule:run", "value=\"custom\" checked", "value=\"invalid\""} {
+		if !strings.Contains(body, want) {
+			t.Errorf("validation page missing %q", want)
+		}
+	}
+}
+
+func TestCronDialogScriptIsEmbedded(t *testing.T) {
+	server, cancel := testServer(t)
+	defer cancel()
+	request := httptest.NewRequest(http.MethodGet, "/assets/cron.js", nil)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "showModal") || !strings.Contains(response.Body.String(), "returnFocus") || !strings.Contains(response.Body.String(), "data-cron-custom") {
+		t.Fatalf("cron.js response=%d: %s", response.Code, response.Body.String())
+	}
+}
+
 func TestCronMutationRejectsMissingCSRFBeforeStateOrBroker(t *testing.T) {
 	server, owner, privileged := navigationServer(t)
 	navigationSite(t, server, owner, model.Site{ID: "cron-site", Domain: "cron.example.com", Kind: model.WordPress, PHPVersion: "8.4"})

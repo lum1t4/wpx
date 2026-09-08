@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +31,7 @@ type Monitor struct {
 	resources resourceReader
 	broker    brokerCaller
 	sender    Sender
+	channels  ChannelSender
 	logger    *slog.Logger
 	now       func() time.Time
 	interval  time.Duration
@@ -40,7 +42,7 @@ func New(state *store.Store, resourceMonitor resourceReader, privileged brokerCa
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Monitor{store: state, resources: resourceMonitor, broker: privileged, sender: SMTPSender{}, logger: logger, now: time.Now, interval: CheckInterval}
+	return &Monitor{store: state, resources: resourceMonitor, broker: privileged, sender: SMTPSender{}, channels: WebhookSender{}, logger: logger, now: time.Now, interval: CheckInterval}
 }
 
 func (m *Monitor) Run(ctx context.Context) {
@@ -170,10 +172,19 @@ func (m *Monitor) condition(ctx context.Context, settings model.OperatorAlertSet
 			state.BadSamples++
 		}
 		cooldown := time.Duration(settings.CooldownMins) * time.Minute
-		if state.BadSamples >= trigger && !state.Active && (state.LastSentAt.IsZero() || now.Sub(state.LastSentAt) >= cooldown) {
-			if m.send(ctx, settings, "WPX alert: "+key, summary, detail) == nil {
+		if state.BadSamples >= trigger {
+			if !state.Active && (state.LastSentAt.IsZero() || now.Sub(state.LastSentAt) >= cooldown) {
+				state.LastFingerprint = "open:" + nextConditionCycle(state.LastFingerprint)
 				state.Active = true
 				state.LastSentAt = now
+			}
+			if state.Active {
+				identity := state.LastFingerprint
+				if !strings.HasPrefix(identity, "open:") {
+					identity = "open:1"
+					state.LastFingerprint = identity
+				}
+				_ = m.send(ctx, settings, key, identity, "WPX alert: "+key, summary, detail)
 			}
 		}
 	} else {
@@ -181,19 +192,42 @@ func (m *Monitor) condition(ctx context.Context, settings model.OperatorAlertSet
 		if state.Active {
 			state.GoodSamples++
 			if state.GoodSamples >= 2 {
-				if m.send(ctx, settings, "WPX resolved: "+key, summary+" The condition has recovered.", detail) == nil {
-					state.Active = false
-					state.GoodSamples = 0
-					state.LastSentAt = now
-				}
+				cycle := conditionCycle(state.LastFingerprint)
+				state.Active = false
+				state.GoodSamples = 0
+				state.LastSentAt = now
+				state.LastFingerprint = "resolved:" + cycle
+				_ = m.send(ctx, settings, key, state.LastFingerprint, "WPX resolved: "+key, summary+" The condition has recovered.", detail)
 			}
 		} else {
 			state.GoodSamples = 0
+			if strings.HasPrefix(state.LastFingerprint, "resolved:") {
+				_ = m.send(ctx, settings, key, state.LastFingerprint, "WPX resolved: "+key, summary+" The condition has recovered.", detail)
+			}
 		}
 	}
 	if err := m.store.SaveOperatorAlertState(ctx, state); err != nil {
 		m.logger.Error("save alert state", "key", key, "error", err)
 	}
+}
+
+func conditionCycle(phase string) string {
+	_, cycle, found := strings.Cut(phase, ":")
+	if !found {
+		return "1"
+	}
+	if _, err := strconv.ParseUint(cycle, 10, 64); err != nil {
+		return "1"
+	}
+	return cycle
+}
+
+func nextConditionCycle(phase string) string {
+	cycle, _ := strconv.ParseUint(conditionCycle(phase), 10, 64)
+	if phase == "" {
+		return "1"
+	}
+	return strconv.FormatUint(cycle+1, 10)
 }
 
 func (m *Monitor) event(ctx context.Context, settings model.OperatorAlertSettings, key, subject, event, detail string) {
@@ -205,7 +239,7 @@ func (m *Monitor) event(ctx context.Context, settings model.OperatorAlertSetting
 	now := m.now().UTC()
 	cooldown := time.Duration(settings.CooldownMins) * time.Minute
 	if digest != state.LastFingerprint && (state.LastSentAt.IsZero() || now.Sub(state.LastSentAt) >= cooldown) {
-		if m.send(ctx, settings, subject, event, detail) == nil {
+		if m.send(ctx, settings, key, digest, subject, event, detail) == nil {
 			state.LastSentAt = now
 			state.LastFingerprint = digest
 		}
@@ -215,7 +249,7 @@ func (m *Monitor) event(ctx context.Context, settings model.OperatorAlertSetting
 	}
 }
 
-func (m *Monitor) send(ctx context.Context, settings model.OperatorAlertSettings, subject, summary, detail string) error {
+func (m *Monitor) send(ctx context.Context, settings model.OperatorAlertSettings, incidentKey, deliveryIdentity, subject, summary, detail string) error {
 	subject = strings.NewReplacer("\r", " ", "\n", " ").Replace(subject)
 	if len(subject) > 160 {
 		subject = subject[:160]
@@ -224,18 +258,116 @@ func (m *Monitor) send(ctx context.Context, settings model.OperatorAlertSettings
 	if strings.TrimSpace(detail) != "" {
 		body += "\n\nBounded diagnostic snapshot:\n" + bounded(detail, 8192)
 	}
-	if err := m.sender.Send(ctx, settings.SMTP, subject, body); err != nil {
-		m.logger.Error("send operator alert", "alert", subject, "error", err)
-		return err
+	fingerprint := fmt.Sprintf("%x", sha256.Sum256([]byte(deliveryIdentity)))
+	type delivery struct {
+		name string
+		send func() error
+	}
+	var deliveries []delivery
+	if settings.SMTPEnabled {
+		deliveries = append(deliveries, delivery{"smtp", func() error { return m.sender.Send(ctx, settings.SMTP, subject, body) }})
+	}
+	if settings.Slack.Enabled {
+		deliveries = append(deliveries, delivery{"slack", func() error { return m.channels.SendSlack(ctx, settings.Slack, subject, body) }})
+	}
+	if settings.Telegram.Enabled {
+		deliveries = append(deliveries, delivery{"telegram", func() error { return m.channels.SendTelegram(ctx, settings.Telegram, subject, body) }})
+	}
+	if len(deliveries) == 0 {
+		return errors.New("no alert delivery channel enabled")
+	}
+	cooldown := time.Duration(settings.CooldownMins) * time.Minute
+	now := m.now().UTC()
+	allDelivered := true
+	incidentHash := fmt.Sprintf("%x", sha256.Sum256([]byte(incidentKey)))[:24]
+	for _, channel := range deliveries {
+		stateKey := "delivery:" + incidentHash + ":" + channel.name
+		state, err := m.store.OperatorAlertState(ctx, stateKey)
+		if err != nil {
+			m.logger.Error("load alert delivery state", "channel", channel.name, "error", err)
+			allDelivered = false
+			continue
+		}
+		if state.LastFingerprint == fingerprint && !state.Active {
+			continue
+		}
+		if state.Active && !state.LastSentAt.IsZero() && now.Sub(state.LastSentAt) < cooldown {
+			allDelivered = false
+			continue
+		}
+		state.LastSentAt = now
+		if err := channel.send(); err != nil {
+			state.Active = true // failed attempt; retry after the channel cooldown
+			allDelivered = false
+			m.logger.Error("send operator alert", "channel", channel.name, "error", channel.name+" delivery failed")
+		} else {
+			state.Active = false
+			state.LastFingerprint = fingerprint
+		}
+		if err := m.store.SaveOperatorAlertState(ctx, state); err != nil {
+			m.logger.Error("save alert delivery state", "channel", channel.name, "error", err)
+			allDelivered = false
+		}
+	}
+	if !allDelivered {
+		return errors.New("one or more alert channels were not delivered")
 	}
 	return nil
 }
 
 func (m *Monitor) Test(ctx context.Context, settings model.OperatorAlertSettings) error {
-	if err := model.ValidateOperatorAlertSettings(settings); err != nil {
-		return err
+	var failures []error
+	if settings.SMTPEnabled {
+		if err := m.TestChannel(ctx, settings, "smtp"); err != nil {
+			failures = append(failures, err)
+		}
 	}
-	return m.sender.Send(ctx, settings.SMTP, "WPX test alert", "WPX SMTP alerts are configured correctly. No alert condition triggered this message.")
+	if settings.Slack.Enabled {
+		if err := m.TestChannel(ctx, settings, "slack"); err != nil {
+			failures = append(failures, err)
+		}
+	}
+	if settings.Telegram.Enabled {
+		if err := m.TestChannel(ctx, settings, "telegram"); err != nil {
+			failures = append(failures, err)
+		}
+	}
+	if len(failures) == 0 && !settings.SMTPEnabled && !settings.Slack.Enabled && !settings.Telegram.Enabled {
+		return errors.New("enable at least one alert delivery channel")
+	}
+	return errors.Join(failures...)
+}
+
+func (m *Monitor) TestChannel(ctx context.Context, settings model.OperatorAlertSettings, channel string) error {
+	const subject = "WPX test alert"
+	switch channel {
+	case "smtp":
+		if err := model.ValidateSMTPConfig(settings.SMTP); err != nil {
+			return err
+		}
+		if err := m.sender.Send(ctx, settings.SMTP, subject, "WPX email alerts are configured correctly."); err != nil {
+			return errors.New("SMTP test delivery failed")
+		}
+		return nil
+	case "slack":
+		if err := model.ValidateSlackAlertConfig(settings.Slack); err != nil {
+			return err
+		}
+		if err := m.channels.SendSlack(ctx, settings.Slack, subject, "WPX Slack alerts are configured correctly."); err != nil {
+			return errors.New("Slack test delivery failed")
+		}
+		return nil
+	case "telegram":
+		if err := model.ValidateTelegramAlertConfig(settings.Telegram); err != nil {
+			return err
+		}
+		if err := m.channels.SendTelegram(ctx, settings.Telegram, subject, "WPX Telegram alerts are configured correctly."); err != nil {
+			return errors.New("Telegram test delivery failed")
+		}
+		return nil
+	default:
+		return errors.New("unknown alert delivery channel")
+	}
 }
 
 func resourceDetail(snapshot resources.Snapshot) string {

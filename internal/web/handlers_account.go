@@ -11,7 +11,7 @@ import (
 // TOTP enrollment must survive a mistyped code without enabling authentication.
 
 func (s *Server) securityPage(w http.ResponseWriter, r *http.Request, user store.User) {
-	data := pageData{Title: "Account security", User: &user, CSRF: s.ensureCSRF(w, r)}
+	data := pageData{Title: "Account settings", User: &user, CSRF: s.ensureCSRF(w, r)}
 	s.pendingTOTP(r, user, &data)
 	s.render(w, "security.html", data)
 }
@@ -31,16 +31,16 @@ func (s *Server) changePassword(w http.ResponseWriter, r *http.Request, user sto
 		return
 	}
 	if _, err := s.store.Authenticate(r.Context(), user.Username, r.FormValue("current_password")); err != nil {
-		s.renderStatus(w, "security.html", http.StatusBadRequest, pageData{Title: "Account security", User: &user, CSRF: s.ensureCSRF(w, r), Error: "The current password is incorrect."})
+		s.renderStatus(w, "security.html", http.StatusBadRequest, pageData{Title: "Account settings", User: &user, CSRF: s.ensureCSRF(w, r), Error: "The current password is incorrect."})
 		return
 	}
 	password := r.FormValue("password")
 	if password != r.FormValue("password_confirm") {
-		s.renderStatus(w, "security.html", http.StatusBadRequest, pageData{Title: "Account security", User: &user, CSRF: s.ensureCSRF(w, r), Error: "The new passwords do not match."})
+		s.renderStatus(w, "security.html", http.StatusBadRequest, pageData{Title: "Account settings", User: &user, CSRF: s.ensureCSRF(w, r), Error: "The new passwords do not match."})
 		return
 	}
 	if err := s.store.ChangePassword(r.Context(), user, password); err != nil {
-		s.renderStatus(w, "security.html", http.StatusBadRequest, pageData{Title: "Account security", User: &user, CSRF: s.ensureCSRF(w, r), Error: err.Error()})
+		s.renderStatus(w, "security.html", http.StatusBadRequest, pageData{Title: "Account settings", User: &user, CSRF: s.ensureCSRF(w, r), Error: err.Error()})
 		return
 	}
 	s.clearLoginChallenge(w)
@@ -55,10 +55,10 @@ func (s *Server) beginTOTP(w http.ResponseWriter, r *http.Request, user store.Us
 	}
 	enrollment, err := s.store.BeginTOTPEnrollment(r.Context(), user)
 	if err != nil {
-		s.renderStatus(w, "security.html", http.StatusBadRequest, pageData{Title: "Account security", User: &user, CSRF: s.ensureCSRF(w, r), CanManageUsers: rbac.Allows(user.Role, rbac.ManageUsers), Error: err.Error()})
+		s.renderStatus(w, "security.html", http.StatusBadRequest, pageData{Title: "Account settings", User: &user, CSRF: s.ensureCSRF(w, r), CanManageUsers: rbac.Allows(user.Role, rbac.ManageUsers), Error: err.Error()})
 		return
 	}
-	s.render(w, "security.html", pageData{Title: "Account security", User: &user, CSRF: s.ensureCSRF(w, r), CanManageUsers: rbac.Allows(user.Role, rbac.ManageUsers), TOTPSecret: enrollment.Secret, TOTPUri: enrollment.URI})
+	s.render(w, "security.html", pageData{Title: "Account settings", User: &user, CSRF: s.ensureCSRF(w, r), CanManageUsers: rbac.Allows(user.Role, rbac.ManageUsers), TOTPSecret: enrollment.Secret, TOTPUri: enrollment.URI})
 }
 
 func (s *Server) confirmTOTP(w http.ResponseWriter, r *http.Request, user store.User) {
@@ -68,13 +68,13 @@ func (s *Server) confirmTOTP(w http.ResponseWriter, r *http.Request, user store.
 	}
 	codes, err := s.store.ConfirmTOTPEnrollment(r.Context(), user.ID, r.FormValue("code"))
 	if err != nil {
-		data := pageData{Title: "Account security", User: &user, CSRF: s.ensureCSRF(w, r), Error: err.Error()}
+		data := pageData{Title: "Account settings", User: &user, CSRF: s.ensureCSRF(w, r), Error: err.Error()}
 		s.pendingTOTP(r, user, &data)
 		s.renderStatus(w, "security.html", http.StatusBadRequest, data)
 		return
 	}
 	user.TOTPEnabled = true
-	s.render(w, "security.html", pageData{Title: "Account security", User: &user, CSRF: s.ensureCSRF(w, r), CanManageUsers: rbac.Allows(user.Role, rbac.ManageUsers), Message: "Two-factor authentication is enabled. Save these recovery codes now; they will not be shown again.", RecoveryCodes: codes})
+	s.render(w, "security.html", pageData{Title: "Account settings", User: &user, CSRF: s.ensureCSRF(w, r), CanManageUsers: rbac.Allows(user.Role, rbac.ManageUsers), Message: "Two-factor authentication is enabled. Save these recovery codes now; they will not be shown again.", RecoveryCodes: codes})
 }
 
 func (s *Server) disableTOTP(w http.ResponseWriter, r *http.Request, user store.User) {
@@ -83,13 +83,13 @@ func (s *Server) disableTOTP(w http.ResponseWriter, r *http.Request, user store.
 		return
 	}
 	if _, err := s.store.Authenticate(r.Context(), user.Username, r.FormValue("password")); err != nil {
-		s.renderStatus(w, "security.html", http.StatusBadRequest, pageData{Title: "Account security", User: &user, CSRF: s.ensureCSRF(w, r), Error: "The password is incorrect."})
+		s.renderStatus(w, "security.html", http.StatusBadRequest, pageData{Title: "Account settings", User: &user, CSRF: s.ensureCSRF(w, r), Error: "The password is incorrect."})
 		return
 	}
 	if err := s.store.DisableTOTP(r.Context(), user.ID); err != nil {
-		s.renderStatus(w, "security.html", http.StatusBadRequest, pageData{Title: "Account security", User: &user, CSRF: s.ensureCSRF(w, r), Error: err.Error()})
+		s.renderStatus(w, "security.html", http.StatusBadRequest, pageData{Title: "Account settings", User: &user, CSRF: s.ensureCSRF(w, r), Error: err.Error()})
 		return
 	}
 	user.TOTPEnabled = false
-	s.render(w, "security.html", pageData{Title: "Account security", User: &user, CSRF: s.ensureCSRF(w, r), Message: "Two-factor authentication is disabled and its recovery codes were invalidated."})
+	s.render(w, "security.html", pageData{Title: "Account settings", User: &user, CSRF: s.ensureCSRF(w, r), Message: "Two-factor authentication is disabled and its recovery codes were invalidated."})
 }

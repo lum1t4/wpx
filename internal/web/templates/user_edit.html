@@ -1,59 +1,59 @@
 {{define "user_edit.html"}}
 {{template "shell-start" .}}
 <div class="max-w-3xl">
-  <a class="inline-flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400" href="/users"><span aria-hidden="true">←</span> All users</a>
+  <a class="inline-flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400" href="/users"><span aria-hidden="true">←</span> All users</a>
   <header class="mt-5">
-    <h1 class="text-2xl font-semibold tracking-tight text-zinc-950">Edit access</h1>
-    <p class="mt-2 text-sm leading-6 text-zinc-500">Manage permissions for <span class="font-medium text-zinc-700">{{.SelectedUser.Username}}</span>. Changes take effect on their next request.</p>
+    <h1 class="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">Edit access</h1>
+    <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Manage permissions for <span class="font-medium text-zinc-700 dark:text-zinc-300">{{.SelectedUser.Username}}</span>. Changes take effect on their next request.</p>
   </header>
 
   {{if .Error}}
-  <div class="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">{{.Error}}</div>
+  <div class="mt-6 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm text-red-700 dark:text-red-300" role="alert">{{.Error}}</div>
   {{end}}
 
-  <section class="mt-8 rounded-lg border border-zinc-200 bg-white" aria-labelledby="access-title">
-    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-5 py-4 sm:px-6">
-      <h2 id="access-title" class="text-base font-semibold text-zinc-950">{{.SelectedUser.Username}}</h2>
+  <section class="mt-8 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900" aria-labelledby="access-title">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 px-5 py-4 sm:px-6">
+      <h2 id="access-title" class="text-base font-semibold text-zinc-950 dark:text-zinc-100">{{.SelectedUser.Username}}</h2>
       {{if .SelectedUser.Disabled}}
-      <span class="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-500">Disabled</span>
+      <span class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-2 py-0.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">Disabled</span>
       {{else}}
-      <span class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Active</span>
+      <span class="rounded-md border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">Active</span>
       {{end}}
     </div>
     <form class="space-y-6 p-5 sm:p-6" method="post" action="/users/{{.SelectedUser.ID}}">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
       <div>
-        <label for="user-role" class="mb-2 block text-sm font-medium text-zinc-700">Role</label>
-        <select id="user-role" class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:max-w-sm" name="role" aria-describedby="edit-role-description">
+        <label for="user-role" class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Role</label>
+        <select id="user-role" class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-400 sm:max-w-sm" name="role" aria-describedby="edit-role-description">
           {{if eq .User.Role "owner"}}
           <option value="administrator"{{if eq .SelectedUser.Role "administrator"}} selected{{end}}>Administrator</option>
           {{end}}
           <option value="collaborator"{{if eq .SelectedUser.Role "collaborator"}} selected{{end}}>Collaborator</option>
           <option value="customer"{{if eq .SelectedUser.Role "customer"}} selected{{end}}>Customer</option>
         </select>
-        <div id="edit-role-description" class="mt-4 rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm leading-6 text-zinc-600">
-          {{if eq .User.Role "owner"}}<p><span class="font-medium text-zinc-800">Administrator</span> — manages the server, users, and every site.</p>{{end}}
-          <p><span class="font-medium text-zinc-800">Collaborator</span> — manages assigned sites, including files, deployments, DNS, and WordPress.</p>
-          <p><span class="font-medium text-zinc-800">Customer</span> — views assigned sites, manages backups, reads logs, and signs in to WordPress.</p>
+        <div id="edit-role-description" class="mt-4 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+          {{if eq .User.Role "owner"}}<p><span class="font-medium text-zinc-800 dark:text-zinc-200">Administrator</span> — manages the server, users, and every site.</p>{{end}}
+          <p><span class="font-medium text-zinc-800 dark:text-zinc-200">Collaborator</span> — manages assigned sites, including files, deployments, DNS, and WordPress.</p>
+          <p><span class="font-medium text-zinc-800 dark:text-zinc-200">Customer</span> — views assigned sites, manages backups, reads logs, and signs in to WordPress.</p>
         </div>
       </div>
       <fieldset>
-        <legend class="text-sm font-medium text-zinc-700">Assigned sites</legend>
-        <p class="mt-2 text-sm leading-6 text-zinc-500">Choose the sites this collaborator or customer can access. Administrators always have access to all sites.</p>
+        <legend class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Assigned sites</legend>
+        <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Choose the sites this collaborator or customer can access. Administrators always have access to all sites.</p>
         <div class="mt-3 grid gap-2 sm:grid-cols-2">
           {{range .Sites}}
-          <label class="flex min-w-0 cursor-pointer items-center gap-3 rounded-md border border-zinc-200 p-3 hover:bg-zinc-50">
+          <label class="flex min-w-0 cursor-pointer items-center gap-3 rounded-md border border-zinc-200 dark:border-zinc-800 p-3 hover:bg-zinc-50 dark:hover:bg-zinc-800">
             <input class="size-4 shrink-0 accent-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" type="checkbox" name="site_ids" value="{{.ID}}"{{if assigned $.SelectedUser .ID}} checked{{end}}>
-            <span class="break-all text-sm text-zinc-700">{{.Domain}}</span>
+            <span class="break-all text-sm text-zinc-700 dark:text-zinc-300">{{.Domain}}</span>
           </label>
           {{else}}
-          <p class="text-sm text-zinc-500 sm:col-span-2">There are no sites to assign yet. You can update access after creating a site.</p>
+          <p class="text-sm text-zinc-500 dark:text-zinc-400 sm:col-span-2">There are no sites to assign yet. You can update access after creating a site.</p>
           {{end}}
         </div>
       </fieldset>
-      <div class="flex flex-wrap items-center gap-3 border-t border-zinc-200 pt-5">
-        <button class="inline-flex min-h-9 items-center justify-center rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" type="submit">Save access</button>
-        <a class="inline-flex min-h-9 items-center justify-center rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" href="/users">Cancel</a>
+      <div class="flex flex-wrap items-center gap-3 border-t border-zinc-200 dark:border-zinc-800 pt-5">
+        <button class="inline-flex min-h-9 items-center justify-center rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" type="submit">Save access</button>
+        <a class="inline-flex min-h-9 items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2" href="/users">Cancel</a>
       </div>
     </form>
   </section>

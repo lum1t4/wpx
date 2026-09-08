@@ -158,7 +158,7 @@ func readOnly(next http.Handler, token string) http.Handler {
 		}
 		body := recorder.Body.Bytes()
 		if strings.HasPrefix(w.Header().Get("Content-Type"), "text/html") {
-			banner := []byte(`<div role="status" class="border-b border-zinc-200 bg-zinc-50 px-5 py-3 text-center text-sm text-zinc-500">Preview · sample data · read-only</div><main`)
+			banner := []byte(`<div role="status" class="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-5 py-3 text-center text-sm text-zinc-500 dark:text-zinc-400">Preview · sample data · read-only</div><main`)
 			body = bytes.Replace(body, []byte("<main"), banner, 1)
 			w.Header().Del("Content-Length")
 		}

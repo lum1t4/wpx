@@ -233,6 +233,44 @@ var fileWords = map[Locale]string{
 	"zh-TW": "新增資料夾|封存|解壓縮|重新整理|更多操作|清除選取|未選取|已選取|全選|目錄|上傳|清除已完成|關閉",
 }
 
+var commonKeys = [...]string{"appearance", "preferences", "system", "light", "dark", "ip_address", "http_status", "http_method", "path", "all_requests", "errors", "apply_filters", "clear_filters", "schedule", "account_settings", "slack", "telegram"}
+
+var commonWords = map[Locale]string{
+	English: "Appearance|Preferences|System|Light|Dark|IP address|HTTP status|HTTP method|Path|All requests|Errors|Apply filters|Clear filters|Schedule|Account settings|Slack|Telegram",
+	"ar":    "المظهر|التفضيلات|النظام|فاتح|داكن|عنوان IP|حالة HTTP|طريقة HTTP|المسار|كل الطلبات|الأخطاء|تطبيق عوامل التصفية|مسح عوامل التصفية|الجدول|إعدادات الحساب|Slack|Telegram",
+	"bn":    "চেহারা|পছন্দসমূহ|সিস্টেম|হালকা|গাঢ়|IP ঠিকানা|HTTP অবস্থা|HTTP পদ্ধতি|পথ|সব অনুরোধ|ত্রুটি|ফিল্টার প্রয়োগ করুন|ফিল্টার মুছুন|সময়সূচি|অ্যাকাউন্ট সেটিংস|Slack|Telegram",
+	"ca":    "Aparença|Preferències|Sistema|Clar|Fosc|Adreça IP|Estat HTTP|Mètode HTTP|Camí|Totes les sol·licituds|Errors|Aplica els filtres|Neteja els filtres|Programació|Configuració del compte|Slack|Telegram",
+	"cs":    "Vzhled|Předvolby|Systém|Světlý|Tmavý|IP adresa|Stav HTTP|Metoda HTTP|Cesta|Všechny požadavky|Chyby|Použít filtry|Vymazat filtry|Plán|Nastavení účtu|Slack|Telegram",
+	"da":    "Udseende|Præferencer|System|Lys|Mørk|IP-adresse|HTTP-status|HTTP-metode|Sti|Alle anmodninger|Fejl|Anvend filtre|Ryd filtre|Tidsplan|Kontoindstillinger|Slack|Telegram",
+	"de":    "Darstellung|Präferenzen|System|Hell|Dunkel|IP-Adresse|HTTP-Status|HTTP-Methode|Pfad|Alle Anfragen|Fehler|Filter anwenden|Filter zurücksetzen|Zeitplan|Kontoeinstellungen|Slack|Telegram",
+	"el":    "Εμφάνιση|Προτιμήσεις|Σύστημα|Φωτεινό|Σκούρο|Διεύθυνση IP|Κατάσταση HTTP|Μέθοδος HTTP|Διαδρομή|Όλα τα αιτήματα|Σφάλματα|Εφαρμογή φίλτρων|Εκκαθάριση φίλτρων|Πρόγραμμα|Ρυθμίσεις λογαριασμού|Slack|Telegram",
+	"es":    "Apariencia|Preferencias|Sistema|Claro|Oscuro|Dirección IP|Estado HTTP|Método HTTP|Ruta|Todas las solicitudes|Errores|Aplicar filtros|Borrar filtros|Programación|Configuración de la cuenta|Slack|Telegram",
+	"fi":    "Ulkoasu|Määritykset|Järjestelmä|Vaalea|Tumma|IP-osoite|HTTP-tila|HTTP-menetelmä|Polku|Kaikki pyynnöt|Virheet|Käytä suodattimia|Tyhjennä suodattimet|Aikataulu|Tilin asetukset|Slack|Telegram",
+	"fr":    "Apparence|Préférences|Système|Clair|Sombre|Adresse IP|Statut HTTP|Méthode HTTP|Chemin|Toutes les requêtes|Erreurs|Appliquer les filtres|Effacer les filtres|Planification|Paramètres du compte|Slack|Telegram",
+	"he":    "מראה|העדפות|מערכת|בהיר|כהה|כתובת IP|מצב HTTP|שיטת HTTP|נתיב|כל הבקשות|שגיאות|החלת מסננים|ניקוי מסננים|לוח זמנים|הגדרות חשבון|Slack|Telegram",
+	"hi":    "रूप-रंग|प्राथमिकताएँ|सिस्टम|हल्का|गहरा|IP पता|HTTP स्थिति|HTTP विधि|पथ|सभी अनुरोध|त्रुटियाँ|फ़िल्टर लागू करें|फ़िल्टर साफ़ करें|अनुसूची|खाता सेटिंग|Slack|Telegram",
+	"hr":    "Izgled|Postavke|Sustav|Svijetlo|Tamno|IP adresa|HTTP status|HTTP metoda|Putanja|Svi zahtjevi|Pogreške|Primijeni filtre|Očisti filtre|Raspored|Postavke računa|Slack|Telegram",
+	"hu":    "Megjelenés|Beállítások|Rendszer|Világos|Sötét|IP-cím|HTTP-állapot|HTTP-metódus|Elérési út|Minden kérés|Hibák|Szűrők alkalmazása|Szűrők törlése|Ütemezés|Fiókbeállítások|Slack|Telegram",
+	"id":    "Tampilan|Preferensi|Sistem|Terang|Gelap|Alamat IP|Status HTTP|Metode HTTP|Jalur|Semua permintaan|Kesalahan|Terapkan filter|Hapus filter|Jadwal|Pengaturan akun|Slack|Telegram",
+	"it":    "Aspetto|Preferenze|Sistema|Chiaro|Scuro|Indirizzo IP|Stato HTTP|Metodo HTTP|Percorso|Tutte le richieste|Errori|Applica filtri|Cancella filtri|Pianificazione|Impostazioni account|Slack|Telegram",
+	"ja":    "外観|設定|システム|ライト|ダーク|IPアドレス|HTTPステータス|HTTPメソッド|パス|すべてのリクエスト|エラー|フィルターを適用|フィルターをクリア|スケジュール|アカウント設定|Slack|Telegram",
+	"ko":    "모양|환경설정|시스템|라이트|다크|IP 주소|HTTP 상태|HTTP 메서드|경로|모든 요청|오류|필터 적용|필터 지우기|일정|계정 설정|Slack|Telegram",
+	"nl":    "Weergave|Voorkeuren|Systeem|Licht|Donker|IP-adres|HTTP-status|HTTP-methode|Pad|Alle verzoeken|Fouten|Filters toepassen|Filters wissen|Planning|Accountinstellingen|Slack|Telegram",
+	"no":    "Utseende|Innstillinger|System|Lys|Mørk|IP-adresse|HTTP-status|HTTP-metode|Sti|Alle forespørsler|Feil|Bruk filtre|Tøm filtre|Tidsplan|Kontoinnstillinger|Slack|Telegram",
+	"pl":    "Wygląd|Preferencje|System|Jasny|Ciemny|Adres IP|Status HTTP|Metoda HTTP|Ścieżka|Wszystkie żądania|Błędy|Zastosuj filtry|Wyczyść filtry|Harmonogram|Ustawienia konta|Slack|Telegram",
+	"pt-BR": "Aparência|Preferências|Sistema|Claro|Escuro|Endereço IP|Status HTTP|Método HTTP|Caminho|Todas as solicitações|Erros|Aplicar filtros|Limpar filtros|Agendamento|Configurações da conta|Slack|Telegram",
+	"ro":    "Aspect|Preferințe|Sistem|Luminos|Întunecat|Adresă IP|Stare HTTP|Metodă HTTP|Cale|Toate solicitările|Erori|Aplică filtrele|Șterge filtrele|Program|Setări cont|Slack|Telegram",
+	"ru":    "Оформление|Предпочтения|Система|Светлая|Тёмная|IP-адрес|Статус HTTP|Метод HTTP|Путь|Все запросы|Ошибки|Применить фильтры|Сбросить фильтры|Расписание|Настройки учётной записи|Slack|Telegram",
+	"sk":    "Vzhľad|Predvoľby|Systém|Svetlý|Tmavý|IP adresa|Stav HTTP|Metóda HTTP|Cesta|Všetky požiadavky|Chyby|Použiť filtre|Vymazať filtre|Plán|Nastavenia účtu|Slack|Telegram",
+	"sv":    "Utseende|Inställningar|System|Ljust|Mörkt|IP-adress|HTTP-status|HTTP-metod|Sökväg|Alla förfrågningar|Fel|Tillämpa filter|Rensa filter|Schema|Kontoinställningar|Slack|Telegram",
+	"th":    "รูปลักษณ์|การกำหนดลักษณะ|ระบบ|สว่าง|มืด|ที่อยู่ IP|สถานะ HTTP|เมธอด HTTP|เส้นทาง|คำขอทั้งหมด|ข้อผิดพลาด|ใช้ตัวกรอง|ล้างตัวกรอง|กำหนดการ|การตั้งค่าบัญชี|Slack|Telegram",
+	"tr":    "Görünüm|Tercihler|Sistem|Açık|Koyu|IP adresi|HTTP durumu|HTTP yöntemi|Yol|Tüm istekler|Hatalar|Filtreleri uygula|Filtreleri temizle|Zamanlama|Hesap ayarları|Slack|Telegram",
+	"uk":    "Вигляд|Уподобання|Система|Світла|Темна|IP-адреса|Статус HTTP|Метод HTTP|Шлях|Усі запити|Помилки|Застосувати фільтри|Очистити фільтри|Розклад|Налаштування облікового запису|Slack|Telegram",
+	"vi":    "Giao diện|Tùy chọn|Hệ thống|Sáng|Tối|Địa chỉ IP|Trạng thái HTTP|Phương thức HTTP|Đường dẫn|Tất cả yêu cầu|Lỗi|Áp dụng bộ lọc|Xóa bộ lọc|Lịch biểu|Cài đặt tài khoản|Slack|Telegram",
+	"zh-CN": "外观|偏好设置|系统|浅色|深色|IP 地址|HTTP 状态|HTTP 方法|路径|所有请求|错误|应用筛选条件|清除筛选条件|计划|账户设置|Slack|Telegram",
+	"zh-TW": "外觀|偏好設定|系統|淺色|深色|IP 位址|HTTP 狀態|HTTP 方法|路徑|所有要求|錯誤|套用篩選條件|清除篩選條件|排程|帳戶設定|Slack|Telegram",
+}
+
 func init() {
 	for locale, values := range selectorWords {
 		catalog[locale]["language"] = values[0]
@@ -264,6 +302,15 @@ func init() {
 		}
 		for index, value := range values {
 			catalog[locale][fileKeys[index]] = value
+		}
+	}
+	for locale, joined := range commonWords {
+		values := strings.Split(joined, "|")
+		if len(values) != len(commonKeys) {
+			panic("localization common catalog has wrong length for " + string(locale))
+		}
+		for index, value := range values {
+			catalog[locale][commonKeys[index]] = value
 		}
 	}
 }

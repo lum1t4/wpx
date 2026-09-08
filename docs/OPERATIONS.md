@@ -46,11 +46,13 @@ selected plugin updates use the existing recovery-backup workflow.
 - [Site access](dispatch/site-access.md): Basic authentication and Cloudflare
   origin allowlisting, preserving certificate-validation paths.
 - [WordPress defenses](dispatch/security-defense.md): opt-in request limits,
-  fail2ban/nftables and access-log analysis. Existing installations can install
-  dependencies from Security. Cloudflare-only mode cannot be combined with
-  these origin-IP bans because the network peers are shared Cloudflare edges.
-- [Operator alerts](dispatch/operator-alerts.md): configure SMTP and individual
-  alert rules under Alerts; use the test action to verify actual delivery.
+  fail2ban/nftables and access-log analysis. Installation and upgrades reconcile
+  the required packages; Security offers a repair action only when a legacy or
+  interrupted installation is missing them. Cloudflare-only mode cannot be
+  combined with these origin-IP bans because the network peers are shared
+  Cloudflare edges.
+- [Operator alerts](dispatch/operator-alerts.md): configure email, Slack or Telegram and individual
+  alert rules under Alerts; use each channel’s test action to verify delivery.
 - [Hosting services](dispatch/hosting-services.md): Node runtimes, TLS-only
   ProFTPD accounts and optional local outbound Postfix. Mailbox hosting and
   delivery-domain setup are separate from outbound submission.

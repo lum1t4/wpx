@@ -7,12 +7,29 @@ analysis. Changing protections requires the site's `site.wordpress_manage`
 capability. Analysis also requires `site.logs`. The existing `site.tls`
 capability remains the page-level gate.
 
-New installations install `fail2ban` and `nftables`. Existing installations
-show **Install defenses** to server administrators when the broker cannot find executable
-`/usr/bin/fail2ban-client` and `/usr/sbin/nft`. That action enqueues the durable
+New installations and upgrades install or reconcile `fail2ban` and `nftables`,
+validate Fail2ban's configuration, and enable `fail2ban.service`. A legacy or
+interrupted installation whose dependencies cannot be verified shows **Repair
+defense dependencies** to server administrators. That action enqueues the durable
 `wordpress.security_install` job. The worker invokes a typed broker operation
 whose package and service arguments are fixed in code; an HTTP request never
 runs apt or systemctl directly.
+
+WPX does not enable `nftables.service` or write `/etc/nftables.conf`: Ubuntu's
+stock service loads that host-wide ruleset and can replace rules outside WPX's
+ownership. Upgrade reconciliation installs nftables when missing but does not
+upgrade that package, because Ubuntu restarts an already enabled nftables
+service after a package upgrade. Installing the package supplies Fail2ban's
+nftables action. Fail2ban then creates and removes only the tables and chains
+used by active bans. WPX does not add an SSH jail, change SSH authentication,
+or rewrite existing Fail2ban configuration. Ubuntu's package-provided SSH jail
+is preserved; on Ubuntu 24.04 it reads the systemd journal and starts when
+`/var/log/auth.log` is absent. WPX's per-site jails read explicit Nginx log
+files with the polling backend, so they do not depend on an SSH auth log or
+journald.
+Existing Fail2ban configuration is validated before its package can be upgraded
+and restarted, retained during package configuration, then validated again
+before the service is enabled.
 
 Protection settings default to off. The selected sub-controls default on so an
 operator can activate the full policy with one checkbox. Saving commits desired
@@ -111,8 +128,11 @@ In `Store.FinishJob`, call
 `wordpress.security_apply` before committing the general job result.
 
 Add `"wordpress.security_install": "Install WordPress defenses"` to the job
-labels. New-install package setup includes `fail2ban` and enables
-`fail2ban.service`; `nftables` is already in the WPX package list.
+labels. Fresh installation package setup includes both `fail2ban` and
+`nftables` and enables `fail2ban.service`. Upgrade dependency reconciliation
+runs before WPX services stop or recoverable files change. A dependency failure
+therefore leaves the active panel in place. Package-manager changes are not
+part of the binary, SQLite, and systemd-unit rollback boundary.
 
 Host-level syntax and service behavior still require a disposable Ubuntu 24.04
 container or VM. Unit tests do not execute apt, Nginx, Fail2ban, nftables, or

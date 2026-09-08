@@ -1,30 +1,29 @@
 {{define "site-settings"}}
-<p class="mb-6 max-w-2xl text-sm leading-6 text-zinc-500">Review the site's runtime, adjust advanced configuration, and manage its availability.</p>
-<section class="rounded-lg border border-zinc-200 bg-white" aria-labelledby="runtime-heading">
-  <div class="border-b border-zinc-200 px-5 py-4"><h2 id="runtime-heading" class="text-base font-semibold text-zinc-950">Site configuration</h2></div>
+<section class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900" aria-labelledby="runtime-heading">
+  <div class="border-b border-zinc-200 dark:border-zinc-800 px-5 py-4"><h2 id="runtime-heading" class="text-base font-semibold text-zinc-950 dark:text-zinc-100">Site configuration</h2></div>
   <dl class="grid gap-6 p-5 sm:grid-cols-2">
-    <div><dt class="text-sm text-zinc-500">Site ID</dt><dd class="mt-1.5 break-all font-mono text-sm text-zinc-950">{{.Site.ID}}</dd></div>
-    <div><dt class="text-sm text-zinc-500">Domain</dt><dd class="mt-1.5 break-all text-sm font-medium text-zinc-950">{{.Site.Domain}}</dd></div>
-    <div><dt class="text-sm text-zinc-500">Application</dt><dd class="mt-1.5 text-sm font-medium text-zinc-950">{{if eq .Site.Kind "wordpress"}}WordPress{{else if eq .Site.Kind "php"}}PHP site{{else if eq .Site.Kind "python"}}Python{{else if eq .Site.Kind "static"}}Static site{{else}}Reverse proxy{{end}}{{if .Site.WordPressMultisite}} · Multisite ({{.Site.WordPressMultisite}}){{end}}</dd></div>
-    {{if .Site.PHPVersion}}<div><dt class="text-sm text-zinc-500">PHP version</dt><dd class="mt-1.5 text-sm font-medium text-zinc-950">{{.Site.PHPVersion}}{{if .Site.AllowEOL}} <span class="ml-1 text-xs text-amber-700">Legacy version allowed</span>{{end}}</dd></div>{{end}}
-    {{if .Site.Upstream}}<div class="sm:col-span-2"><dt class="text-sm text-zinc-500">Application upstream</dt><dd class="mt-1.5 break-all font-mono text-sm text-zinc-950">{{.Site.Upstream}}</dd></div>{{end}}
+    <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Site ID</dt><dd class="mt-1.5 break-all font-mono text-sm text-zinc-950 dark:text-zinc-100">{{.Site.ID}}</dd></div>
+    <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Domain</dt><dd class="mt-1.5 break-all text-sm font-medium text-zinc-950 dark:text-zinc-100">{{.Site.Domain}}</dd></div>
+    <div><dt class="text-sm text-zinc-500 dark:text-zinc-400">Application</dt><dd class="mt-1.5 text-sm font-medium text-zinc-950 dark:text-zinc-100">{{if eq .Site.Kind "wordpress"}}WordPress{{else if eq .Site.Kind "php"}}PHP site{{else if eq .Site.Kind "python"}}Python{{else if eq .Site.Kind "static"}}Static site{{else}}Reverse proxy{{end}}{{if .Site.WordPressMultisite}} · Multisite ({{.Site.WordPressMultisite}}){{end}}</dd></div>
+    {{if .Site.PHPVersion}}<div><dt class="text-sm text-zinc-500 dark:text-zinc-400">PHP version</dt><dd class="mt-1.5 text-sm font-medium text-zinc-950 dark:text-zinc-100">{{.Site.PHPVersion}}{{if .Site.AllowEOL}} <span class="ml-1 text-xs text-amber-700 dark:text-amber-300">Legacy version allowed</span>{{end}}</dd></div>{{end}}
+    {{if .Site.Upstream}}<div class="sm:col-span-2"><dt class="text-sm text-zinc-500 dark:text-zinc-400">Application upstream</dt><dd class="mt-1.5 break-all font-mono text-sm text-zinc-950 dark:text-zinc-100">{{.Site.Upstream}}</dd></div>{{end}}
   </dl>
 </section>
 
 {{template "site-domain" .}}
 
 {{if and .CanManageSites (or (eq .Site.Kind "php") (eq .Site.Kind "wordpress"))}}
-<section id="php-version" class="mt-6 rounded-lg border border-zinc-200 bg-white p-5" aria-labelledby="php-version-heading">
-  <h2 id="php-version-heading" class="text-base font-semibold text-zinc-950">PHP version</h2>
-  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Changing PHP may briefly interrupt requests. Test your application on a staging copy first, especially when moving between major versions.</p>
+<section id="php-version" class="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5" aria-labelledby="php-version-heading">
+  <h2 id="php-version-heading" class="text-base font-semibold text-zinc-950 dark:text-zinc-100">PHP version</h2>
+  <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Changing PHP briefly interrupts requests.</p>
   {{if or (eq .Site.Status "active") (eq .Site.Status "php_change_failed")}}
-  {{if eq .Site.Status "php_change_failed"}}<p class="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800">The last PHP change failed. Read the error in <a class="font-medium underline underline-offset-4" href="/jobs">Activity</a>, resolve the cause, and retry below.</p>{{end}}
+  {{if eq .Site.Status "php_change_failed"}}<p class="mt-4 rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm leading-6 text-red-800 dark:text-red-200">The last PHP change failed. Read the error in <a class="font-medium underline underline-offset-4" href="/jobs">Activity</a>, resolve the cause, and retry below.</p>{{end}}
   <form class="mt-5 grid max-w-xl gap-4" method="post" action="/sites/{{.Site.ID}}/php-version">
     {{$selectedPHP := .Site.PHPVersion}}{{if index .Form "php_version"}}{{$selectedPHP = index .Form "php_version"}}{{end}}
     <input type="hidden" name="csrf_token" value="{{.CSRF}}">
     <label class="block sm:max-w-xs">
-      <span class="mb-2 block text-sm font-medium text-zinc-700">PHP version for this site</span>
-      <select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="php_version" required>
+      <span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">PHP version for this site</span>
+      <select class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="php_version" required>
         <option value="8.5" {{if eq $selectedPHP "8.5"}}selected{{end}}>8.5</option>
         <option value="8.4" {{if eq $selectedPHP "8.4"}}selected{{end}}>8.4</option>
         <option value="8.3" {{if eq $selectedPHP "8.3"}}selected{{end}}>8.3</option>
@@ -39,61 +38,60 @@
     </label>
     <label class="flex items-start gap-3">
       <input class="mt-1 size-4 accent-zinc-950" type="checkbox" name="allow_eol" value="yes" {{if index .Form "php_version"}}{{if eq (index .Form "allow_eol") "yes"}}checked{{end}}{{else}}{{if .Site.AllowEOL}}checked{{end}}{{end}}>
-      <span><span class="block text-sm font-medium text-zinc-700">Allow an end-of-life PHP version</span><span class="mt-1 block text-xs leading-5 text-zinc-500">Required for PHP 7.1–8.1. These versions no longer receive upstream security fixes.</span></span>
+      <span><span class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">Allow an end-of-life PHP version</span><span class="mt-1 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">Required for PHP 7.1–8.1. These versions no longer receive upstream security fixes.</span></span>
     </label>
-    <p class="text-xs leading-5 text-zinc-500">WPX rolls back the runtime configuration if the switch fails. A successful switch does not guarantee that your application or plugins support the selected PHP version.</p>
-    <button class="justify-self-start rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800">{{if eq .Site.Status "php_change_failed"}}Retry PHP change{{else}}Change PHP version{{end}}</button>
+    <button class="justify-self-start rounded-md bg-zinc-950 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100">{{if eq .Site.Status "php_change_failed"}}Retry PHP change{{else}}Change PHP version{{end}}</button>
   </form>
   {{else if eq .Site.Status "php_changing"}}
-  <p class="mt-4 rounded-md bg-zinc-50 px-4 py-3 text-sm leading-6 text-zinc-600">Changing PHP. Installation of a new version may take a few minutes. <a class="font-medium text-zinc-950 underline underline-offset-4" href="/jobs">View activity</a> to follow progress.</p>
+  <p class="mt-4 rounded-md bg-zinc-50 dark:bg-zinc-950 px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">Changing PHP · <a class="font-medium text-zinc-950 dark:text-zinc-100 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100" href="/jobs">View activity</a></p>
   {{else}}
-  <p class="mt-4 text-sm text-zinc-500">The site must be active before its PHP version can be changed.</p>
+  <p class="mt-4 text-sm text-zinc-500 dark:text-zinc-400">The site must be active before its PHP version can be changed.</p>
   {{end}}
 </section>
 {{end}}
 
 {{if and .CanManageSites .SiteSnippets}}
-<section class="mt-6 rounded-lg border border-zinc-200 bg-white" aria-labelledby="expert-heading">
-  <div class="px-5 py-4"><h2 id="expert-heading" class="text-base font-semibold text-zinc-950">Advanced configuration</h2><p class="mt-2 text-sm leading-6 text-zinc-500">WPX validates changes before reloading services and restores the previous configuration if validation fails.</p></div>
-  <details class="border-t border-zinc-200">
-    <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-zinc-900">Edit Nginx{{if .Site.PHPVersion}} and PHP-FPM{{end}} directives</summary>
-    <form class="grid gap-5 border-t border-zinc-200 p-5" method="post" action="/sites/{{.Site.ID}}/expert-config" data-quick-action data-action-label="Saving configuration">
+<section class="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900" aria-labelledby="expert-heading">
+  <div class="px-5 py-4"><h2 id="expert-heading" class="text-base font-semibold text-zinc-950 dark:text-zinc-100">Advanced configuration</h2></div>
+  <details class="border-t border-zinc-200 dark:border-zinc-800">
+    <summary class="cursor-pointer px-5 py-4 text-sm font-medium text-zinc-900 dark:text-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100">Edit Nginx{{if .Site.PHPVersion}} and PHP-FPM{{end}} directives</summary>
+    <form class="grid gap-5 border-t border-zinc-200 dark:border-zinc-800 p-5" method="post" action="/sites/{{.Site.ID}}/expert-config" data-quick-action data-action-label="Saving configuration">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-      <label class="block"><span class="mb-2 block text-sm font-medium text-zinc-700">Nginx server directives</span><textarea class="h-44 w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 font-mono text-sm leading-6" name="nginx" spellcheck="false" placeholder='client_max_body_size 128M;&#10;add_header X-Frame-Options "SAMEORIGIN" always;'>{{.SiteSnippets.Nginx}}</textarea><span class="mt-2 block text-xs leading-5 text-zinc-500">Supported: body size and timeouts, FastCGI timeout, expires, and quoted response headers.</span></label>
-      {{if .Site.PHPVersion}}<label class="block"><span class="mb-2 block text-sm font-medium text-zinc-700">PHP-FPM directives</span><textarea class="h-36 w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 font-mono text-sm leading-6" name="php" spellcheck="false" placeholder="php_admin_value[memory_limit] = 512M">{{.SiteSnippets.PHP}}</textarea><span class="mt-2 block text-xs leading-5 text-zinc-500">Supported: memory, upload and post limits; execution and input time; input variables; error display and logging.</span></label>{{else}}<input type="hidden" name="php" value="{{.SiteSnippets.PHP}}">{{end}}
-      <button class="justify-self-start rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800">Validate and apply</button>
+      <label class="block"><span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Nginx server directives</span><textarea class="h-44 w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-3 py-3 font-mono text-sm leading-6" name="nginx" spellcheck="false" placeholder='client_max_body_size 128M;&#10;add_header X-Frame-Options "SAMEORIGIN" always;'>{{.SiteSnippets.Nginx}}</textarea><span class="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">Supported: body size and timeouts, FastCGI timeout, expires, and quoted response headers.</span></label>
+      {{if .Site.PHPVersion}}<label class="block"><span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">PHP-FPM directives</span><textarea class="h-36 w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-3 py-3 font-mono text-sm leading-6" name="php" spellcheck="false" placeholder="php_admin_value[memory_limit] = 512M">{{.SiteSnippets.PHP}}</textarea><span class="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">Supported: memory, upload and post limits; execution and input time; input variables; error display and logging.</span></label>{{else}}<input type="hidden" name="php" value="{{.SiteSnippets.PHP}}">{{end}}
+      <button class="justify-self-start rounded-md bg-zinc-950 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100">Validate and apply</button>
     </form>
   </details>
 </section>
 {{end}}
 
 {{if .CanManageSites}}
-<section class="mt-6 rounded-lg border border-zinc-200 bg-white p-5" aria-labelledby="availability-heading">
-  <div class="flex flex-wrap items-center gap-3"><h2 id="availability-heading" class="text-base font-semibold text-zinc-950">Site availability</h2><span class="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-700">{{siteStatus .Site.Status}}</span></div>
+<section class="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5" aria-labelledby="availability-heading">
+  <div class="flex flex-wrap items-center gap-3"><h2 id="availability-heading" class="text-base font-semibold text-zinc-950 dark:text-zinc-100">Site availability</h2><span class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-2 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300">{{siteStatus .Site.Status}}</span></div>
   {{if or (eq .Site.Status "active") (eq .Site.Status "disable_failed")}}
-  <p class="mt-2 text-sm leading-6 text-zinc-500">Disable the site to stop serving requests. Its files, database, certificates, and backups are retained.</p>
-  <details class="mt-5 rounded-md border border-red-200">
-    <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-red-700">Disable site</summary>
-    <form class="flex max-w-xl flex-wrap items-end gap-3 border-t border-red-200 p-4" method="post" action="/sites/{{.Site.ID}}/disable" data-quick-action data-action-label="Disabling site">
+  <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Stops requests. Files, database, certificates, and backups remain.</p>
+  <details class="mt-5 rounded-md border border-red-200 dark:border-red-900">
+    <summary class="cursor-pointer px-4 py-3 text-sm font-medium text-red-700 dark:text-red-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">Disable site</summary>
+    <form class="flex max-w-xl flex-wrap items-end gap-3 border-t border-red-200 dark:border-red-900 p-4" method="post" action="/sites/{{.Site.ID}}/disable" data-quick-action data-action-label="Disabling site">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-      <label class="min-w-0 flex-1"><span class="mb-2 block text-sm font-medium text-zinc-700">Type {{.Site.Domain}} to confirm</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="confirmation" autocomplete="off" required></label>
-      <button class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700" data-i18n="disable">Disable site</button>
+      <label class="min-w-0 flex-1"><span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Type {{.Site.Domain}} to confirm</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="confirmation" autocomplete="off" required></label>
+      <button class="rounded-md bg-red-600 dark:bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 dark:hover:bg-red-500" data-i18n="disable">Disable site</button>
     </form>
   </details>
   {{else if or (eq .Site.Status "disabled") (eq .Site.Status "enable_failed")}}
-  <p class="mt-2 text-sm leading-6 text-zinc-500">Enable the site to start serving requests again using its existing files and configuration.</p>
-  <form class="mt-5" method="post" action="/sites/{{.Site.ID}}/enable" data-quick-action data-action-label="Enabling site"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800" data-i18n="enable">Enable site</button></form>
+  <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Starts serving requests with the existing files and configuration.</p>
+  <form class="mt-5" method="post" action="/sites/{{.Site.ID}}/enable" data-quick-action data-action-label="Enabling site"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="rounded-md bg-zinc-950 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition hover:bg-zinc-800 dark:hover:bg-white" data-i18n="enable">Enable site</button></form>
   {{else if eq .Site.Status "failed"}}
-  <p class="mt-2 text-sm leading-6 text-zinc-500">Provisioning failed. Read the error in <a class="font-medium text-zinc-950 underline underline-offset-4" href="/jobs">Activity</a>, resolve the cause, then retry.</p>
-  <form class="mt-5" method="post" action="/sites/{{.Site.ID}}/retry"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800">Retry provisioning</button></form>
+  <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Provisioning failed. Read the error in <a class="font-medium text-zinc-950 dark:text-zinc-100 underline underline-offset-4" href="/jobs">Activity</a>, resolve the cause, then retry.</p>
+  <form class="mt-5" method="post" action="/sites/{{.Site.ID}}/retry"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="rounded-md bg-zinc-950 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition hover:bg-zinc-800 dark:hover:bg-white">Retry provisioning</button></form>
   {{else if eq .Site.Status "php_change_failed"}}
-  <p class="mt-2 text-sm leading-6 text-zinc-500">The PHP runtime needs attention. Review the error in <a class="font-medium text-zinc-950 underline underline-offset-4" href="/jobs">Activity</a>, then retry the change in <a class="font-medium text-zinc-950 underline underline-offset-4" href="#php-version">PHP version</a> above.</p>
+  <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">The PHP runtime needs attention. Review the error in <a class="font-medium text-zinc-950 dark:text-zinc-100 underline underline-offset-4" href="/jobs">Activity</a>, then retry the change in <a class="font-medium text-zinc-950 dark:text-zinc-100 underline underline-offset-4" href="#php-version">PHP version</a> above.</p>
   {{else if eq .Site.Status "php_changing"}}
-  <p class="mt-2 text-sm leading-6 text-zinc-500">PHP is being changed for this site. <a class="font-medium text-zinc-950 underline underline-offset-4" href="/jobs">View activity</a> to follow progress.</p>
+  <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">PHP is being changed for this site. <a class="font-medium text-zinc-950 dark:text-zinc-100 underline underline-offset-4" href="/jobs">View activity</a> to follow progress.</p>
   {{else if or (eq .Site.Status "domain_change_failed") (eq .Site.Status "delete_failed")}}
-  <p class="mt-2 text-sm leading-6 text-zinc-500">The site has an unfinished operation. Review Activity and use the matching recovery action on this page before changing availability.</p>
+  <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">The site has an unfinished operation. Review Activity and use the matching recovery action on this page before changing availability.</p>
   {{else}}
-  <p class="mt-2 text-sm leading-6 text-zinc-500">An operation is in progress. <a class="font-medium text-zinc-950 underline underline-offset-4" href="/jobs">View activity</a> to follow its progress.</p>
+  <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">An operation is in progress. <a class="font-medium text-zinc-950 dark:text-zinc-100 underline underline-offset-4" href="/jobs">View activity</a> to follow its progress.</p>
   {{end}}
 </section>
 {{end}}

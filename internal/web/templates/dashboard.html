@@ -4,15 +4,15 @@
 
 {{define "site-status"}}
   {{if eq .Status "active"}}
-  <span class="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700"><span class="size-1.5 rounded-full bg-emerald-600" aria-hidden="true"></span><span data-i18n="active">Active</span></span>
+  <span class="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300"><span class="size-1.5 rounded-full bg-emerald-600" aria-hidden="true"></span><span data-i18n="active">Active</span></span>
   {{else if eq .Status "disabled"}}
-  <span class="inline-flex rounded-md border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs font-medium text-zinc-600" data-i18n="disabled">Disabled</span>
+  <span class="inline-flex rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-300" data-i18n="disabled">Disabled</span>
   {{else if or (eq .Status "failed") (eq .Status "disable_failed") (eq .Status "enable_failed") (eq .Status "php_change_failed") (eq .Status "domain_change_failed") (eq .Status "delete_failed")}}
-  <span class="inline-flex rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Needs attention</span>
+  <span class="inline-flex rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">Needs attention</span>
   {{else if eq .Status "php_changing"}}
-  <span class="inline-flex rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">Changing PHP</span>
+  <span class="inline-flex rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">Changing PHP</span>
   {{else}}
-  <span class="inline-flex rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium capitalize text-blue-700">{{siteStatus .Status}}</span>
+  <span class="inline-flex rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 text-xs font-medium capitalize text-blue-700 dark:text-blue-300">{{siteStatus .Status}}</span>
   {{end}}
 {{end}}
 
@@ -22,71 +22,71 @@
   <header class="flex flex-wrap items-start justify-between gap-4">
     <div>
       <h1 class="text-2xl font-semibold tracking-tight" data-i18n="overview">Overview</h1>
-      <p class="mt-1.5 text-sm text-zinc-500">Your sites and the work that needs your attention.</p>
+      <p class="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">Your sites and the work that needs your attention.</p>
     </div>
     {{if .CanManageSites}}
-    <a href="/sites/new" class="inline-flex items-center gap-2 rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white shadow-xs hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"><span class="text-base leading-none" aria-hidden="true">+</span> <span data-i18n="create_site">Create site</span></a>
+    <a href="/sites/new" class="inline-flex items-center gap-2 rounded-md bg-zinc-950 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 shadow-xs hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100"><span class="text-base leading-none" aria-hidden="true">+</span> <span data-i18n="create_site">Create site</span></a>
     {{end}}
   </header>
 
   <section aria-label="Site summary" class="mt-8 grid gap-4 sm:grid-cols-3">
-    <a href="/sites" class="rounded-lg border border-zinc-200 p-5 transition-colors hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-zinc-900">
-      <p class="text-sm font-medium text-zinc-500" data-i18n="total_sites">Total sites</p>
+    <a href="/sites" class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-5 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100">
+      <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400" data-i18n="total_sites">Total sites</p>
       <p class="mt-3 text-3xl font-semibold tracking-tight">{{.SiteCount}}</p>
-      <p class="mt-1 text-xs text-zinc-500">Sites you can access</p>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Sites you can access</p>
     </a>
-    <div class="rounded-lg border border-zinc-200 p-5">
-      <p class="flex items-center gap-2 text-sm font-medium text-zinc-500"><span class="size-1.5 rounded-full bg-emerald-600" aria-hidden="true"></span><span data-i18n="active">Active</span></p>
+    <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-5">
+      <p class="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400"><span class="size-1.5 rounded-full bg-emerald-600" aria-hidden="true"></span><span data-i18n="active">Active</span></p>
       <p class="mt-3 text-3xl font-semibold tracking-tight">{{.ActiveSiteCount}}</p>
-      <p class="mt-1 text-xs text-zinc-500">Enabled in WPX</p>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Enabled in WPX</p>
     </div>
-    <a href="/jobs" class="rounded-lg border border-zinc-200 p-5 transition-colors hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-zinc-900">
-      <p class="flex items-center gap-2 text-sm font-medium text-zinc-500">{{if .AttentionSiteCount}}<span class="size-1.5 rounded-full bg-red-600" aria-hidden="true"></span>{{end}}Needs attention</p>
-      <p class="mt-3 text-3xl font-semibold tracking-tight {{if .AttentionSiteCount}}text-red-700{{end}}">{{.AttentionSiteCount}}</p>
-      <p class="mt-1 text-xs text-zinc-500">{{if .AttentionSiteCount}}Review errors in Activity{{else}}No failed site operations{{end}}</p>
+    <a href="/jobs" class="rounded-lg border border-zinc-200 dark:border-zinc-800 p-5 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100">
+      <p class="flex items-center gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400">{{if .AttentionSiteCount}}<span class="size-1.5 rounded-full bg-red-600 dark:bg-red-600" aria-hidden="true"></span>{{end}}Needs attention</p>
+      <p class="mt-3 text-3xl font-semibold tracking-tight {{if .AttentionSiteCount}}text-red-700 dark:text-red-300{{end}}">{{.AttentionSiteCount}}</p>
+      <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{if .AttentionSiteCount}}Review errors in Activity{{else}}No failed site operations{{end}}</p>
     </a>
   </section>
 
   {{if .CanManageServer}}
-  <a href="/monitoring" class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 px-5 py-4 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-zinc-900">
-    <div><p class="text-sm font-medium" data-i18n="server_resources">Server resources</p><p class="mt-1 text-sm text-zinc-500">CPU, memory, disk space, and network traffic with recent usage charts.</p></div>
-    <span class="text-sm font-medium text-zinc-600"><span data-i18n="open_monitoring">Open monitoring</span> <span aria-hidden="true">→</span></span>
+  <a href="/monitoring" class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-200 dark:border-zinc-800 px-5 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100">
+    <div><p class="text-sm font-medium" data-i18n="server_resources">Server resources</p><p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">CPU, memory, disk space, and network traffic with recent usage charts.</p></div>
+    <span class="text-sm font-medium text-zinc-600 dark:text-zinc-300"><span data-i18n="open_monitoring">Open monitoring</span> <span aria-hidden="true">→</span></span>
   </a>
   {{end}}
 
-  <section class="mt-8 overflow-hidden rounded-lg border border-zinc-200" aria-labelledby="your-sites-heading">
-    <div class="flex items-center justify-between gap-4 border-b border-zinc-200 px-5 py-4">
+  <section class="mt-8 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800" aria-labelledby="your-sites-heading">
+    <div class="flex items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 px-5 py-4">
       <h2 id="your-sites-heading" class="text-base font-semibold">Your sites</h2>
-      <a href="/sites" class="text-sm font-medium text-zinc-600 hover:text-zinc-950 hover:underline"><span data-i18n="view_all_sites">View all sites</span> <span aria-hidden="true">→</span></a>
+      <a href="/sites" class="text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-100 hover:underline"><span data-i18n="view_all_sites">View all sites</span> <span aria-hidden="true">→</span></a>
     </div>
     {{if .Sites}}
-    <div class="divide-y divide-zinc-100">
+    <div class="divide-y divide-zinc-100 dark:divide-zinc-800">
       {{range $index, $site := .Sites}}{{if lt $index 6}}
-      <a href="/sites/{{.ID}}" class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-zinc-900">
+      <a href="/sites/{{.ID}}" class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100">
         <div class="min-w-0">
           <p class="break-all text-sm font-medium">{{.Domain}}</p>
-          <p class="mt-1 text-xs text-zinc-500">{{template "site-kind" .}}{{if .PHPVersion}} · PHP {{.PHPVersion}}{{end}}{{if eq .Environment "staging"}} · Staging{{end}}</p>
+          <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{template "site-kind" .}}{{if .PHPVersion}} · PHP {{.PHPVersion}}{{end}}{{if eq .Environment "staging"}} · Staging{{end}}</p>
         </div>
-        <div class="flex items-center gap-4">{{template "site-status" .}}<span class="text-zinc-400" aria-hidden="true">→</span></div>
+        <div class="flex items-center gap-4">{{template "site-status" .}}<span class="text-zinc-400 dark:text-zinc-400" aria-hidden="true">→</span></div>
       </a>
       {{end}}{{end}}
     </div>
     {{else}}
     <div class="px-6 py-12 text-center">
       <h3 class="text-sm font-semibold">{{if .CanManageSites}}Your first site starts here{{else}}No sites assigned yet{{end}}</h3>
-      <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-zinc-500">{{if .CanManageSites}}Choose WordPress, PHP, Python, a static site, or a reverse proxy. Manage each site's tools in one place.{{else}}Sites will appear here when an administrator gives you access.{{end}}</p>
-      {{if .CanManageSites}}<a href="/sites/new" class="mt-5 inline-flex rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900">Create your first site</a>{{end}}
+      <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-zinc-500 dark:text-zinc-400">{{if .CanManageSites}}Choose WordPress, PHP, Python, a static site, or a reverse proxy. Manage each site's tools in one place.{{else}}Sites will appear here when an administrator gives you access.{{end}}</p>
+      {{if .CanManageSites}}<a href="/sites/new" class="mt-5 inline-flex rounded-md bg-zinc-950 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100">Create your first site</a>{{end}}
     </div>
     {{end}}
   </section>
 
   {{if .UpdateAvailable}}
-  <aside class="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-zinc-50 px-5 py-4">
-    <div><p class="text-sm font-medium">WPX {{.UpdateStatus.LatestVersion}} is available</p><p class="mt-1 text-sm text-zinc-500">Review the release before updating your server.</p></div>
-    <a href="{{.UpdateStatus.ReleaseURL}}" target="_blank" rel="noopener" class="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-zinc-900">View release <span aria-hidden="true">↗</span></a>
+  <aside class="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-5 py-4">
+    <div><p class="text-sm font-medium">WPX {{.UpdateStatus.LatestVersion}} is available</p><p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Review the release before updating your server.</p></div>
+    <a href="{{.UpdateStatus.ReleaseURL}}" target="_blank" rel="noopener" class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100">View release <span aria-hidden="true">↗</span></a>
   </aside>
   {{else if and .CanManageServer .UpdateStatus}}{{if eq .UpdateStatus.Status "failed"}}
-  <p class="mt-6 text-sm text-zinc-500">The latest update check could not complete. WPX will retry automatically.</p>
+  <p class="mt-6 text-sm text-zinc-500 dark:text-zinc-400">The latest update check could not complete. WPX will retry automatically.</p>
   {{end}}{{end}}
 {{template "shell-end" .}}
 {{end}}

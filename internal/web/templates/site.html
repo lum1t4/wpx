@@ -2,17 +2,17 @@
 {{template "shell-start" .}}
 <header class="mb-8 flex flex-wrap items-start justify-between gap-4">
   <div class="min-w-0">
-    <p class="mb-2 flex flex-wrap items-center gap-2 text-sm text-zinc-500">
+    <p class="mb-2 flex flex-wrap items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
       <span class="break-all">{{.Site.Domain}}</span>
-      {{if eq .Site.Environment "staging"}}<span class="rounded-md border border-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700" data-i18n="staging">Staging</span>{{end}}
+      {{if eq .Site.Environment "staging"}}<span class="rounded-md border border-zinc-200 dark:border-zinc-800 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:text-zinc-300" data-i18n="staging">Staging</span>{{end}}
     </p>
-    <h1 class="text-2xl font-semibold tracking-tight text-zinc-950">{{if eq .Section "wordpress"}}WordPress{{else if eq .Section "staging"}}Staging{{else if eq .Section "backups"}}Backups{{else if eq .Section "databases"}}Databases{{else if eq .Section "security"}}Security{{else if eq .Section "settings"}}Site settings{{else}}Site overview{{end}}</h1>
+    <h1 class="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">{{if eq .Section "wordpress"}}WordPress{{else if eq .Section "staging"}}Staging{{else if eq .Section "backups"}}Backups{{else if eq .Section "databases"}}Databases{{else if eq .Section "security"}}Security{{else if eq .Section "settings"}}Site settings{{else}}Site overview{{end}}</h1>
   </div>
-  <a class="inline-flex items-center justify-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm transition hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950" href="{{if eq .Site.TLSStatus "active"}}https{{else}}http{{end}}://{{.Site.Domain}}" target="_blank" rel="noopener noreferrer">Visit site <span aria-hidden="true">↗</span><span class="sr-only"> (opens in a new tab)</span></a>
+  <a class="inline-flex items-center justify-center gap-2 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-900 dark:text-zinc-100 shadow-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100" href="{{if eq .Site.TLSStatus "active"}}https{{else}}http{{end}}://{{.Site.Domain}}" target="_blank" rel="noopener noreferrer">Visit site <span aria-hidden="true">↗</span><span class="sr-only"> (opens in a new tab)</span></a>
 </header>
 
-{{if .Error}}<div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800" role="alert">{{.Error}}</div>{{end}}
-{{if .Message}}<div class="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900" role="status">{{.Message}} <a class="font-medium underline underline-offset-4" href="/jobs">View activity</a></div>{{end}}
+{{if .Error}}<div class="mb-6 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm leading-6 text-red-800 dark:text-red-200" role="alert">{{.Error}}</div>{{end}}
+{{if .Message}}<div class="mb-6 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 px-4 py-3 text-sm leading-6 text-emerald-900 dark:text-emerald-200" role="status">{{.Message}} <a class="font-medium underline underline-offset-4" href="/jobs">View activity</a></div>{{end}}
 
 {{if eq .Section "wordpress"}}
   {{template "site-wordpress" .}}

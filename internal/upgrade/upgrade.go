@@ -33,17 +33,18 @@ func (ExecRunner) Run(ctx context.Context, executable string, args ...string) er
 }
 
 type Options struct {
-	Source               string
-	InstalledPath        string
-	ConfigPath           string
-	BackupRoot           string
-	UnitRoot             string
-	EffectiveUID         func() int
-	Runner               Runner
-	HealthCheck          func(context.Context, config.Config) error
-	ReconcileUnits       func(string) error
-	ReconcilePermissions func(config.Config) error
-	Now                  func() time.Time
+	Source                        string
+	InstalledPath                 string
+	ConfigPath                    string
+	BackupRoot                    string
+	UnitRoot                      string
+	EffectiveUID                  func() int
+	Runner                        Runner
+	HealthCheck                   func(context.Context, config.Config) error
+	ReconcileSecurityDependencies func(context.Context, Runner) error
+	ReconcileUnits                func(string) error
+	ReconcilePermissions          func(config.Config) error
+	Now                           func() time.Time
 }
 
 type Result struct {
@@ -82,6 +83,9 @@ func Run(ctx context.Context, options Options) (Result, error) {
 	if options.HealthCheck == nil {
 		options.HealthCheck = install.WaitForPanel
 	}
+	if options.ReconcileSecurityDependencies == nil {
+		options.ReconcileSecurityDependencies = reconcileSecurityDependencies
+	}
 	if options.ReconcileUnits == nil {
 		options.ReconcileUnits = install.WriteUnits
 	}
@@ -118,6 +122,12 @@ func Run(ctx context.Context, options Options) (Result, error) {
 	}
 	if err := options.ReconcilePermissions(cfg); err != nil {
 		return Result{}, err
+	}
+	// Package installation is deliberately completed before WPX is stopped or
+	// its recoverable state is changed. The nftables service is not enabled:
+	// Fail2ban owns only the tables/chains created by its packaged action.
+	if err := options.ReconcileSecurityDependencies(ctx, options.Runner); err != nil {
+		return Result{}, fmt.Errorf("reconcile security dependencies: %w", err)
 	}
 	backupDirectory := filepath.Join(options.BackupRoot, options.Now().UTC().Format("20060102T150405.000000000Z"))
 	if err := os.MkdirAll(backupDirectory, 0700); err != nil {
@@ -195,6 +205,55 @@ func Run(ctx context.Context, options Options) (Result, error) {
 		}
 	}
 	return Result{BackupDirectory: backupDirectory}, nil
+}
+
+func reconcileSecurityDependencies(ctx context.Context, runner Runner) error {
+	info, err := os.Stat("/usr/bin/fail2ban-client")
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("inspect existing fail2ban-client: %w", err)
+		}
+		return reconcileSecurityDependenciesFromState(ctx, runner, false)
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0111 == 0 {
+		return errors.New("existing fail2ban-client is not an executable regular file")
+	}
+	return reconcileSecurityDependenciesFromState(ctx, runner, true)
+}
+
+type dependencyCommand struct {
+	executable string
+	args       []string
+}
+
+func reconcileSecurityDependenciesFromState(ctx context.Context, runner Runner, fail2banInstalled bool) error {
+	commands := []dependencyCommand{
+		{"/usr/bin/apt-get", []string{"update"}},
+	}
+	// Validate existing operator configuration before apt's maintainer script
+	// can restart Fail2ban during an upgrade.
+	if fail2banInstalled {
+		commands = append(commands, dependencyCommand{"/usr/bin/fail2ban-client", []string{"-t"}})
+	}
+	commands = append(commands, []dependencyCommand{
+		// Do not upgrade nftables here. Ubuntu restarts an already enabled
+		// nftables.service on package upgrade, which can load a host-owned
+		// /etc/nftables.conf containing "flush ruleset". Installing a missing
+		// package does not enable that service.
+		{"/usr/bin/apt-get", []string{"install", "-y", "--no-install-recommends", "--no-upgrade", "nftables"}},
+		{"/usr/bin/apt-get", []string{"-o", "Dpkg::Options::=--force-confold", "install", "-y", "--no-install-recommends", "fail2ban"}},
+		{"/usr/bin/test", []string{"-x", "/usr/sbin/nft"}},
+		{"/usr/bin/test", []string{"-r", "/etc/fail2ban/action.d/nftables.conf"}},
+		{"/usr/bin/fail2ban-client", []string{"-t"}},
+		{"/usr/bin/systemctl", []string{"enable", "--now", "fail2ban.service"}},
+		{"/usr/bin/systemctl", []string{"is-active", "--quiet", "fail2ban.service"}},
+	}...)
+	for _, command := range commands {
+		if err := runner.Run(ctx, command.executable, command.args...); err != nil {
+			return fmt.Errorf("%s %s: %w", filepath.Base(command.executable), command.args[0], err)
+		}
+	}
+	return nil
 }
 
 func checkpointSQLite(path string) error {

@@ -160,7 +160,7 @@ func TestSiteAndServerNavigationStaySeparate(t *testing.T) {
 	requireNavigationStatus(t, siteResponse, http.StatusOK)
 	siteLinks := navigationAsideLinks(t, siteResponse.Body.String())
 	if strings.Contains(navigationAside(t, siteResponse.Body.String()), `action="/language"`) {
-		t.Error("site sidebar exposes the global language selector")
+		t.Error("site sidebar exposes account preferences")
 	}
 	for _, want := range []string{
 		"/sites",
@@ -168,7 +168,6 @@ func TestSiteAndServerNavigationStaySeparate(t *testing.T) {
 		"/sites/navigation-site/access",
 		"/sites/navigation-site/cron",
 		"/sites/navigation-site/ftp",
-		"/account/security",
 	} {
 		if !siteLinks[want] {
 			t.Errorf("site sidebar is missing %q", want)
@@ -193,10 +192,10 @@ func TestSiteAndServerNavigationStaySeparate(t *testing.T) {
 	serverResponse := navigationRequest(t, server, owner, http.MethodGet, "/", nil)
 	requireNavigationStatus(t, serverResponse, http.StatusOK)
 	serverLinks := navigationAsideLinks(t, serverResponse.Body.String())
-	if !strings.Contains(navigationAside(t, serverResponse.Body.String()), `action="/language"`) {
-		t.Error("server sidebar is missing the language selector")
+	if strings.Contains(navigationAside(t, serverResponse.Body.String()), `action="/language"`) {
+		t.Error("server sidebar exposes account preferences")
 	}
-	for _, want := range []string{"/", "/sites", "/jobs", "/monitoring", "/wordpress", "/databases", "/backups/targets", "/dns/providers", "/hosting", "/alerts", "/users", "/account/security"} {
+	for _, want := range []string{"/", "/sites", "/jobs", "/monitoring", "/wordpress", "/databases", "/backups/targets", "/dns/providers", "/hosting", "/alerts", "/users"} {
 		if !serverLinks[want] {
 			t.Errorf("server sidebar is missing %q", want)
 		}
@@ -205,6 +204,45 @@ func TestSiteAndServerNavigationStaySeparate(t *testing.T) {
 		if strings.HasPrefix(href, "/sites/navigation-site/") {
 			t.Errorf("server sidebar exposes site tool %q", href)
 		}
+	}
+	for name, body := range map[string]string{"site": siteResponse.Body.String(), "server": serverResponse.Body.String()} {
+		if !strings.Contains(body, `href="/account/security"`) {
+			t.Errorf("%s page account menu does not link to account settings", name)
+		}
+		trigger := regexp.MustCompile(`(?s)<summary[^>]*aria-label="Account settings"[^>]*>(.*?)</summary>`).FindStringSubmatch(body)
+		if len(trigger) != 2 {
+			t.Errorf("%s page is missing the accessible account trigger", name)
+		} else if strings.Contains(trigger[1], owner.Username) {
+			t.Errorf("%s page account trigger includes the username", name)
+		}
+	}
+}
+
+func TestAccountSettingsContainPreferences(t *testing.T) {
+	server, owner, _ := navigationServer(t)
+	response := navigationRequest(t, server, owner, http.MethodGet, "/account/security", nil)
+	requireNavigationStatus(t, response, http.StatusOK)
+	body := response.Body.String()
+
+	for _, want := range []string{
+		`<meta name="color-scheme" content="light dark">`,
+		`<script src="/assets/theme.js"></script>`,
+		`action="/language"`,
+		`name="next" value="/account/security"`,
+		`name="appearance" value="system" data-theme-choice checked`,
+		`name="appearance" value="light" data-theme-choice`,
+		`name="appearance" value="dark" data-theme-choice`,
+		`data-theme-status role="status" aria-live="polite"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("account settings are missing %q", want)
+		}
+	}
+	if strings.Index(body, `/assets/theme.js`) > strings.Index(body, `/assets/app.css`) {
+		t.Error("theme script must load before the stylesheet")
+	}
+	if strings.Contains(navigationAside(t, body), `href="/account/security"`) {
+		t.Error("account settings are redundantly linked in the sidebar")
 	}
 }
 
@@ -238,7 +276,12 @@ func TestSiteDatabaseToolsAreScopedToTheSite(t *testing.T) {
 	}
 	response = navigationRequest(t, server, collaborator, http.MethodPost, "/sites/team-site/databases/"+teamDatabase.ID+"/reveal", url.Values{})
 	requireNavigationStatus(t, response, http.StatusOK)
-	if !strings.Contains(response.Body.String(), teamDatabase.Name) || !strings.Contains(response.Body.String(), "Credentials for Team application") {
+	body := response.Body.String()
+	if !strings.Contains(body, `id="site-database-credentials-heading"`) ||
+		!strings.Contains(body, "Credentials · Team application") ||
+		!strings.Contains(body, teamDatabase.Name) ||
+		!strings.Contains(body, teamDatabase.Username) ||
+		!regexp.MustCompile(`aria-label="Database password"[^>]*value="[^"]+"`).MatchString(body) {
 		t.Fatal("assigned collaborator could not reveal site database credentials")
 	}
 	response = navigationRequest(t, server, collaborator, http.MethodPost, "/sites/team-site/databases", url.Values{"label": {"Second application"}})

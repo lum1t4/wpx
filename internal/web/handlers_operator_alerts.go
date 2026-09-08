@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,8 +13,10 @@ import (
 )
 
 type operatorAlertsView struct {
-	Settings           model.OperatorAlertSettings
-	PasswordConfigured bool
+	Settings               model.OperatorAlertSettings
+	PasswordConfigured     bool
+	SlackWebhookConfigured bool
+	TelegramBotConfigured  bool
 }
 
 func (s *Server) registerOperatorAlertRoutes(mux *http.ServeMux) {
@@ -59,8 +62,13 @@ func (s *Server) testOperatorAlerts(w http.ResponseWriter, r *http.Request, user
 		return
 	}
 	settings, err := s.operatorAlertSettingsFromForm(r)
+	channel := strings.ToLower(strings.TrimSpace(r.FormValue("test_channel")))
 	if err == nil {
-		err = s.alerts.Test(r.Context(), settings)
+		if channel != "smtp" && channel != "slack" && channel != "telegram" {
+			err = errors.New("choose an alert channel to test")
+		} else {
+			err = s.alerts.TestChannel(r.Context(), settings, channel)
+		}
 	}
 	view := pageData{Title: "Alerts", User: &user, CSRF: s.ensureCSRF(w, r), OperatorAlerts: operatorAlertView(settings)}
 	if err != nil {
@@ -68,7 +76,8 @@ func (s *Server) testOperatorAlerts(w http.ResponseWriter, r *http.Request, user
 		s.renderStatus(w, "alerts.html", http.StatusUnprocessableEntity, view)
 		return
 	}
-	view.Message = "Test alert sent."
+	labels := map[string]string{"smtp": "email", "slack": "Slack", "telegram": "Telegram"}
+	view.Message = "Test alert sent to " + labels[channel] + "."
 	s.render(w, "alerts.html", view)
 }
 
@@ -79,17 +88,36 @@ func (s *Server) operatorAlertSettingsFromForm(r *http.Request) (model.OperatorA
 	if password == "" {
 		password = current.SMTP.Password
 	}
+	slackWebhook := strings.TrimSpace(r.FormValue("slack_webhook_url"))
+	if slackWebhook == "" {
+		slackWebhook = current.Slack.WebhookURL
+	}
+	telegramToken := strings.TrimSpace(r.FormValue("telegram_bot_token"))
+	if telegramToken == "" {
+		telegramToken = current.Telegram.BotToken
+	}
+	smtpEnabled := true
+	if r.FormValue("channels_version") == "1" {
+		smtpEnabled = checked(r, "smtp_enabled")
+	}
 	settings := model.OperatorAlertSettings{
 		Enabled: checked(r, "enabled"), CPU: checked(r, "cpu"), Memory: checked(r, "memory"), Disk: checked(r, "disk"), Services: checked(r, "services"), SSLExpiry: checked(r, "ssl_expiry"), Updates: checked(r, "updates"), OOM: checked(r, "oom"), AutoSwap: checked(r, "auto_swap"),
 		CPUPercent: integer("cpu_percent"), MemoryPercent: integer("memory_percent"), DiskPercent: integer("disk_percent"), SSLExpiryDays: integer("ssl_expiry_days"), CooldownMins: integer("cooldown_minutes"),
-		SMTP: model.SMTPConfig{Host: strings.TrimSpace(r.FormValue("host")), Port: integer("port"), Transport: model.SMTPTransport(r.FormValue("transport")), Username: strings.TrimSpace(r.FormValue("username")), Password: password, From: strings.TrimSpace(r.FormValue("from")), To: strings.TrimSpace(r.FormValue("to"))},
+		SMTPEnabled: smtpEnabled,
+		SMTP:        model.SMTPConfig{Host: strings.TrimSpace(r.FormValue("host")), Port: integer("port"), Transport: model.SMTPTransport(r.FormValue("transport")), Username: strings.TrimSpace(r.FormValue("username")), Password: password, From: strings.TrimSpace(r.FormValue("from")), To: strings.TrimSpace(r.FormValue("to"))},
+		Slack:       model.SlackAlertConfig{Enabled: checked(r, "slack_enabled"), WebhookURL: slackWebhook},
+		Telegram:    model.TelegramAlertConfig{Enabled: checked(r, "telegram_enabled"), BotToken: telegramToken, ChatID: strings.TrimSpace(r.FormValue("telegram_chat_id"))},
 	}
-	return settings, model.ValidateOperatorAlertSettings(settings)
+	return settings, nil
 }
 
 func operatorAlertView(settings model.OperatorAlertSettings) *operatorAlertsView {
-	password := settings.SMTP.Password != ""
-	return &operatorAlertsView{Settings: model.PublicOperatorAlertSettings(settings), PasswordConfigured: password}
+	return &operatorAlertsView{
+		Settings:               model.PublicOperatorAlertSettings(settings),
+		PasswordConfigured:     settings.SMTP.Password != "",
+		SlackWebhookConfigured: settings.Slack.WebhookURL != "",
+		TelegramBotConfigured:  settings.Telegram.BotToken != "",
+	}
 }
 
 func checked(r *http.Request, name string) bool { return r.FormValue(name) == "yes" }

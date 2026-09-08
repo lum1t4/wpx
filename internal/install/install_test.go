@@ -21,6 +21,61 @@ func TestInstallerRejectsUnsafeSystemdConfigurationPathBeforeHostChanges(t *test
 	}
 }
 
+func TestDefaultInstallIncludesSecurityDependenciesWithoutOwningHostFirewall(t *testing.T) {
+	packages := strings.Join(defaultPackageNames(), " ")
+	for _, required := range []string{"fail2ban", "nftables"} {
+		if !strings.Contains(" "+packages+" ", " "+required+" ") {
+			t.Fatalf("default packages omit %s: %s", required, packages)
+		}
+	}
+	services := strings.Join(defaultEnabledServices(), " ")
+	if !strings.Contains(" "+services+" ", " fail2ban.service ") {
+		t.Fatalf("Fail2ban is not enabled by default: %s", services)
+	}
+	if strings.Contains(services, "nftables.service") {
+		t.Fatalf("installer must not load the host nftables ruleset: %s", services)
+	}
+}
+
+func TestDefaultInstallValidatesPackagedNftablesActionBeforeStartup(t *testing.T) {
+	var calls []string
+	run := func(_ context.Context, executable string, args ...string) error {
+		calls = append(calls, executable+" "+strings.Join(args, " "))
+		return nil
+	}
+	if err := validateSecurityDependencies(context.Background(), run); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"/usr/bin/test -x /usr/sbin/nft",
+		"/usr/bin/test -r /etc/fail2ban/action.d/nftables.conf",
+		"/usr/bin/fail2ban-client -t",
+	}
+	if strings.Join(calls, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("security validation=%v, want %v", calls, want)
+	}
+}
+
+func TestDefaultPackageInstallCannotRestartNftablesService(t *testing.T) {
+	var calls []string
+	run := func(_ context.Context, executable string, args ...string) error {
+		calls = append(calls, executable+" "+strings.Join(args, " "))
+		return nil
+	}
+	if err := installDefaultPackages(context.Background(), run); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 3 || calls[0] != "/usr/bin/apt-get install -y --no-install-recommends --no-upgrade nftables" {
+		t.Fatalf("nftables installation boundary=%v", calls)
+	}
+	if calls[1] != "/usr/bin/apt-get -o Dpkg::Options::=--force-confold install -y --no-install-recommends fail2ban" {
+		t.Fatalf("Fail2ban installation must preserve operator configuration: %s", calls[1])
+	}
+	if strings.Contains(calls[2], "nftables") || strings.Contains(calls[2], "fail2ban") {
+		t.Fatalf("general package transaction must exclude isolated security dependencies: %s", calls[2])
+	}
+}
+
 func TestResumePreservesConfigurationAndRotatesOnlyBootstrapToken(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	statePath := filepath.Join(filepath.Dir(path), "state.db")

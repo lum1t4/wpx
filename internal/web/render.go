@@ -72,6 +72,7 @@ type pageData struct {
 	StagingUsername       string
 	StagingPassword       string
 	Observability         *broker.SiteObservabilityResult
+	RequestLogs           *RequestLogView
 	CanManageDNS          bool
 	DNSProviders          []model.DNSProvider
 	DNSRecords            []model.DNSRecord
@@ -93,6 +94,7 @@ type pageData struct {
 	SelectedDatabase      *model.Database
 	DatabaseAdminStatus   string
 	FleetSites            []fleetSiteView
+	FleetSummary          fleetSummaryView
 	FleetOutcomes         []fleetUpdateOutcome
 	CronSchedules         []model.CronSchedule
 	WordPressCronSetting  *model.WordPressCronSetting

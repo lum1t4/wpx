@@ -1,39 +1,38 @@
 {{define "backup_targets.html"}}
 {{template "shell-start" .}}
 <header>
-  <h1 class="text-2xl font-semibold tracking-tight text-zinc-950">Backup storage</h1>
-  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Connect storage once, then choose it in a site's Backups tab. Backups are encrypted and incremental.</p>
+  <h1 class="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">Backup storage</h1>
 </header>
 
-{{if .Error}}<p role="alert" class="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{.Error}}</p>{{end}}
-{{if .Message}}<p role="status" class="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{{.Message}}</p>{{end}}
+{{if .Error}}<p role="alert" class="mt-6 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 p-4 text-sm text-red-700 dark:text-red-300">{{.Error}}</p>{{end}}
+{{if .Message}}<p role="status" class="mt-6 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 p-4 text-sm text-emerald-800 dark:text-emerald-200">{{.Message}}</p>{{end}}
 {{if .BackupPassword}}
-<section class="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-5">
-  <h2 class="text-base font-semibold">Save your recovery password</h2>
-  <p class="mt-2 text-sm leading-6 text-zinc-600">Copy this password to your password manager now. You need it to restore this repository without WPX.</p>
+<section class="mt-6 rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 p-5" aria-labelledby="recovery-password-heading">
+  <h2 id="recovery-password-heading" class="text-base font-semibold">Save your recovery password</h2>
+  <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">Required to restore this repository without WPX.</p>
   <label class="mt-4 block">
     <span class="mb-2 block text-sm font-medium">Repository recovery password</span>
-    <input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" readonly value="{{.BackupPassword}}">
+    <input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" readonly value="{{.BackupPassword}}">
   </label>
 </section>
 {{end}}
 
-<section aria-labelledby="storage-heading" class="mt-8 overflow-hidden rounded-lg border border-zinc-200 bg-white">
-  <div class="border-b border-zinc-200 px-5 py-4"><h2 id="storage-heading" class="text-base font-semibold">Connected storage</h2></div>
+<section aria-labelledby="storage-heading" class="mt-8 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+  <div class="border-b border-zinc-200 dark:border-zinc-800 px-5 py-4"><h2 id="storage-heading" class="text-base font-semibold">Connected storage</h2></div>
   <div class="overflow-x-auto">
     <table class="w-full min-w-[420px] text-left text-sm">
-      <thead class="border-b border-zinc-200 bg-zinc-50 text-zinc-500">
+      <thead class="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-500 dark:text-zinc-400">
         <tr><th scope="col" class="px-5 py-3 font-medium" data-i18n="name">Name</th><th scope="col" class="px-5 py-3 font-medium" data-i18n="service">Service</th><th scope="col" class="px-5 py-3 font-medium" data-i18n="status">Status</th></tr>
       </thead>
-      <tbody class="divide-y divide-zinc-100">
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
         {{range .BackupTargets}}
         <tr>
           <td class="px-5 py-4 font-medium">{{.Name}}</td>
-          <td class="px-5 py-4 text-zinc-500">{{if eq .Kind "s3"}}S3-compatible{{else if eq .Kind "google_drive"}}Google Drive{{else}}{{.Kind}}{{end}}</td>
-          <td class="px-5 py-4"><span class="rounded-md border border-zinc-200 px-2 py-1 text-xs font-medium capitalize">{{.Status}}</span></td>
+          <td class="px-5 py-4 text-zinc-500 dark:text-zinc-400">{{if eq .Kind "s3"}}S3-compatible{{else if eq .Kind "google_drive"}}Google Drive{{else}}{{.Kind}}{{end}}</td>
+          <td class="px-5 py-4"><span class="rounded-md border border-zinc-200 dark:border-zinc-800 px-2 py-1 text-xs font-medium capitalize">{{.Status}}</span></td>
         </tr>
         {{else}}
-        <tr><td colspan="3" class="px-5 py-10 text-center"><p class="font-medium">No storage connected</p><p class="mt-1 text-zinc-500">Add S3-compatible storage or Google Drive below to start protecting your sites.</p></td></tr>
+        <tr><td colspan="3" class="px-5 py-10 text-center"><p class="font-medium">No storage connected</p><p class="mt-1 text-zinc-500 dark:text-zinc-400">Add a storage provider below.</p></td></tr>
         {{end}}
       </tbody>
     </table>
@@ -41,54 +40,52 @@
 </section>
 
 <div class="mt-8 space-y-4">
-  <details class="rounded-lg border border-zinc-200 bg-white">
-    <summary class="cursor-pointer px-5 py-4 text-sm font-semibold">Add S3-compatible storage</summary>
-    <div class="border-t border-zinc-200 p-5">
-      <p class="text-sm leading-6 text-zinc-500">Use AWS S3 or another provider with its own endpoint, including private object storage.</p>
-      <form class="mt-5 grid gap-5 md:grid-cols-2" method="post" action="/backups/targets">
+  <details class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+    <summary class="cursor-pointer px-5 py-4 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100">Add S3-compatible storage</summary>
+    <div class="border-t border-zinc-200 dark:border-zinc-800 p-5">
+      <form class="grid gap-5 md:grid-cols-2" method="post" action="/backups/targets">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
         <input type="hidden" name="kind" value="s3">
-        <label><span class="mb-2 block text-sm font-medium">Storage name</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="name" placeholder="Primary backups" required></label>
-        <label><span class="mb-2 block text-sm font-medium">Endpoint URL</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="endpoint" type="url" placeholder="https://s3.eu-west-1.amazonaws.com" required></label>
-        <label><span class="mb-2 block text-sm font-medium">Bucket</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="bucket" required></label>
-        <label><span class="mb-2 block text-sm font-medium">Repository prefix <span class="font-normal text-zinc-500">(optional)</span></span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="prefix" placeholder="wpx/server-name"></label>
-        <label><span class="mb-2 block text-sm font-medium">Region</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="region" value="us-east-1" required></label>
-        <label><span class="mb-2 block text-sm font-medium">Bucket addressing</span><select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="bucket_lookup"><option value="auto">Automatic</option><option value="path">Path style</option><option value="dns">Virtual-hosted style</option></select></label>
-        <label><span class="mb-2 block text-sm font-medium">Access key</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" name="access_key" autocomplete="off" required></label>
-        <label><span class="mb-2 block text-sm font-medium">Secret key</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" type="password" name="secret_key" autocomplete="new-password" required></label>
-        <label class="md:col-span-2"><span class="mb-2 block text-sm font-medium">Existing repository password <span class="font-normal text-zinc-500">(optional)</span></span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" type="password" name="repository_password" minlength="20" autocomplete="new-password"><span class="mt-2 block text-xs leading-5 text-zinc-500">Leave blank for a new repository. WPX will generate a recovery password for you.</span></label>
-        <label class="flex items-start gap-3 md:col-span-2"><input class="mt-1 size-4 accent-zinc-900" type="checkbox" name="allow_insecure_http" value="yes"><span><span class="block text-sm font-medium">Allow an unencrypted HTTP endpoint</span><span class="mt-1 block text-xs text-zinc-500">Only use this for storage on a trusted private network.</span></span></label>
-        <div class="md:col-span-2"><button class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Verify and add storage</button></div>
+        <label><span class="mb-2 block text-sm font-medium">Storage name</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="name" placeholder="Primary backups" required></label>
+        <label><span class="mb-2 block text-sm font-medium">Endpoint URL</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="endpoint" type="url" placeholder="https://s3.eu-west-1.amazonaws.com" required></label>
+        <label><span class="mb-2 block text-sm font-medium">Bucket</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="bucket" required></label>
+        <label><span class="mb-2 block text-sm font-medium">Repository prefix <span class="font-normal text-zinc-500 dark:text-zinc-400">(optional)</span></span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="prefix" placeholder="wpx/server-name"></label>
+        <label><span class="mb-2 block text-sm font-medium">Region</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="region" value="us-east-1" required></label>
+        <label><span class="mb-2 block text-sm font-medium">Bucket addressing</span><select class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="bucket_lookup"><option value="auto">Automatic</option><option value="path">Path style</option><option value="dns">Virtual-hosted style</option></select></label>
+        <label><span class="mb-2 block text-sm font-medium">Access key</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" name="access_key" autocomplete="off" required></label>
+        <label><span class="mb-2 block text-sm font-medium">Secret key</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" type="password" name="secret_key" autocomplete="new-password" required></label>
+        <label class="md:col-span-2"><span class="mb-2 block text-sm font-medium">Existing repository password <span class="font-normal text-zinc-500 dark:text-zinc-400">(optional)</span></span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" type="password" name="repository_password" minlength="20" autocomplete="new-password"><span class="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">Leave blank for a new repository. WPX will generate a recovery password for you.</span></label>
+        <label class="flex items-start gap-3 md:col-span-2"><input class="mt-1 size-4 accent-zinc-900" type="checkbox" name="allow_insecure_http" value="yes"><span><span class="block text-sm font-medium">Allow an unencrypted HTTP endpoint</span><span class="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">Only use this for storage on a trusted private network.</span></span></label>
+        <div class="md:col-span-2"><button class="rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white">Verify and add storage</button></div>
       </form>
     </div>
   </details>
 
-  <details class="rounded-lg border border-zinc-200 bg-white">
-    <summary class="cursor-pointer px-5 py-4 text-sm font-semibold">Add Google Drive</summary>
-    <div class="border-t border-zinc-200 p-5">
-      <p class="text-sm leading-6 text-zinc-500">Connect in your browser. WPX requests access only to Drive files it creates and keeps your OAuth credentials encrypted on this server.</p>
+  <details class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+    <summary class="cursor-pointer px-5 py-4 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100">Add Google Drive</summary>
+    <div class="border-t border-zinc-200 dark:border-zinc-800 p-5">
       {{if .GoogleCallbackURI}}
-      <div class="mt-4 rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm leading-6 text-zinc-600">
-        <p class="font-medium text-zinc-900">One-time Google Cloud setup</p>
+      <div class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-4 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+        <p class="font-medium text-zinc-900 dark:text-zinc-100">One-time Google Cloud setup</p>
         <ol class="mt-2 list-decimal space-y-1 pl-5">
-          <li>In <a class="font-medium text-zinc-900 underline" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Google Cloud Console</a>, enable the Google Drive API and configure the OAuth consent screen.</li>
+          <li>In <a class="font-medium text-zinc-900 dark:text-zinc-100 underline" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Google Cloud Console</a>, enable the Google Drive API and configure the OAuth consent screen.</li>
           <li>Create an OAuth 2.0 client with application type <strong>Web application</strong>.</li>
           <li>Add this exact authorized redirect URI:</li>
         </ol>
-        <input class="mt-2 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-xs" readonly value="{{.GoogleCallbackURI}}" aria-label="Google authorized redirect URI">
+        <input class="mt-2 w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-xs" readonly value="{{.GoogleCallbackURI}}" aria-label="Google authorized redirect URI">
       </div>
       {{else}}
-      <p class="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">Open WPX through its public HTTPS domain to configure the Google callback.</p>
+      <p class="mt-4 rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 p-4 text-sm text-amber-800 dark:text-amber-200">Open WPX through its public HTTPS domain to configure the Google callback.</p>
       {{end}}
       <form class="mt-5 grid gap-5 md:grid-cols-2" method="post" action="/backups/google-drive/start">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-        <label><span class="mb-2 block text-sm font-medium">Storage name</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="name" placeholder="Google Drive backups" required></label>
-        <label><span class="mb-2 block text-sm font-medium">Drive folder</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="drive_folder" value="WPX Backups" required></label>
-        <label><span class="mb-2 block text-sm font-medium">OAuth client ID</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" name="google_client_id" autocomplete="off" required></label>
-        <label><span class="mb-2 block text-sm font-medium">OAuth client secret</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" type="password" name="google_client_secret" autocomplete="new-password" required></label>
-        <label><span class="mb-2 block text-sm font-medium">Shared Drive ID <span class="font-normal text-zinc-500">(optional)</span></span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" name="google_shared_drive"></label>
-        <label><span class="mb-2 block text-sm font-medium">Existing repository password <span class="font-normal text-zinc-500">(optional)</span></span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" type="password" name="repository_password" minlength="20" autocomplete="new-password"><span class="mt-2 block text-xs text-zinc-500">Leave blank for a new repository.</span></label>
-        <div class="md:col-span-2"><button class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300" {{if not .GoogleCallbackURI}}disabled{{end}}>Continue with Google</button></div>
+        <label><span class="mb-2 block text-sm font-medium">Storage name</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="name" placeholder="Google Drive backups" required></label>
+        <label><span class="mb-2 block text-sm font-medium">Drive folder</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="drive_folder" value="WPX Backups" required></label>
+        <label><span class="mb-2 block text-sm font-medium">OAuth client ID</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" name="google_client_id" autocomplete="off" required></label>
+        <label><span class="mb-2 block text-sm font-medium">OAuth client secret</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" type="password" name="google_client_secret" autocomplete="new-password" required></label>
+        <label><span class="mb-2 block text-sm font-medium">Shared Drive ID <span class="font-normal text-zinc-500 dark:text-zinc-400">(optional)</span></span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" name="google_shared_drive"></label>
+        <label><span class="mb-2 block text-sm font-medium">Existing repository password <span class="font-normal text-zinc-500 dark:text-zinc-400">(optional)</span></span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" type="password" name="repository_password" minlength="20" autocomplete="new-password"><span class="mt-2 block text-xs text-zinc-500 dark:text-zinc-400">Leave blank for a new repository.</span></label>
+        <div class="md:col-span-2"><button class="rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white disabled:cursor-not-allowed disabled:bg-zinc-300 dark:disabled:bg-zinc-600" {{if not .GoogleCallbackURI}}disabled{{end}}>Continue with Google</button></div>
       </form>
     </div>
   </details>

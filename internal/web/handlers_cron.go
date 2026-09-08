@@ -76,8 +76,9 @@ func (s *Server) renderCronPage(w http.ResponseWriter, r *http.Request, user sto
 	}
 	data := pageData{Title: "Cron jobs", Section: "cron", User: &user, CSRF: s.ensureCSRF(w, r), Site: &site, CronSchedules: schedules, WordPressCronSetting: &setting, CanManageCron: true, Message: message}
 	if status >= 400 {
+		data.Error, data.Message = message, ""
 		data.Form = map[string]string{}
-		for _, key := range []string{"name", "executable", "arguments", "preset", "minute", "hour", "day_of_month", "month", "day_of_week", "replaced", "enabled"} {
+		for _, key := range []string{"name", "executable", "arguments", "preset", "schedule_expression", "minute", "hour", "day_of_month", "month", "day_of_week", "replaced", "enabled"} {
 			data.Form[key] = r.FormValue(key)
 		}
 	}
@@ -116,12 +117,20 @@ func cronFormExpression(r *http.Request) (string, error) {
 		return expression, nil
 	}
 	switch r.FormValue("preset") {
+	case "every_minute":
+		return "* * * * *", nil
+	case "every_15_minutes":
+		return "*/15 * * * *", nil
 	case "hourly":
 		return "0 * * * *", nil
 	case "daily":
 		return "0 3 * * *", nil
 	case "weekly":
 		return "0 3 * * 0", nil
+	case "monthly":
+		return "0 3 1 * *", nil
+	case "weekdays":
+		return "0 3 * * 1-5", nil
 	case "custom":
 		expression := strings.Join([]string{r.FormValue("minute"), r.FormValue("hour"), r.FormValue("day_of_month"), r.FormValue("month"), r.FormValue("day_of_week")}, " ")
 		if err := model.ValidateCronExpression(expression); err != nil {

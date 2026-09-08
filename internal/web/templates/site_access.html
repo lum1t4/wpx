@@ -1,39 +1,39 @@
 {{define "site_access.html"}}
 {{template "shell-start" .}}
 <header class="mb-8">
-  <p class="mb-2 text-sm text-zinc-500">{{.Site.Domain}}</p>
-  <h1 class="text-2xl font-semibold tracking-tight text-zinc-950">Site access</h1>
-  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Control who can reach this site.</p>
+  <p class="mb-2 text-sm text-zinc-500 dark:text-zinc-400">{{.Site.Domain}}</p>
+  <h1 class="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">Site access</h1>
+  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">Control who can reach this site.</p>
 </header>
 
-{{if .Error}}<div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800" role="alert">{{.Error}}</div>{{end}}
-{{if .Message}}<div class="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900" role="status">{{.Message}} <a class="font-medium underline underline-offset-4" href="/jobs">View activity</a></div>{{end}}
+{{if .Error}}<div class="mb-6 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm leading-6 text-red-800 dark:text-red-200" role="alert">{{.Error}}</div>{{end}}
+{{if .Message}}<div class="mb-6 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 px-4 py-3 text-sm leading-6 text-emerald-900 dark:text-emerald-200" role="status">{{.Message}} <a class="font-medium underline underline-offset-4" href="/jobs">View activity</a></div>{{end}}
 
-{{if eq .SiteAccess.Status "failed"}}<div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800" role="alert">The last change failed. Review Activity, fix the issue, and save again.</div>{{end}}
-{{if eq .SiteAccess.Status "pending"}}<div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900" role="status">These access settings are waiting to be applied.</div>{{end}}
+{{if eq .SiteAccess.Status "failed"}}<div class="mb-6 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-4 py-3 text-sm leading-6 text-red-800 dark:text-red-200" role="alert">The last change failed. Review Activity, fix the issue, and save again.</div>{{end}}
+{{if eq .SiteAccess.Status "pending"}}<div class="mb-6 rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 px-4 py-3 text-sm leading-6 text-amber-900 dark:text-amber-200" role="status">These access settings are waiting to be applied.</div>{{end}}
 
 <form class="grid max-w-2xl gap-6" method="post" action="/sites/{{.Site.ID}}/access" data-quick-action data-action-label="Saving access settings">
   <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-  <section class="rounded-lg border border-zinc-200 bg-white p-5" aria-labelledby="password-heading">
+  <section class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5" aria-labelledby="password-heading">
     <label class="flex items-start gap-3">
       <input class="mt-1 size-4 accent-zinc-950" type="checkbox" name="basic_auth_enabled" value="yes" {{if .SiteAccess.BasicAuthEnabled}}checked{{end}}>
-      <span><span id="password-heading" class="block text-sm font-medium text-zinc-900">Require a username and password</span><span class="mt-1 block text-xs leading-5 text-zinc-500">Shows the browser's sign-in prompt.</span></span>
+      <span><span id="password-heading" class="block text-sm font-medium text-zinc-900 dark:text-zinc-100">Require a username and password</span><span class="mt-1 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">Shows the browser's sign-in prompt.</span></span>
     </label>
     <div class="mt-5 grid gap-4 sm:grid-cols-2">
-      <label><span class="mb-2 block text-sm font-medium text-zinc-700" data-i18n="username">Username</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="username" maxlength="64" autocomplete="username" value="{{.SiteAccess.Username}}"></label>
-      <label><span class="mb-2 block text-sm font-medium text-zinc-700">New password</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="password" type="password" minlength="12" maxlength="72" autocomplete="new-password"><span class="mt-2 block text-xs leading-5 text-zinc-500">Leave blank to keep the existing password.</span></label>
+      <label><span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300" data-i18n="username">Username</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="username" maxlength="64" autocomplete="username" value="{{.SiteAccess.Username}}"></label>
+      <label><span class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">New password</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="password" type="password" minlength="12" maxlength="72" autocomplete="new-password"><span class="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">Leave blank to keep the existing password.</span></label>
     </div>
   </section>
 
-  <section class="rounded-lg border border-zinc-200 bg-white p-5" aria-labelledby="cloudflare-heading">
+  <section class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5" aria-labelledby="cloudflare-heading">
     <label class="flex items-start gap-3">
       <input class="mt-1 size-4 accent-zinc-950" type="checkbox" name="cloudflare_only" value="yes" {{if .SiteAccess.CloudflareOnly}}checked{{end}}>
-      <span><span id="cloudflare-heading" class="block text-sm font-medium text-zinc-900">Allow Cloudflare traffic only</span><span class="mt-1 block text-xs leading-5 text-zinc-500">Direct requests to the origin are denied. Confirm the site's DNS record is proxied by Cloudflare before enabling this.</span></span>
+      <span><span id="cloudflare-heading" class="block text-sm font-medium text-zinc-900 dark:text-zinc-100">Allow Cloudflare traffic only</span><span class="mt-1 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">Direct requests to the origin are denied. Confirm the site's DNS record is proxied by Cloudflare before enabling this.</span></span>
     </label>
-    <p class="mt-4 text-xs leading-5 text-zinc-500">Certificate challenges remain public.</p>
+    <p class="mt-4 text-xs leading-5 text-zinc-500 dark:text-zinc-400">Certificate challenges remain public.</p>
   </section>
 
-  <button class="justify-self-start rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950">Save access settings</button>
+  <button class="justify-self-start rounded-md bg-zinc-950 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 dark:focus-visible:outline-zinc-100">Save access settings</button>
 </form>
 {{template "shell-end" .}}
 {{end}}

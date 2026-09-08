@@ -2,6 +2,7 @@ package alerts
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"path/filepath"
@@ -23,6 +24,21 @@ type sentMail struct{ subject, body string }
 type fakeSender struct {
 	mail []sentMail
 	err  error
+}
+
+type fakeChannelSender struct {
+	slackCalls, telegramCalls int
+	slackErr, telegramErr     error
+}
+
+func (f *fakeChannelSender) SendSlack(context.Context, model.SlackAlertConfig, string, string) error {
+	f.slackCalls++
+	return f.slackErr
+}
+
+func (f *fakeChannelSender) SendTelegram(context.Context, model.TelegramAlertConfig, string, string) error {
+	f.telegramCalls++
+	return f.telegramErr
 }
 
 func (f *fakeSender) Send(_ context.Context, _ model.SMTPConfig, subject, body string) error {
@@ -126,5 +142,76 @@ func TestOOMEventsAreFingerprintDeduplicatedAndCooledDown(t *testing.T) {
 	monitor.event(context.Background(), settings, "oom", "WPX alert: OOM", "Killed process 456", "snapshot")
 	if len(sender.mail) != 2 {
 		t.Fatal("new event remained suppressed after cooldown")
+	}
+}
+
+func TestPartialChannelFailureDoesNotRepeatSuccessfulDelivery(t *testing.T) {
+	monitor, _, smtp, _ := alertTestMonitor(t)
+	channels := &fakeChannelSender{slackErr: errors.New("unavailable")}
+	monitor.channels = channels
+	settings, err := monitor.store.OperatorAlertSettings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings.Slack = model.SlackAlertConfig{Enabled: true, WebhookURL: "https://hooks.slack.com/services/T000/B000/secret_token"}
+	monitor.condition(context.Background(), settings, "cpu-partial", true, 1, "high CPU", "snapshot 1")
+	monitor.condition(context.Background(), settings, "cpu-partial", true, 1, "higher CPU", "snapshot 2")
+	if len(smtp.mail) != 1 || channels.slackCalls != 1 {
+		t.Fatalf("successful or failed channel repeated inside cooldown: SMTP=%d Slack=%d", len(smtp.mail), channels.slackCalls)
+	}
+	channels.slackErr = nil
+	monitor.now = func() time.Time { return time.Date(2026, 9, 8, 13, 1, 0, 0, time.UTC) }
+	monitor.condition(context.Background(), settings, "cpu-partial", true, 1, "highest CPU", "snapshot 3")
+	if len(smtp.mail) != 1 || channels.slackCalls != 2 {
+		t.Fatalf("retry did not target only failed channel: SMTP=%d Slack=%d", len(smtp.mail), channels.slackCalls)
+	}
+	state, err := monitor.store.OperatorAlertState(context.Background(), "cpu-partial")
+	if err != nil || !state.Active {
+		t.Fatalf("incident not activated after all channels delivered: %#v %v", state, err)
+	}
+	monitor.condition(context.Background(), settings, "cpu-partial", false, 1, "normal CPU", "recovery 1")
+	monitor.condition(context.Background(), settings, "cpu-partial", false, 1, "normal CPU", "recovery 2")
+	monitor.now = func() time.Time { return time.Date(2026, 9, 8, 14, 2, 0, 0, time.UTC) }
+	monitor.condition(context.Background(), settings, "cpu-partial", true, 1, "high CPU again", "new incident")
+	if len(smtp.mail) != 3 || channels.slackCalls != 4 {
+		t.Fatalf("recovery and new incident cycle deliveries: SMTP=%d Slack=%d", len(smtp.mail), channels.slackCalls)
+	}
+}
+
+func TestChannelValidatesOnlyTargetAndRedactsDeliveryErrors(t *testing.T) {
+	monitor, _, smtp, _ := alertTestMonitor(t)
+	settings := model.DefaultOperatorAlertSettings()
+	settings.SMTP = model.SMTPConfig{Host: "smtp.example.com", Port: 587, Transport: model.SMTPSTARTTLS, Password: "mail-secret", From: "alerts@example.com", To: "ops@example.com"}
+	settings.Slack = model.SlackAlertConfig{Enabled: true} // incomplete, but unrelated to this test
+	smtp.err = errors.New("server reflected mail-secret")
+	err := monitor.TestChannel(context.Background(), settings, "smtp")
+	if err == nil || strings.Contains(err.Error(), "mail-secret") {
+		t.Fatalf("SMTP test error was not safely redacted: %v", err)
+	}
+}
+
+func TestPartialOpenThenRecoveryAndNewIncidentKeepsChannelLifecycle(t *testing.T) {
+	monitor, _, smtp, _ := alertTestMonitor(t)
+	channels := &fakeChannelSender{slackErr: errors.New("unavailable")}
+	monitor.channels = channels
+	settings, err := monitor.store.OperatorAlertSettings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings.Slack = model.SlackAlertConfig{Enabled: true, WebhookURL: "https://hooks.slack.com/services/T000/B000/secret_token"}
+
+	monitor.condition(context.Background(), settings, "cpu-cycle", true, 1, "high CPU", "open snapshot")
+	monitor.condition(context.Background(), settings, "cpu-cycle", false, 1, "normal CPU", "recovery sample 1")
+	monitor.condition(context.Background(), settings, "cpu-cycle", false, 1, "normal CPU", "recovery sample 2")
+	if len(smtp.mail) != 2 || channels.slackCalls != 1 {
+		t.Fatalf("open/recovery delivery counts: SMTP=%d Slack=%d", len(smtp.mail), channels.slackCalls)
+	}
+
+	channels.slackErr = nil
+	monitor.now = func() time.Time { return time.Date(2026, 9, 8, 13, 1, 0, 0, time.UTC) }
+	monitor.condition(context.Background(), settings, "cpu-cycle", false, 1, "normal CPU", "changed recovery snapshot")
+	monitor.condition(context.Background(), settings, "cpu-cycle", true, 1, "high CPU again", "new open snapshot")
+	if len(smtp.mail) != 3 || channels.slackCalls != 3 {
+		t.Fatalf("recovery retry/new cycle delivery counts: SMTP=%d Slack=%d", len(smtp.mail), channels.slackCalls)
 	}
 }

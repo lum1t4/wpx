@@ -1,30 +1,30 @@
 {{define "wordpress_health.html"}}
 {{template "shell-start" .}}
-<a class="text-sm text-zinc-500 hover:text-zinc-950" href="/sites/{{.Site.ID}}/wordpress">← {{.Site.Domain}}</a>
+<a class="text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100" href="/sites/{{.Site.ID}}/wordpress">← {{.Site.Domain}}</a>
 <header class="mt-4 flex flex-wrap items-start justify-between gap-4">
   <div>
-    <h1 class="text-2xl font-semibold tracking-tight text-zinc-950">WordPress health</h1>
-    <p class="mt-2 text-sm leading-6 text-zinc-500">Check the WordPress installation on {{.Site.Domain}}.</p>
+    <h1 class="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">WordPress health</h1>
+    <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Check the WordPress installation on {{.Site.Domain}}.</p>
   </div>
-  <a class="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium hover:bg-zinc-50" href="/sites/{{.Site.ID}}/wordpress/health">Run checks again</a>
+  <a class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-2 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800" href="/sites/{{.Site.ID}}/wordpress/health">Run checks again</a>
 </header>
 
-<section aria-label="Health check results" class="mt-8 max-w-3xl overflow-hidden rounded-lg border border-zinc-200 bg-white">
-  <ul class="divide-y divide-zinc-100">
+<section aria-label="Health check results" class="mt-8 max-w-3xl overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+  <ul class="divide-y divide-zinc-100 dark:divide-zinc-800">
     {{range .WordPressHealth.Checks}}
     <li class="flex items-center justify-between gap-4 px-5 py-4">
       <span class="text-sm font-medium">{{.Name}}</span>
       {{if eq .Status "healthy"}}
-      <span class="shrink-0 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800">Healthy</span>
+      <span class="shrink-0 rounded-md border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 px-2 py-1 text-xs font-medium text-emerald-800 dark:text-emerald-200">Healthy</span>
       {{else}}
-      <span class="shrink-0 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700" data-i18n="failed">Failed</span>
+      <span class="shrink-0 rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-2 py-1 text-xs font-medium text-red-700 dark:text-red-300" data-i18n="failed">Failed</span>
       {{end}}
     </li>
     {{else}}
-    <li class="px-5 py-10 text-center text-sm text-zinc-500">No results available. Run the checks again to refresh this page.</li>
+    <li class="px-5 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">No results available. Run the checks again to refresh this page.</li>
     {{end}}
   </ul>
 </section>
-<p class="mt-4 max-w-3xl text-xs leading-5 text-zinc-500">Checks run as this site's system user. Core checksum verification contacts WordPress.org; WPX does not collect telemetry.</p>
+<p class="mt-4 max-w-3xl text-xs leading-5 text-zinc-500 dark:text-zinc-400">Checks run as this site's system user. Core checksum verification contacts WordPress.org; WPX does not collect telemetry.</p>
 {{template "shell-end" .}}
 {{end}}

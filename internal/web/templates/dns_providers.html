@@ -1,29 +1,29 @@
 {{define "dns_providers.html"}}
 {{template "shell-start" .}}
 <header>
-  <h1 class="text-2xl font-semibold tracking-tight text-zinc-950" data-i18n="dns_providers">DNS providers</h1>
-  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Connect a provider to manage a site's DNS records and issue DNS-verified certificates. Credentials are encrypted on this server.</p>
+  <h1 class="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100" data-i18n="dns_providers">DNS providers</h1>
+  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">Connect a provider to manage a site's DNS records and issue DNS-verified certificates. Credentials are encrypted on this server.</p>
 </header>
 
-{{if .Error}}<p role="alert" class="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{.Error}}</p>{{end}}
-{{if .Message}}<p role="status" class="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{{.Message}}</p>{{end}}
+{{if .Error}}<p role="alert" class="mt-6 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 p-4 text-sm text-red-700 dark:text-red-300">{{.Error}}</p>{{end}}
+{{if .Message}}<p role="status" class="mt-6 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 p-4 text-sm text-emerald-800 dark:text-emerald-200">{{.Message}}</p>{{end}}
 
-<section aria-labelledby="providers-heading" class="mt-8 overflow-hidden rounded-lg border border-zinc-200 bg-white">
-  <div class="border-b border-zinc-200 px-5 py-4"><h2 id="providers-heading" class="text-base font-semibold">Connected providers</h2></div>
+<section aria-labelledby="providers-heading" class="mt-8 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+  <div class="border-b border-zinc-200 dark:border-zinc-800 px-5 py-4"><h2 id="providers-heading" class="text-base font-semibold">Connected providers</h2></div>
   <div class="overflow-x-auto">
     <table class="w-full min-w-[420px] text-left text-sm">
-      <thead class="border-b border-zinc-200 bg-zinc-50 text-zinc-500">
+      <thead class="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-500 dark:text-zinc-400">
         <tr><th scope="col" class="px-5 py-3 font-medium" data-i18n="name">Name</th><th scope="col" class="px-5 py-3 font-medium">Provider</th><th scope="col" class="px-5 py-3 font-medium" data-i18n="status">Status</th></tr>
       </thead>
-      <tbody class="divide-y divide-zinc-100">
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
         {{range .DNSProviders}}
         <tr>
           <td class="px-5 py-4 font-medium">{{.Name}}</td>
-          <td class="px-5 py-4 text-zinc-500">{{if eq .Kind "cloudflare"}}Cloudflare{{else if eq .Kind "route53"}}AWS Route 53{{else}}{{.Kind}}{{end}}</td>
-          <td class="px-5 py-4"><span class="rounded-md border border-zinc-200 px-2 py-1 text-xs font-medium capitalize">{{.Status}}</span></td>
+          <td class="px-5 py-4 text-zinc-500 dark:text-zinc-400">{{if eq .Kind "cloudflare"}}Cloudflare{{else if eq .Kind "route53"}}AWS Route 53{{else}}{{.Kind}}{{end}}</td>
+          <td class="px-5 py-4"><span class="rounded-md border border-zinc-200 dark:border-zinc-800 px-2 py-1 text-xs font-medium capitalize">{{.Status}}</span></td>
         </tr>
         {{else}}
-        <tr><td colspan="3" class="px-5 py-10 text-center"><p class="font-medium">No providers connected</p><p class="mt-1 text-zinc-500">Add the provider that manages your domain's DNS zone below.</p></td></tr>
+        <tr><td colspan="3" class="px-5 py-10 text-center"><p class="font-medium">No providers connected</p><p class="mt-1 text-zinc-500 dark:text-zinc-400">Add the provider that manages your domain's DNS zone below.</p></td></tr>
         {{end}}
       </tbody>
     </table>
@@ -31,31 +31,31 @@
 </section>
 
 <div class="mt-8 space-y-4">
-  <details class="rounded-lg border border-zinc-200 bg-white">
+  <details class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
     <summary class="cursor-pointer px-5 py-4 text-sm font-semibold">Add Cloudflare</summary>
-    <form class="grid gap-5 border-t border-zinc-200 p-5 md:grid-cols-2" method="post" action="/dns/providers">
+    <form class="grid gap-5 border-t border-zinc-200 dark:border-zinc-800 p-5 md:grid-cols-2" method="post" action="/dns/providers">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
       <input type="hidden" name="kind" value="cloudflare">
-      <p class="text-sm leading-6 text-zinc-500 md:col-span-2">Use an API token limited to this zone, with DNS Read and DNS Write permissions.</p>
-      <label><span class="mb-2 block text-sm font-medium">Provider name</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="name" placeholder="Cloudflare · example.com" required></label>
-      <label><span class="mb-2 block text-sm font-medium">Zone ID</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" name="zone_id" required></label>
-      <label class="md:col-span-2"><span class="mb-2 block text-sm font-medium">API token</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" type="password" name="api_token" autocomplete="new-password" required></label>
-      <div class="md:col-span-2"><button class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Verify and add Cloudflare</button></div>
+      <p class="text-sm leading-6 text-zinc-500 dark:text-zinc-400 md:col-span-2">Use an API token limited to this zone, with DNS Read and DNS Write permissions.</p>
+      <label><span class="mb-2 block text-sm font-medium">Provider name</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="name" placeholder="Cloudflare · example.com" required></label>
+      <label><span class="mb-2 block text-sm font-medium">Zone ID</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" name="zone_id" required></label>
+      <label class="md:col-span-2"><span class="mb-2 block text-sm font-medium">API token</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" type="password" name="api_token" autocomplete="new-password" required></label>
+      <div class="md:col-span-2"><button class="rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white">Verify and add Cloudflare</button></div>
     </form>
   </details>
 
-  <details class="rounded-lg border border-zinc-200 bg-white">
+  <details class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
     <summary class="cursor-pointer px-5 py-4 text-sm font-semibold">Add AWS Route 53</summary>
-    <form class="grid gap-5 border-t border-zinc-200 p-5 md:grid-cols-2" method="post" action="/dns/providers">
+    <form class="grid gap-5 border-t border-zinc-200 dark:border-zinc-800 p-5 md:grid-cols-2" method="post" action="/dns/providers">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
       <input type="hidden" name="kind" value="route53">
-      <p class="text-sm leading-6 text-zinc-500 md:col-span-2">Use an IAM identity restricted to this hosted zone. Include a session token when using temporary credentials.</p>
-      <label><span class="mb-2 block text-sm font-medium">Provider name</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="name" placeholder="Route 53 · example.com" required></label>
-      <label><span class="mb-2 block text-sm font-medium">Hosted zone ID</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" name="zone_id" required></label>
-      <label><span class="mb-2 block text-sm font-medium">Access key ID</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" name="access_key" autocomplete="off" required></label>
-      <label><span class="mb-2 block text-sm font-medium">Secret access key</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" type="password" name="secret_key" autocomplete="new-password" required></label>
-      <label class="md:col-span-2"><span class="mb-2 block text-sm font-medium">Session token <span class="font-normal text-zinc-500">(optional)</span></span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" type="password" name="session_token" autocomplete="new-password"></label>
-      <div class="md:col-span-2"><button class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Verify and add Route 53</button></div>
+      <p class="text-sm leading-6 text-zinc-500 dark:text-zinc-400 md:col-span-2">Use an IAM identity restricted to this hosted zone. Include a session token when using temporary credentials.</p>
+      <label><span class="mb-2 block text-sm font-medium">Provider name</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="name" placeholder="Route 53 · example.com" required></label>
+      <label><span class="mb-2 block text-sm font-medium">Hosted zone ID</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" name="zone_id" required></label>
+      <label><span class="mb-2 block text-sm font-medium">Access key ID</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" name="access_key" autocomplete="off" required></label>
+      <label><span class="mb-2 block text-sm font-medium">Secret access key</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" type="password" name="secret_key" autocomplete="new-password" required></label>
+      <label class="md:col-span-2"><span class="mb-2 block text-sm font-medium">Session token <span class="font-normal text-zinc-500 dark:text-zinc-400">(optional)</span></span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" type="password" name="session_token" autocomplete="new-password"></label>
+      <div class="md:col-span-2"><button class="rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white">Verify and add Route 53</button></div>
     </form>
   </details>
 </div>

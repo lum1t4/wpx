@@ -20,14 +20,14 @@
     node.dataset.actionStatus = "";
     node.setAttribute("role", "status");
     node.setAttribute("aria-live", "polite");
-    node.className = "mt-3 text-sm text-zinc-600";
+    node.className = "mt-3 text-sm text-zinc-600 dark:text-zinc-300";
     form.append(node);
     return node;
   }
 
   function showStatus(node, response) {
     node.textContent = "";
-    node.className = response.status === "failed" ? "mt-3 text-sm text-red-700" : "mt-3 text-sm text-zinc-600";
+    node.className = response.status === "failed" ? "mt-3 text-sm text-red-700 dark:text-red-300" : "mt-3 text-sm text-zinc-600 dark:text-zinc-300";
     node.append(document.createTextNode(response.message));
     if (response.status === "queued" || response.status === "running") {
       const link = document.createElement("a");
@@ -130,7 +130,7 @@
       await follow(response, node, generation, controller.signal);
     } catch (error) {
       if (error.name === "AbortError") return;
-      node.className = "mt-3 text-sm text-red-700";
+      node.className = "mt-3 text-sm text-red-700 dark:text-red-300";
       node.textContent = error.message || "The response could not be loaded. Check Activity before retrying.";
     } finally {
       if (currentController === controller) currentController = undefined;

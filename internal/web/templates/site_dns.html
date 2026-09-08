@@ -1,21 +1,21 @@
 {{define "site_dns.html"}}
 {{template "shell-start" .}}
-<a class="text-sm text-zinc-500 hover:text-zinc-950" href="/sites/{{.Site.ID}}">← {{.Site.Domain}}</a>
+<a class="text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100" href="/sites/{{.Site.ID}}">← {{.Site.Domain}}</a>
 <header class="mt-4">
-  <h1 class="text-2xl font-semibold tracking-tight text-zinc-950">DNS records</h1>
-  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Manage DNS records for {{.Site.Domain}}. This list shows records created through WPX; other records remain with your DNS provider.</p>
+  <h1 class="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">DNS records</h1>
+  <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">Manage DNS records for {{.Site.Domain}}. This list shows records created through WPX; other records remain with your DNS provider.</p>
 </header>
-{{if .Error}}<p role="alert" class="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{.Error}}</p>{{end}}
-{{if .Message}}<p role="status" class="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{{.Message}}</p>{{end}}
+{{if .Error}}<p role="alert" class="mt-6 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 p-4 text-sm text-red-700 dark:text-red-300">{{.Error}}</p>{{end}}
+{{if .Message}}<p role="status" class="mt-6 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 p-4 text-sm text-emerald-800 dark:text-emerald-200">{{.Message}}</p>{{end}}
 
-<section aria-labelledby="records-heading" class="mt-8 overflow-hidden rounded-lg border border-zinc-200 bg-white">
-  <div class="border-b border-zinc-200 px-5 py-4">
+<section aria-labelledby="records-heading" class="mt-8 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+  <div class="border-b border-zinc-200 dark:border-zinc-800 px-5 py-4">
     <h2 id="records-heading" class="text-base font-semibold">Managed records</h2>
-    <p class="mt-1 text-sm text-zinc-500">Save changes on each record. DNS updates can take time to reach visitors.</p>
+    <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Save changes on each record. DNS updates can take time to reach visitors.</p>
   </div>
   <div class="overflow-x-auto">
     <table class="w-full min-w-[960px] text-left text-sm">
-      <thead class="border-b border-zinc-200 bg-zinc-50 text-zinc-500">
+      <thead class="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-500 dark:text-zinc-400">
         <tr>
           <th scope="col" class="px-5 py-3 font-medium">Record</th>
           <th scope="col" class="px-5 py-3 font-medium">Value</th>
@@ -25,7 +25,7 @@
           <th scope="col" class="px-5 py-3 font-medium"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-zinc-100">
+      <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
         {{range .DNSRecords}}
         <tr>
           <td class="px-5 py-4">
@@ -33,8 +33,8 @@
               <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
             </form>
             <div class="grid gap-2">
-              <input aria-label="Record name" class="w-52 rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-xs" form="record-{{.ID}}" name="name" value="{{.Name}}" required>
-              <select aria-label="Record type for {{.Name}}" class="w-24 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs" form="record-{{.ID}}" name="type">
+              <input aria-label="Record name" class="w-52 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-xs" form="record-{{.ID}}" name="name" value="{{.Name}}" required>
+              <select aria-label="Record type for {{.Name}}" class="w-24 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-xs" form="record-{{.ID}}" name="type">
                 <option{{if eq .Type "A"}} selected{{end}}>A</option>
                 <option{{if eq .Type "AAAA"}} selected{{end}}>AAAA</option>
                 <option{{if eq .Type "CNAME"}} selected{{end}}>CNAME</option>
@@ -42,49 +42,49 @@
               </select>
             </div>
           </td>
-          <td class="px-5 py-4"><input aria-label="Value for {{.Name}}" class="w-64 rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-xs" form="record-{{.ID}}" name="value" value="{{.Value}}" required></td>
-          <td class="px-5 py-4"><input aria-label="TTL in seconds for {{.Name}}" class="w-24 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs" form="record-{{.ID}}" type="number" name="ttl" min="60" max="86400" value="{{.TTL}}" required></td>
+          <td class="px-5 py-4"><input aria-label="Value for {{.Name}}" class="w-64 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-xs" form="record-{{.ID}}" name="value" value="{{.Value}}" required></td>
+          <td class="px-5 py-4"><input aria-label="TTL in seconds for {{.Name}}" class="w-24 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-xs" form="record-{{.ID}}" type="number" name="ttl" min="60" max="86400" value="{{.TTL}}" required></td>
           <td class="px-5 py-4"><input aria-label="Cloudflare proxy for {{.Name}}" class="size-4 accent-zinc-900" form="record-{{.ID}}" type="checkbox" name="proxied" value="yes"{{if .Proxied}} checked{{end}}></td>
-          <td class="px-5 py-4"><span class="rounded-md border border-zinc-200 px-2 py-1 text-xs capitalize">{{.Status}}</span></td>
+          <td class="px-5 py-4"><span class="rounded-md border border-zinc-200 dark:border-zinc-800 px-2 py-1 text-xs capitalize">{{.Status}}</span></td>
           <td class="px-5 py-4">
             <div class="flex gap-2">
-              <button class="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs font-medium hover:bg-zinc-50" form="record-{{.ID}}" data-i18n="save">Save</button>
+              <button class="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-xs font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800" form="record-{{.ID}}" data-i18n="save">Save</button>
               <form method="post" action="/sites/{{$.Site.ID}}/dns/{{.ID}}/delete">
                 <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
-                <button aria-label="Delete DNS record {{.Name}}" class="rounded-md px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-50" data-i18n="delete">Delete</button>
+                <button aria-label="Delete DNS record {{.Name}}" class="rounded-md px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950" data-i18n="delete">Delete</button>
               </form>
             </div>
           </td>
         </tr>
         {{else}}
-        <tr><td colspan="6" class="px-5 py-10 text-center"><p class="font-medium">No managed records yet</p><p class="mt-1 text-zinc-500">Create a record below using one of your connected DNS providers.</p></td></tr>
+        <tr><td colspan="6" class="px-5 py-10 text-center"><p class="font-medium">No managed records yet</p><p class="mt-1 text-zinc-500 dark:text-zinc-400">Create a record below using one of your connected DNS providers.</p></td></tr>
         {{end}}
       </tbody>
     </table>
   </div>
 </section>
 
-<details class="mt-6 rounded-lg border border-zinc-200 bg-white"{{if not .DNSRecords}} open{{end}}>
+<details class="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900"{{if not .DNSRecords}} open{{end}}>
   <summary class="cursor-pointer px-5 py-4 text-sm font-semibold">Add DNS record</summary>
-  <div class="border-t border-zinc-200 p-5">
+  <div class="border-t border-zinc-200 dark:border-zinc-800 p-5">
     {{if not .DNSProviders}}
-    <p class="mb-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">No DNS providers are connected. Ask your server administrator to add Cloudflare or Route 53 in DNS providers.</p>
+    <p class="mb-5 rounded-md border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950 px-4 py-3 text-sm leading-6 text-amber-800 dark:text-amber-200">No DNS providers are connected. Ask your server administrator to add Cloudflare or Route 53 in DNS providers.</p>
     {{end}}
     <form class="grid gap-5 md:grid-cols-2" method="post" action="/sites/{{.Site.ID}}/dns">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">
       <label>
         <span class="mb-2 block text-sm font-medium">DNS provider</span>
-        <select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="provider_id" required>
+        <select class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="provider_id" required>
           <option value="">Choose provider</option>
           {{range .DNSProviders}}{{if eq .Status "active"}}<option value="{{.ID}}">{{.Name}} · {{if eq .Kind "cloudflare"}}Cloudflare{{else if eq .Kind "route53"}}Route 53{{else}}{{.Kind}}{{end}}</option>{{end}}{{end}}
         </select>
       </label>
-      <label><span class="mb-2 block text-sm font-medium">Record name</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" name="name" value="{{.Site.Domain}}" required></label>
-      <label><span class="mb-2 block text-sm font-medium">Record type</span><select class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" name="type"><option>A</option><option>AAAA</option><option>CNAME</option><option>TXT</option></select></label>
-      <label><span class="mb-2 block text-sm font-medium">Value</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 font-mono text-sm" name="value" required><span class="mt-2 block text-xs text-zinc-500">An IP address, hostname, or text value for the selected type.</span></label>
-      <label><span class="mb-2 block text-sm font-medium">TTL in seconds</span><input class="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" type="number" name="ttl" min="60" max="86400" value="300" required><span class="mt-2 block text-xs text-zinc-500">How long resolvers may cache this record.</span></label>
-      <label class="flex items-start gap-3 self-center"><input class="mt-1 size-4 accent-zinc-900" type="checkbox" name="proxied" value="yes"><span><span class="block text-sm font-medium">Cloudflare proxy</span><span class="mt-1 block text-xs leading-5 text-zinc-500">Route web traffic through Cloudflare. Applies to Cloudflare A, AAAA, and CNAME records.</span></span></label>
-      <div class="md:col-span-2"><button class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">Create record</button></div>
+      <label><span class="mb-2 block text-sm font-medium">Record name</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" name="name" value="{{.Site.Domain}}" required></label>
+      <label><span class="mb-2 block text-sm font-medium">Record type</span><select class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" name="type"><option>A</option><option>AAAA</option><option>CNAME</option><option>TXT</option></select></label>
+      <label><span class="mb-2 block text-sm font-medium">Value</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 font-mono text-sm" name="value" required><span class="mt-2 block text-xs text-zinc-500 dark:text-zinc-400">An IP address, hostname, or text value for the selected type.</span></label>
+      <label><span class="mb-2 block text-sm font-medium">TTL in seconds</span><input class="w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" type="number" name="ttl" min="60" max="86400" value="300" required><span class="mt-2 block text-xs text-zinc-500 dark:text-zinc-400">How long resolvers may cache this record.</span></label>
+      <label class="flex items-start gap-3 self-center"><input class="mt-1 size-4 accent-zinc-900" type="checkbox" name="proxied" value="yes"><span><span class="block text-sm font-medium">Cloudflare proxy</span><span class="mt-1 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">Route web traffic through Cloudflare. Applies to Cloudflare A, AAAA, and CNAME records.</span></span></label>
+      <div class="md:col-span-2"><button class="rounded-md bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white">Create record</button></div>
     </form>
   </div>
 </details>

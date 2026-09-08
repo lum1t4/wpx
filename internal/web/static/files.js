@@ -25,7 +25,7 @@
 
   function showNotice(message, error = false) {
     notice.textContent = message;
-    notice.className = `rounded-lg border p-4 text-sm ${error ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`;
+    notice.className = `rounded-lg border p-4 text-sm ${error ? "border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300" : "border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200"}`;
   }
 
   function updateActions() {
@@ -157,17 +157,17 @@
     for (const entry of entries) {
       const row = document.createElement("tr");
       row.dataset.fileRow = ""; row.dataset.path = entry.path; row.dataset.name = entry.name; row.dataset.directory = String(entry.is_dir);
-      row.className = "hover:bg-zinc-50";
+      row.className = "hover:bg-zinc-50 dark:hover:bg-zinc-800";
       const checkCell = document.createElement("td"); checkCell.className = "px-4 py-3";
-      const check = document.createElement("input"); check.type = "checkbox"; check.value = entry.path; check.dataset.fileSelect = ""; check.setAttribute("aria-label", `Select ${entry.name}`); check.className = "size-4 rounded border-zinc-300"; checkCell.append(check);
+      const check = document.createElement("input"); check.type = "checkbox"; check.value = entry.path; check.dataset.fileSelect = ""; check.setAttribute("aria-label", `Select ${entry.name}`); check.className = "size-4 rounded border-zinc-300 dark:border-zinc-700"; checkCell.append(check);
       const nameCell = document.createElement("td"); nameCell.className = "px-2 py-3";
       const link = document.createElement("a"); link.className = "flex min-w-0 items-center gap-2 truncate hover:underline"; link.href = entry.is_dir ? `/sites/${encodeURIComponent(site)}/files?path=${encodeURIComponent(entry.path)}` : `/sites/${encodeURIComponent(site)}/files?path=${encodeURIComponent(parentPath(entry.path))}&edit=${encodeURIComponent(entry.path)}`;
       if (entry.is_dir) link.append(folderIcon());
       const label = document.createElement("span"); label.className = "truncate"; label.textContent = entry.path; link.append(label); nameCell.append(link);
-      const size = document.createElement("td"); size.className = "px-3 py-3 text-xs text-zinc-500"; size.textContent = entry.is_dir ? "—" : formatBytes(entry.size);
+      const size = document.createElement("td"); size.className = "px-3 py-3 text-xs text-zinc-500 dark:text-zinc-400"; size.textContent = entry.is_dir ? "—" : formatBytes(entry.size);
       row.append(checkCell, nameCell, size); body.append(row);
     }
-    if (!entries.length) { const row = document.createElement("tr"); row.innerHTML = '<td colspan="3" class="px-5 py-10 text-center text-sm text-zinc-500">No matching files.</td>'; body.append(row); }
+    if (!entries.length) { const row = document.createElement("tr"); row.innerHTML = '<td colspan="3" class="px-5 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">No matching files.</td>'; body.append(row); }
     if (truncated) showNotice("Showing the first 200 matches. Refine your search.");
     updateActions();
   }
@@ -231,9 +231,9 @@
     if (!row) { row = document.createElement("div"); row.dataset.uploadId = state.id; row.className = "grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-center"; uploadList.append(row); }
     const percent = state.size ? Math.floor(state.offset / state.size * 100) : (state.status === "complete" ? 100 : 0);
     row.replaceChildren();
-    const info = document.createElement("div"); info.className = "min-w-0"; const title = document.createElement("p"); title.className = "truncate text-sm font-medium"; title.textContent = state.path; const bar = document.createElement("div"); bar.className = "mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100"; const fill = document.createElement("div"); fill.className = "h-full bg-zinc-900"; fill.style.width = `${percent}%`; bar.append(fill); info.append(title, bar);
-    const status = document.createElement("p"); status.className = "text-xs tabular-nums text-zinc-500"; status.textContent = !state.file ? `Reselect file (${percent}%)` : state.status === "error" ? `Paused at ${percent}%` : state.status === "paused" ? `Paused at ${percent}%` : state.status === "complete" ? "Complete" : `${percent}%`;
-    const button = document.createElement("button"); button.className = "rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium"; button.textContent = state.status === "uploading" ? "Pause" : state.status === "complete" ? "Remove" : "Resume";
+    const info = document.createElement("div"); info.className = "min-w-0"; const title = document.createElement("p"); title.className = "truncate text-sm font-medium"; title.textContent = state.path; const bar = document.createElement("div"); bar.className = "mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800"; const fill = document.createElement("div"); fill.className = "h-full bg-zinc-900"; fill.style.width = `${percent}%`; bar.append(fill); info.append(title, bar);
+    const status = document.createElement("p"); status.className = "text-xs tabular-nums text-zinc-500 dark:text-zinc-400"; status.textContent = !state.file ? `Reselect file (${percent}%)` : state.status === "error" ? `Paused at ${percent}%` : state.status === "paused" ? `Paused at ${percent}%` : state.status === "complete" ? "Complete" : `${percent}%`;
+    const button = document.createElement("button"); button.className = "rounded-md border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-xs font-medium"; button.textContent = state.status === "uploading" ? "Pause" : state.status === "complete" ? "Remove" : "Resume";
     button.disabled = !state.file && state.status !== "complete"; button.addEventListener("click", () => { if (state.status === "uploading") { state.status = "paused"; state.controller?.abort(); persistUploads(); renderUpload(state); } else if (state.status === "complete") { uploads.delete(state.id); persistUploads(); row.remove(); if (!uploads.size) uploadPanel.classList.add("hidden"); } else { state.status = "uploading"; renderUpload(state); sendUpload(state); } });
     row.append(info, status, button);
   }

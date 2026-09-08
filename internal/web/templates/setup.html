@@ -5,35 +5,35 @@
   {{template "head" .}}
   <title>{{.Title}} · WPX</title>
 </head>
-<body class="bg-zinc-50 font-sans text-zinc-950 antialiased">
+<body class="bg-zinc-50 dark:bg-zinc-950 font-sans text-zinc-950 dark:text-zinc-100 antialiased">
   <main class="flex min-h-screen flex-col items-center justify-center px-5 py-12">
     <div class="mb-8 flex items-center gap-2.5">{{template "logo"}}</div>
-    <section class="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-6 shadow-xs sm:p-8">
-      <p class="text-xs font-medium text-zinc-500">Welcome to WPX</p>
+    <section class="w-full max-w-md rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-xs sm:p-8">
+      <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Welcome to WPX</p>
       <h1 class="mt-2 text-xl font-semibold tracking-tight">Create the owner account</h1>
-      <p class="mt-2 text-sm leading-6 text-zinc-500">This account controls your server, its security, and all sites.</p>
-      {{if .Error}}<p role="alert" class="mt-5 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{{.Error}}</p>{{end}}
+      <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">This account controls your server, its security, and all sites.</p>
+      {{if .Error}}<p role="alert" class="mt-5 rounded-md border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 px-3 py-2.5 text-sm text-red-700 dark:text-red-300">{{.Error}}</p>{{end}}
       <form class="mt-6 space-y-5" method="post" action="/setup">
         <input type="hidden" name="csrf_token" value="{{.CSRF}}">
         <div>
           <label for="bootstrap-token" class="block text-sm font-medium">Setup token</label>
-          <input id="bootstrap-token" class="mt-2 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm shadow-xs focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900" type="password" name="bootstrap_token" autocomplete="off" aria-describedby="bootstrap-token-help" required autofocus>
-          <p id="bootstrap-token-help" class="mt-2 text-xs leading-5 text-zinc-500">Paste the one-time bootstrap token printed by the installer.</p>
+          <input id="bootstrap-token" class="mt-2 h-10 w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm shadow-xs focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900 dark:focus:outline-zinc-100" type="password" name="bootstrap_token" autocomplete="off" aria-describedby="bootstrap-token-help" required autofocus>
+          <p id="bootstrap-token-help" class="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">Paste the one-time bootstrap token printed by the installer.</p>
         </div>
         <div>
           <label for="owner-username" class="block text-sm font-medium" data-i18n="username">Username</label>
-          <input id="owner-username" class="mt-2 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm shadow-xs focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+          <input id="owner-username" class="mt-2 h-10 w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm shadow-xs focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900 dark:focus:outline-zinc-100" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
         </div>
         <div>
           <label for="owner-password" class="block text-sm font-medium" data-i18n="password">Password</label>
-          <input id="owner-password" class="mt-2 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm shadow-xs focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900" type="password" name="password" minlength="12" autocomplete="new-password" aria-describedby="owner-password-help" required>
-          <p id="owner-password-help" class="mt-2 text-xs text-zinc-500">Use at least 12 characters.</p>
+          <input id="owner-password" class="mt-2 h-10 w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm shadow-xs focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900 dark:focus:outline-zinc-100" type="password" name="password" minlength="12" autocomplete="new-password" aria-describedby="owner-password-help" required>
+          <p id="owner-password-help" class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Use at least 12 characters.</p>
         </div>
         <div>
           <label for="owner-password-confirm" class="block text-sm font-medium">Confirm password</label>
-          <input id="owner-password-confirm" class="mt-2 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm shadow-xs focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900" type="password" name="password_confirm" minlength="12" autocomplete="new-password" required>
+          <input id="owner-password-confirm" class="mt-2 h-10 w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 text-sm shadow-xs focus:outline-2 focus:outline-offset-2 focus:outline-zinc-900 dark:focus:outline-zinc-100" type="password" name="password_confirm" minlength="12" autocomplete="new-password" required>
         </div>
-        <button class="inline-flex h-10 w-full cursor-pointer items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-medium text-white shadow-xs hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900" type="submit">Create owner account</button>
+        <button class="inline-flex h-10 w-full cursor-pointer items-center justify-center rounded-md bg-zinc-950 dark:bg-zinc-100 px-4 text-sm font-medium text-white dark:text-zinc-900 shadow-xs hover:bg-zinc-800 dark:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100" type="submit">Create owner account</button>
       </form>
     </section>
   </main>

@@ -49,7 +49,7 @@ func (s *Store) SaveOperatorAlertSettings(ctx context.Context, actor User, setti
 	}
 	ciphertext, err := s.encrypt(plaintext)
 	if err != nil {
-		return fmt.Errorf("encrypt SMTP settings: %w", err)
+		return fmt.Errorf("encrypt alert settings: %w", err)
 	}
 	now := s.now().UTC().Format(time.RFC3339Nano)
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -76,9 +76,9 @@ func (s *Store) OperatorAlertSettings(ctx context.Context) (model.OperatorAlertS
 	}
 	plaintext, err := s.decrypt(ciphertext)
 	if err != nil {
-		return model.OperatorAlertSettings{}, fmt.Errorf("decrypt SMTP settings: %w", err)
+		return model.OperatorAlertSettings{}, fmt.Errorf("decrypt alert settings: %w", err)
 	}
-	var settings model.OperatorAlertSettings
+	settings := model.DefaultOperatorAlertSettings()
 	if err := json.Unmarshal(plaintext, &settings); err != nil {
 		return model.OperatorAlertSettings{}, errors.New("stored alert settings are invalid")
 	}

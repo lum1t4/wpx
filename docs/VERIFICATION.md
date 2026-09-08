@@ -4,6 +4,81 @@ This record separates automated coverage, development previews, and real host
 observations. Results apply to the candidate and environment described here;
 they are not a claim that every supported workflow has been exercised live.
 
+## 2026-09-08: appearance, notification channels, and security dependencies
+
+The alpha.17 candidate adds light/dark/system appearance, account preferences,
+focused icon changes, redesigned alerts/fleet/cron views, request-log filters,
+Slack/Telegram delivery, and default Fail2ban/nftables dependency reconciliation.
+Local `go test ./...`, `go vet ./...`, JavaScript syntax checks, generated CSS,
+direct Tailwind policy, formatting and diff checks passed. Channel tests cover
+legacy SMTP settings, encrypted storage/redaction, official response contracts,
+partial delivery failures, recovery retries and new incident cycles. No real
+SMTP, Slack or Telegram messages were sent during these checks.
+
+The actual preview was reviewed on desktop and at 375 px in light and dark:
+account appearance/persistence, fleet search/filter/selection/tabs, cron dialog
+and presets, request-log filters, and file selection/menu/Paste states. Alerts
+received a separate pass for visible switches, channel configuration and
+validation. The site sidebar remains text-only and the original monitoring
+icon is retained. This preview uses sample data.
+
+Ubuntu 24.04 dependency tests separately confirmed journald-backed Fail2ban
+startup without `auth.log` and preservation of an existing nftables ruleset.
+Release CI, downloaded artifacts and final VPS deployment are recorded below
+once observed.
+
+## 2026-09-08: site operations, file-manager redesign, and VPS deployment
+
+Release [v0.1.0-alpha.16](https://github.com/lum1t4/wpx/releases/tag/v0.1.0-alpha.16)
+contains the site operations integration and the final contextual file toolbar.
+The release source is `30f3e4d9dc79e44a34422242f1913c46faff94bc`.
+GitHub [Verify](https://github.com/lum1t4/wpx/actions/runs/34172962736) and
+[Release](https://github.com/lum1t4/wpx/actions/runs/34172964518) passed on that
+exact source: full race tests, vet, generated UI/policy checks, static Linux
+amd64/arm64 builds, and artifact attestations. Both downloaded binaries passed
+checksum and GitHub build-attestation verification before installation.
+
+Alpha.13 was first published and installed successfully. Its post-upgrade live
+search check exposed directory metadata being resolved against the broker's
+working directory. The correction reads metadata relative to the open directory
+FD, retaining no-symlink confinement. Regression coverage exercises an unrelated
+working directory, nested listings, search, and recursive operations. Before
+publication, the corrected read-only host code listed 102 real `wp-admin`
+entries and found `wp-config.php` on the existing VPS. The unpublished alpha.14
+and alpha.15 workflow runs were cancelled to include the final menu clipping and
+mobile header corrections together; their tags were not moved.
+
+The rebuilt preview and a one-file fixture rendered from its real HTML were
+visually checked on desktop and at 375 px: idle header, selected-file toolbar,
+full overflow menu, Copy action, and resulting Paste control. The menu stays
+visible below short directory cards and primary controls wrap below the path
+on narrow screens. This visual check uses sample content; the live checks below
+exercise the installed release separately.
+
+Environment: existing Ubuntu 24.04 amd64 VPS. The normal recoverable installer
+was pinned to alpha.16. It created recovery snapshot `/var/lib/wpx/upgrades/20260908T003013.869981796Z`.
+Configuration, encryption-key and panel TLS hashes, site identity/status and
+loopback listener were compared with the pre-alpha.13 baseline.
+
+| Check | Observation |
+| --- | --- |
+| Installed version | Alpha.16 and the exact release source commit. |
+| State preservation | Configuration, secrets, panel TLS and existing site rows unchanged. SQLite integrity and foreign-key checks passed; no pending jobs. |
+| Services | WPX, broker, Nginx, MariaDB, Redis and cron active; `nginx -t` passed. |
+| Schema | All nine new feature tables present. |
+| Live file broker | Nested listing returned 102 entries and site-wide search returned one matching file. |
+| Authenticated pages | Eleven server/site pages and both file APIs returned 200 using a temporary session removed immediately afterward. |
+| Live file mutations | A disposable directory passed 600 KiB chunked upload/replay, checksum-verified download, rename, copy, move, archive/extract, recursive search and multi-select deletion. The directory and temporary session were removed. |
+| Embedded UI | Public CSS, file script and quick-action script matched the released source bytes. |
+| Existing traffic | Trusted public panel HTTPS health and the existing site's public HTTP both returned 200. |
+
+The existing site's TLS state was already `not_configured`, with a hostname
+mismatch on HTTPS, before this upgrade; it remained unchanged. The site's HTTP
+check does not establish healthy site HTTPS. Optional SMTP delivery, new firewall
+bans, FTP/mail activation and Node workloads were not enabled on this VPS as
+part of the upgrade. Their automated/disposable-host evidence and product limits
+are recorded in [integration verification](dispatch/VERIFICATION.md).
+
 ## 2026-09-07: phpMyAdmin proxy-session regression
 
 The live browser reproduced phpMyAdmin's “token mismatch” response when changing

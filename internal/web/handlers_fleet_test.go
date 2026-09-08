@@ -115,7 +115,7 @@ func TestFleetBatchQueuesDurableUpdatesAndReportsQueuedOutcomes(t *testing.T) {
 		t.Fatalf("status = %d, want %d; body: %s", response.Code, http.StatusAccepted, response.Body.String())
 	}
 	body := response.Body.String()
-	if strings.Count(body, ">Queued</span>") != 2 || strings.Contains(body, ">Completed</span>") {
+	if !strings.Contains(body, "2 plugin updates will run with a recovery backup.") || strings.Contains(body, ">Completed</span>") {
 		t.Fatalf("batch response did not report two background jobs: %s", body)
 	}
 	jobs, err := server.store.RecentJobsForUser(context.Background(), fixture.owner, 100)
@@ -146,5 +146,39 @@ func TestFleetInventoryFailureIsIsolatedToItsSite(t *testing.T) {
 	body := response.Body.String()
 	if !strings.Contains(body, "one.example.com") || !strings.Contains(body, "WordPress inventory could not be loaded") || !strings.Contains(body, "two.example.com") || !strings.Contains(body, "healthy-plugin") {
 		t.Fatalf("one failed inventory hid another site's result: %s", body)
+	}
+}
+
+func TestFleetPageUsesFullWidthTabbedInventoryAndInlineSelections(t *testing.T) {
+	server, fixture := fleetWebFixture(t)
+	response := navigationRequest(t, server, fixture.owner, http.MethodGet, "/wordpress", nil)
+	requireNavigationStatus(t, response, http.StatusOK)
+	body := response.Body.String()
+	for _, want := range []string{
+		`data-fleet-search`,
+		`data-fleet-updates-only`,
+		`data-fleet-select-visible`,
+		`data-fleet-tab="plugins"`,
+		`data-fleet-tab="themes"`,
+		`role="tab" aria-selected="false"`,
+		`tabindex="-1"`,
+		`class="w-full table-fixed`,
+		`name="update" value="fleet-web-one|akismet"`,
+		`data-fleet-selection`,
+		`data-fleet-clear`,
+		`src="/assets/fleet.js"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("fleet page is missing %q: %s", want, body)
+		}
+	}
+	if strings.Contains(body, "lg:grid-cols-2") || strings.Contains(body, "min-w-[") {
+		t.Fatalf("fleet component inventory can still force a clipped two-column layout: %s", body)
+	}
+	pluginRow := body[strings.Index(body, `data-fleet-panel="plugins"`):]
+	pluginRow = pluginRow[strings.Index(pluginRow, `data-component-row`):]
+	pluginRow = pluginRow[:strings.Index(pluginRow, "</tr>")]
+	if !strings.Contains(pluginRow, `name="update"`) {
+		t.Fatalf("plugin update selection is not rendered in its component row: %s", pluginRow)
 	}
 }

@@ -30,6 +30,31 @@ type WordPressCronSetting struct {
 	ApplyError  string
 }
 
+func (schedule CronSchedule) ScheduleSummary() string {
+	return CronScheduleSummary(schedule.Expression)
+}
+
+func CronScheduleSummary(expression string) string {
+	switch expression {
+	case "* * * * *":
+		return "Every minute"
+	case "*/15 * * * *":
+		return "Every 15 minutes"
+	case "0 * * * *":
+		return "Every hour"
+	case "0 3 * * *":
+		return "Daily at 03:00 UTC"
+	case "0 3 * * 0":
+		return "Weekly on Sunday at 03:00 UTC"
+	case "0 3 1 * *":
+		return "Monthly on day 1 at 03:00 UTC"
+	case "0 3 * * 1-5":
+		return "Weekdays at 03:00 UTC"
+	default:
+		return expression + " UTC"
+	}
+}
+
 var cronIDPattern = regexp.MustCompile(`^cron_[a-zA-Z0-9_-]{8,80}$`)
 var cronExecutablePattern = regexp.MustCompile(`^(?:[A-Za-z0-9][A-Za-z0-9._+-]*|/(?:[A-Za-z0-9._+-]+/)*[A-Za-z0-9._+-]+)$`)
 
