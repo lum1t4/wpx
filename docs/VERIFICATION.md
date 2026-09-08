@@ -34,6 +34,37 @@ light/dark checks, including contained layout, focus, Escape, backdrop dismissal
 required-field validation and old create fragments. Browser credential reveal
 was not exercised; authorization and reveal behavior have Go test coverage.
 
+Release [v0.1.0-alpha.19](https://github.com/lum1t4/wpx/releases/tag/v0.1.0-alpha.19)
+was published from `5ac68f2d260b7b6f5809c6f4d62729f8de5a0575`.
+GitHub [Verify](https://github.com/lum1t4/wpx/actions/runs/34204048456) and
+[Release](https://github.com/lum1t4/wpx/actions/runs/34204134122) both passed on
+that source. Downloaded amd64 and arm64 binaries matched their checksums;
+attestations for both binaries, the manifest and installer verified against the
+release workflow, exact source commit and tag. Native version execution passed
+on ARM64 locally and amd64 on the VPS. The installed binary SHA-256 is
+`337a3c8cddf1a06b2a796a478203dae1818c0cfd4e88b20dc8c2598101be834e`.
+
+The exact-tag installer upgraded the VPS from alpha.17 and retained recovery
+snapshot `/var/lib/wpx/upgrades/20260908T083539.454673345Z`. Before/after checks
+matched configuration, secret/TLS hashes, listener, sites, users, grants and
+WordPress configuration hashes. SQLite integrity/foreign-key checks passed,
+there were no pending jobs or installation marker, and all seven checked
+services were active after the upgrade. The existing disabled nftables loader state was retained.
+
+Sixteen authenticated live pages returned 200. Nine embedded asset bodies matched
+the committed source hashes and immutable validators. Filtered request CSV
+contained 182 rows; an invalid IP filter returned 400 with the input preserved.
+Email delivery was switched off as requested and remained off on a fresh GET;
+the master switch stayed off. No SMTP, Slack or Telegram test message was sent.
+
+Two live panel-to-WordPress handoffs reached authenticated administration (200),
+each rejected replay (410), and each temporary WordPress session was logged out.
+The first handoff removed all five expired managed public login scripts. One
+stable handler remained, both private capabilities were consumed, and the core
+`wp-login.php` hash was unchanged. Temporary panel test sessions were removed.
+The public site returned 200; the failing AI provider remained inactive and Redis
+remained active. Production search-and-replace apply was not exercised.
+
 ## 2026-09-08: plugin recovery and WordPress operations
 
 The live `ds2.mitadev.com` incident was a PHP fatal error in
