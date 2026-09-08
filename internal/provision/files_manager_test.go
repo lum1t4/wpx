@@ -116,3 +116,80 @@ func TestFileManagerCreatesCopiesMovesAndDeletesDirectories(t *testing.T) {
 		t.Fatalf("delete: %d, %v", changed, err)
 	}
 }
+
+func TestRecursiveFileOperationsAreIndependentOfBrokerWorkingDirectory(t *testing.T) {
+	host := testHost(t, &recordRunner{})
+	site := activeFileTestSite()
+	if err := host.Provision(context.Background(), site); err != nil {
+		t.Fatal(err)
+	}
+	public := filepath.Join(host.SiteRoot, site.ID, "public")
+	if err := os.MkdirAll(filepath.Join(public, "wordpress", "nested"), 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(public, "wordpress", "xmlrpc.php"), []byte("<?php"), 0640); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(public, "wordpress", "nested", "index.php"), []byte("<?php"), 0640); err != nil {
+		t.Fatal(err)
+	}
+	outsideCWD := t.TempDir()
+	outsideFile := filepath.Join(outsideCWD, "outside.php")
+	if err := os.WriteFile(outsideFile, []byte("secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outsideFile, filepath.Join(public, "wordpress", "linked.php")); err != nil {
+		t.Fatal(err)
+	}
+	previousCWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(outsideCWD); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Chdir(previousCWD); err != nil {
+			t.Errorf("restore working directory: %v", err)
+		}
+	}()
+
+	result, err := host.SearchFiles(context.Background(), site, ".", "php", 20)
+	if err != nil {
+		t.Fatalf("search with unrelated broker cwd: %v", err)
+	}
+	if len(result.Entries) != 2 {
+		t.Fatalf("search entries = %#v", result.Entries)
+	}
+	listed, err := host.ListFiles(context.Background(), site, "wordpress")
+	if err != nil {
+		t.Fatalf("nested list with unrelated broker cwd: %v", err)
+	}
+	if len(listed) != 2 || listed[0].Name != "nested" || listed[1].Name != "xmlrpc.php" {
+		t.Fatalf("nested list entries = %#v", listed)
+	}
+	if err := os.Remove(filepath.Join(public, "wordpress", "linked.php")); err != nil {
+		t.Fatal(err)
+	}
+	if err := host.CreateDirectory(context.Background(), site, "copies"); err != nil {
+		t.Fatal(err)
+	}
+	if changed, err := host.CopyFiles(context.Background(), site, []string{"wordpress"}, "copies", false); err != nil || changed != 1 {
+		t.Fatalf("copy with unrelated broker cwd: changed=%d err=%v", changed, err)
+	}
+	if err := host.ArchiveFiles(context.Background(), site, []string{"wordpress"}, "wordpress.zip"); err != nil {
+		t.Fatalf("archive with unrelated broker cwd: %v", err)
+	}
+	if changed, err := host.DeleteFiles(context.Background(), site, []string{"copies"}); err != nil || changed != 1 {
+		t.Fatalf("delete with unrelated broker cwd: changed=%d err=%v", changed, err)
+	}
+	if _, err := os.Stat(filepath.Join(public, "wordpress.zip")); err != nil {
+		t.Fatalf("archive was not created in public root: %v", err)
+	}
+	if entries, err := os.ReadDir(outsideCWD); err != nil || len(entries) != 1 || entries[0].Name() != "outside.php" {
+		t.Fatalf("operation touched broker cwd or followed symlink: entries=%v err=%v", entries, err)
+	}
+	if content, err := os.ReadFile(outsideFile); err != nil || string(content) != "secret" {
+		t.Fatalf("outside symlink target changed: %q err=%v", content, err)
+	}
+}

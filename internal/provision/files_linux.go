@@ -58,18 +58,19 @@ func (h *Host) ListFiles(_ context.Context, site model.Site, requested string) (
 	}
 	result := make([]broker.FileEntry, 0, len(entries))
 	for _, entry := range entries {
-		if entry.Type()&os.ModeSymlink != 0 {
+		var stat unix.Stat_t
+		if err := unix.Fstatat(dirFD, entry.Name(), &stat, unix.AT_SYMLINK_NOFOLLOW); err != nil {
 			continue
 		}
-		info, err := entry.Info()
-		if err != nil {
+		typeBits := stat.Mode & unix.S_IFMT
+		if typeBits == unix.S_IFLNK || (typeBits != unix.S_IFREG && typeBits != unix.S_IFDIR) {
 			continue
 		}
 		path := entry.Name()
 		if relative != "." {
 			path = filepath.ToSlash(filepath.Join(relative, entry.Name()))
 		}
-		result = append(result, broker.FileEntry{Name: entry.Name(), Path: path, IsDir: entry.IsDir(), Size: info.Size()})
+		result = append(result, broker.FileEntry{Name: entry.Name(), Path: path, IsDir: typeBits == unix.S_IFDIR, Size: stat.Size})
 	}
 	sort.Slice(result, func(i, j int) bool {
 		if result[i].IsDir != result[j].IsDir {

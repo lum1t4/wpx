@@ -93,7 +93,7 @@ func (h *Host) SearchFiles(_ context.Context, site model.Site, requested, query 
 	needle := strings.ToLower(strings.TrimSpace(query))
 	result := broker.FileSearchResult{Entries: make([]broker.FileEntry, 0, limit)}
 	scanned := 0
-	err = walkDirectoryFD(startFD, start, 0, func(entry broker.FileEntry, _ int, _ os.FileInfo) error {
+	err = walkDirectoryFD(startFD, start, 0, func(entry broker.FileEntry, _ int) error {
 		scanned++
 		if scanned > maxSearchEntries {
 			result.Truncated = true
@@ -734,7 +734,7 @@ func ensureFreeSpace(fd int, incoming int64) error {
 	return nil
 }
 
-func walkDirectoryFD(dirFD int, prefix string, depth int, visit func(broker.FileEntry, int, os.FileInfo) error) error {
+func walkDirectoryFD(dirFD int, prefix string, depth int, visit func(broker.FileEntry, int) error) error {
 	if depth > maxPathDepth {
 		return errors.New("directory depth exceeds 64")
 	}
@@ -753,22 +753,27 @@ func walkDirectoryFD(dirFD int, prefix string, depth int, visit func(broker.File
 		return err
 	}
 	for _, entry := range entries {
-		if entry.Type()&os.ModeSymlink != 0 {
+		var stat unix.Stat_t
+		if err := unix.Fstatat(dirFD, entry.Name(), &stat, unix.AT_SYMLINK_NOFOLLOW); err != nil {
+			return fmt.Errorf("inspect %s relative to directory: %w", entry.Name(), err)
+		}
+		typeBits := stat.Mode & unix.S_IFMT
+		if typeBits == unix.S_IFLNK {
 			continue
 		}
-		info, err := entry.Info()
-		if err != nil {
-			return err
+		if typeBits != unix.S_IFREG && typeBits != unix.S_IFDIR {
+			continue
 		}
 		path := entry.Name()
 		if prefix != "." {
 			path = filepath.ToSlash(filepath.Join(prefix, entry.Name()))
 		}
-		item := broker.FileEntry{Name: entry.Name(), Path: path, IsDir: info.IsDir(), Size: info.Size()}
-		if err := visit(item, dirFD, info); err != nil {
+		isDir := typeBits == unix.S_IFDIR
+		item := broker.FileEntry{Name: entry.Name(), Path: path, IsDir: isDir, Size: stat.Size}
+		if err := visit(item, dirFD); err != nil {
 			return err
 		}
-		if info.IsDir() {
+		if isDir {
 			child, err := unix.Openat2(dirFD, entry.Name(), &unix.OpenHow{Flags: unix.O_RDONLY | unix.O_DIRECTORY | unix.O_CLOEXEC, Resolve: unix.RESOLVE_BENEATH | unix.RESOLVE_NO_SYMLINKS})
 			if err != nil {
 				return err
