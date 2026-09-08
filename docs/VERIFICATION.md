@@ -24,8 +24,30 @@ icon is retained. This preview uses sample data.
 
 Ubuntu 24.04 dependency tests separately confirmed journald-backed Fail2ban
 startup without `auth.log` and preservation of an existing nftables ruleset.
-Release CI, downloaded artifacts and final VPS deployment are recorded below
-once observed.
+Release [v0.1.0-alpha.17](https://github.com/lum1t4/wpx/releases/tag/v0.1.0-alpha.17)
+is built from `af1179f1e5fad8fed444c09d31ba0d22fb7f73d3`.
+GitHub [Verify](https://github.com/lum1t4/wpx/actions/runs/34175395066) and
+[Release](https://github.com/lum1t4/wpx/actions/runs/34175396801) both passed on
+that exact source, including full race tests, vet, generated UI/policy checks,
+and both static Linux builds. Downloaded amd64 and arm64 artifacts passed
+checksums and GitHub build-attestation verification. Native version execution
+passed for arm64 locally and amd64 on the VPS; local x86 emulation was unavailable.
+
+The exact-tag installer upgraded the existing Ubuntu 24.04 VPS successfully and
+retained `/var/lib/wpx/upgrades/20260908T011525.694449500Z` for recovery.
+The installed binary SHA-256 matches the downloaded attested amd64 artifact.
+
+| Final installed-host check | Observation |
+| --- | --- |
+| State preservation | Configuration, encryption-key/panel-TLS hashes, listener and existing site rows match the original baseline. SQLite integrity and foreign keys passed; no pending jobs. |
+| Services | WPX, broker, Nginx, MariaDB, Redis, cron and Fail2ban active; Nginx syntax valid. |
+| Security defaults | Fail2ban `1.0.2-3ubuntu0.1` installed, enabled, responding to ping, with valid configuration and the SSH jail running. nftables `1.0.9-1ubuntu0.1` installed with its packaged Fail2ban action readable. |
+| Firewall preservation | Existing nftables loader state remains disabled and pre-existing firewall objects are preserved. The host-wide ruleset loader was not enabled. |
+| Pages and filters | Fourteen authenticated page/filter requests returned 200, including Account settings, Alerts, fleet, cron, files and combined IP/status/method/path filtering. Invalid IP returned 400 and retained the input. |
+| File broker/API | Nested listing returned 102 entries and cross-directory search one match; both authenticated APIs returned 200. Alpha.16's full disposable file mutation smoke remains recorded below. |
+| UI bytes | Public CSS and all six UI scripts match the exact release source. |
+| Existing traffic | Trusted public panel HTTPS health and existing site HTTP returned 200. The site's pre-existing unconfigured HTTPS state remains unchanged. |
+| Cleanup | Temporary authenticated verification session removed. No real email, Slack or Telegram delivery was triggered. |
 
 ## 2026-09-08: site operations, file-manager redesign, and VPS deployment
 
